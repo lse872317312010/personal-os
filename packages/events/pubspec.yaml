@@ -1,0 +1,12 @@
+name: personal_os_events
+description: Event envelope and deterministic core reducer for Personal OS.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  personal_os_domain:
+    path: ../domain
+
