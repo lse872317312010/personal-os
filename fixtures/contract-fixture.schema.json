@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-os.invalid/schemas/contract-fixture-v1.json",
+  "title": "Personal OS M1 contract fixture",
+  "type": "object",
+  "required": ["fixture_version", "sequence_id", "contract_tests", "events", "expectations"],
+  "properties": {
+    "fixture_version": { "const": 1 },
+    "sequence_id": { "type": "string", "pattern": "^S[1-9][0-9]*$" },
+    "title": { "type": "string" },
+    "contract_tests": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^CT-[0-9]{3}$" },
+      "uniqueItems": true
+    },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/event" }
+    },
+    "expectations": {
+      "type": "object",
+      "required": ["event_results", "projection_assertions", "invariants"],
+      "properties": {
+        "event_results": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["event_id", "result"],
+            "properties": {
+              "event_id": { "type": "string" },
+              "occurrence": { "type": "integer", "minimum": 1, "default": 1 },
+              "result": {
+                "enum": ["applied", "ignored_duplicate", "rejected", "quarantined", "conflict"]
+              },
+              "reason_code": { "type": "string" }
+            },
+            "additionalProperties": false
+          }
+        },
+        "projection_assertions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "equals"],
+            "properties": {
+              "path": { "type": "string", "pattern": "^/" },
+              "equals": {}
+            },
+            "additionalProperties": false
+          }
+        },
+        "invariants": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "event": {
+      "type": "object",
+      "required": [
+        "event_id", "event_type", "event_version", "occurred_at", "recorded_at",
+        "actor", "subject_refs", "correlation_id", "causation_id", "source_refs",
+        "consent_refs", "sensitivity", "payload", "integrity"
+      ],
+      "properties": {
+        "event_id": { "type": "string", "minLength": 1 },
+        "event_type": { "type": "string", "pattern": "^[a-z][a-z0-9.]+$" },
+        "event_version": { "type": "integer", "minimum": 1 },
+        "occurred_at": { "type": "string", "format": "date-time" },
+        "recorded_at": { "type": "string", "format": "date-time" },
+        "actor": {
+          "type": "object",
+          "required": ["type", "id"],
+          "properties": {
+            "type": { "enum": ["user", "system", "model", "device"] },
+            "id": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "subject_refs": { "type": "array", "items": { "type": "string" } },
+        "correlation_id": { "type": "string" },
+        "causation_id": { "type": ["string", "null"] },
+        "source_refs": { "type": "array", "items": { "type": "string" } },
+        "consent_refs": { "type": "array", "items": { "type": "string" } },
+        "sensitivity": { "enum": ["D0", "D1", "D2", "D3"] },
+        "payload": { "type": "object" },
+        "integrity": {
+          "type": "object",
+          "required": ["kind", "digest"],
+          "properties": {
+            "kind": { "const": "fixture" },
+            "digest": { "type": "string", "pattern": "^fixture:[A-Za-z0-9._-]+$" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
