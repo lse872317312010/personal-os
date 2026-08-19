@@ -56,3 +56,10 @@
 
 核心对象包含 Consent、删除、风险和状态机，它们需要显式拒绝与冲突，而不是“总能合并”。因此同步传递事件并由领域投影器裁决；CRDT 只保留给未来可以安全自动合并的低风险文档。
 
+## 已细化规范
+
+- [客户端 Spike 计划](CLIENT_SPIKE_PLAN.md)
+- [客户端评分表](CLIENT_SCORECARD.md)
+- [同步协议](SYNC_PROTOCOL.md)
+- [密钥管理](KEY_MANAGEMENT.md)
+- [M1 架构走查](M1_ARCHITECTURE_WALKTHROUGH.md)
