@@ -1,0 +1,32 @@
+{
+  "$schema": "../contract-fixture.schema.json",
+  "fixture_version": 1,
+  "sequence_id": "S3",
+  "title": "Consent revocation blocks processing and deletion leaves a safe tombstone",
+  "contract_tests": ["CT-301", "CT-402", "CT-403", "CT-404", "CT-405", "CT-503"],
+  "events": [
+    {"event_id":"S3-E01","event_type":"consent.revoked","event_version":1,"occurred_at":"2026-08-20T07:00:00Z","recorded_at":"2026-08-20T07:00:01Z","actor":{"type":"user","id":"user:self"},"subject_refs":["consent:C1"],"correlation_id":"corr:S3","causation_id":null,"source_refs":[],"consent_refs":[],"sensitivity":"D1","payload":{"consent_id":"C1"},"integrity":{"kind":"fixture","digest":"fixture:S3-E01"}},
+    {"event_id":"S3-E02","event_type":"observation.recorded","event_version":1,"occurred_at":"2026-08-20T07:01:00Z","recorded_at":"2026-08-20T07:01:01Z","actor":{"type":"model","id":"model:appearance-v1"},"subject_refs":["observation:O3"],"correlation_id":"corr:S3","causation_id":"S3-E01","source_refs":["source:S1"],"consent_refs":["consent:C1"],"sensitivity":"D3","payload":{"observation_id":"O3","domain":"appearance","attribute":"must_not_persist","value":"synthetic"},"integrity":{"kind":"fixture","digest":"fixture:S3-E02"}},
+    {"event_id":"S3-E03","event_type":"deletion.requested","event_version":1,"occurred_at":"2026-08-20T07:02:00Z","recorded_at":"2026-08-20T07:02:01Z","actor":{"type":"user","id":"user:self"},"subject_refs":["deletion:DR1","source:S1"],"correlation_id":"corr:S3","causation_id":"S3-E01","source_refs":["source:S1"],"consent_refs":[],"sensitivity":"D3","payload":{"deletion_id":"DR1","scope_refs":["source:S1","blob:S1-raw"],"retention":"minimal_audit_only"},"integrity":{"kind":"fixture","digest":"fixture:S3-E03"}},
+    {"event_id":"S3-E04","event_type":"deletion.completed","event_version":1,"occurred_at":"2026-08-20T07:03:00Z","recorded_at":"2026-08-20T07:05:01Z","actor":{"type":"system","id":"storage"},"subject_refs":["deletion:DR1","tombstone:TS1"],"correlation_id":"corr:S3","causation_id":"S3-E03","source_refs":[],"consent_refs":[],"sensitivity":"D1","payload":{"deletion_id":"DR1","tombstone_id":"TS1","erased_refs":["source:S1","blob:S1-raw"],"retained_fields":["deletion_id","completed_at","scope_kinds"],"contains_content_hash":false},"integrity":{"kind":"fixture","digest":"fixture:S3-E04"}},
+    {"event_id":"S3-E05","event_type":"claim.withdrawn","event_version":1,"occurred_at":"2026-08-20T07:06:00Z","recorded_at":"2026-08-20T07:06:01Z","actor":{"type":"system","id":"core"},"subject_refs":["claim:CL1@1"],"correlation_id":"corr:S3","causation_id":"S3-E04","source_refs":["tombstone:TS1"],"consent_refs":[],"sensitivity":"D1","payload":{"claim_id":"CL1","revision":1,"reason":"evidence_unavailable"},"integrity":{"kind":"fixture","digest":"fixture:S3-E05"}}
+  ],
+  "expectations": {
+    "event_results": [
+      {"event_id":"S3-E01","result":"applied"},
+      {"event_id":"S3-E02","result":"rejected","reason_code":"CONSENT_REVOKED"},
+      {"event_id":"S3-E03","result":"applied"},
+      {"event_id":"S3-E04","result":"applied"},
+      {"event_id":"S3-E05","result":"applied"}
+    ],
+    "projection_assertions": [
+      {"path":"/consents/C1/status","equals":"revoked"},
+      {"path":"/observations/O3","equals":null},
+      {"path":"/sources/S1/availability","equals":"deleted"},
+      {"path":"/deletions/DR1/status","equals":"completed"},
+      {"path":"/tombstones/TS1/contains_content_hash","equals":false},
+      {"path":"/claims/CL1/revisions/1/status","equals":"withdrawn"}
+    ],
+    "invariants": ["revoked_consent_blocks_new_derivation","deleted_content_unreadable","snapshot_excludes_deleted_content","tombstone_has_no_original_content_or_reidentifying_hash"]
+  }
+}
