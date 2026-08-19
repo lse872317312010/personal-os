@@ -2,6 +2,25 @@
 
 记录项目基线、范围、需求和决策的实质变化。项目尚未进入发布版本阶段。
 
+## 2026-08-20 — 首批多智能体并行编码
+
+### Added
+
+- 多智能体文件所有权、开发波次与 G0–G7 集成门禁；
+- 纯 Dart `domain` 与 `events` package 骨架；
+- 事件信封、首批事件类型和最小确定性 reducer；
+- S1–S4 机器可读 JSON fixtures 与 39 条契约测试 manifest。
+
+### Verified
+
+- JSON fixtures 可解析，事件与预期结果数量一致；
+- `git diff --check` 通过，core 未引入 Flutter import。
+
+### Not Yet Verified
+
+- 当前环境缺少 Dart/Flutter 工具链，尚未完成编译、analyze 和自动化测试；
+- Redmi Turbo 真机、SQLCipher/Keystore 与 Windows 构建仍待后续门禁。
+
 ## 2026-08-20 — M2 Spike 与安全协议设计
 
 ### Added
