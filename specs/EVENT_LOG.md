@@ -1,6 +1,6 @@
 # M1 事件日志契约 v0.1
 
-状态：draft / append-only logical contract
+状态：accepted / append-only logical contract
 
 ## 目标
 
@@ -54,3 +54,6 @@
 - [端到端事件序列](EVENT_SEQUENCES.md)
 - [删除、快照与压缩](RETENTION_AND_SNAPSHOTS.md)
 - [契约测试](CONTRACT_TESTS.md)
+- [并发与冲突](CONCURRENCY_AND_CONFLICTS.md)
+- [Schema 演进](SCHEMA_EVOLUTION.md)
+- [敏感度继承](SENSITIVITY_PROPAGATION.md)
