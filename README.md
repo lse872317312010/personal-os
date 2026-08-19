@@ -55,6 +55,8 @@
 - [端到端用户场景](docs/USE_CASES.md)
 - [领域概念模型](docs/DOMAIN_MODEL.md)
 - [需求追踪矩阵](docs/TRACEABILITY.md)
+- [风险与人工确认矩阵](docs/RISK_CONTROL_MATRIX.md)
+- [需求优先级方法](docs/PRIORITIZATION.md)
 - [术语表](docs/GLOSSARY.md)
 - [产品原则与边界](docs/PRODUCT_PRINCIPLES.md)
 - [数据分类与处理规则](docs/DATA_POLICY.md)
