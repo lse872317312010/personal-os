@@ -67,6 +67,11 @@
 - [决策记录](docs/decisions/README.md)
 - [M1 核心数据模型](specs/CORE_DATA_MODEL.md)
 - [M1 事件日志契约](specs/EVENT_LOG.md)
+- [M1 状态机](specs/STATE_MACHINES.md)
+- [M1 授权模型](specs/AUTHORIZATION.md)
+- [M1 示例事件序列](specs/EVENT_SEQUENCES.md)
+- [M1 删除、快照与压缩](specs/RETENTION_AND_SNAPSHOTS.md)
+- [M1 契约测试](specs/CONTRACT_TESTS.md)
 - [变更记录](CHANGELOG.md)
 
 ## 状态
