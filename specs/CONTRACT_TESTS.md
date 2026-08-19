@@ -1,6 +1,6 @@
 # M1 契约测试清单 v0.1
 
-状态：draft / implementation-independent
+状态：accepted / implementation-independent
 
 ## 确定性与幂等
 
@@ -25,6 +25,8 @@
 - CT-203：两个并发 revision 不按“最后写入”静默覆盖；
 - CT-204：withdrawn/expired/superseded Claim 不进入当前建议；
 - CT-205：引用固定 revision，不因 later revision 静默漂移。
+- CT-206：不可交换并发 revision 进入显式 conflict，不使用 last-write-wins；
+- CT-207：conflict.resolved 前 current pointer 不改变；
 
 ## 授权与隐私
 
@@ -33,6 +35,16 @@
 - CT-303：D4 在对象、事件、错误和审计输出中均被拒绝；
 - CT-304：R3 外部动作在 MVP 中只能产生草案；
 - CT-305：非用户 Actor 不能接受 Review 或代替用户授予 Consent。
+- CT-306：派生物默认继承最高输入敏感度；
+- CT-307：D3 降敏需要独立审批且通过不可重识别测试。
+
+## Schema 演进
+
+- CT-351：新增可选字段不改变旧事件投影；
+- CT-352：未知安全关键枚举导致隔离而非猜测；
+- CT-353：Upcaster 确定、无外部依赖且不创造事实或 Consent；
+- CT-354：投影版本升级生成固定事件集差异报告；
+- CT-355：无法安全迁移的事件不被部分应用。
 
 ## 纠错与删除
 
@@ -51,4 +63,3 @@
 - CT-504：S4 的重复/迟到事件保持幂等和审计真实性。
 
 M1 退出前，每条测试必须映射到至少一个需求、验收标准或安全不变量。
-
