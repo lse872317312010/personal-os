@@ -7,4 +7,4 @@
 每份记录至少包括：背景、决定、理由、影响、未解决问题和日期。需求冻结前，技术相关记录原则上保持 `proposed`。
 
 - [0001 — 需求先于技术](0001-requirements-before-technology.md)
-
+- [0002 — MVP 采用最小分析与完整闭环](0002-minimal-analysis-complete-loop.md)
