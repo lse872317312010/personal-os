@@ -1,18 +1,18 @@
-# Flutter / Tauri 垂直 Spike 计划 v0.1
+# Flutter 垂直 Spike 计划 v0.2
 
 状态：ready to execute；当前运行环境缺少 Flutter/Dart/Rust 工具链
 
 ## 目的
 
-用同一个真实纵向切片比较 Flutter 与 Tauri，而不是比较 Hello World、主观 UI 喜好或理论包体。
+验证已选的 Flutter + Dart-first 路径是否能在真实手机和 Windows 上满足 M1 契约、安全门槛与跨平台维护目标，而不是比较 Hello World 或主观 UI 喜好。
 
 ## 目标平台
 
-- 必测：Windows 11；
-- 移动端：用户确认手机平台后选择 Android 或 iOS；
-- 可选：另一移动平台只做构建可行性，不进入首轮体验评分。
+- 必测 1：Redmi Turbo / Android（Primary Vault）；
+- 必测 2：Windows 11（Secondary Trusted Device）；
+- 后续：iOS 只验证构建与关键适配器可行性，不阻塞首轮闭环。
 
-## 两个 Spike 的共同范围
+## Vertical slice 范围
 
 1. 打开本地 Vault；
 2. 创建 Goal、Observation、Claim、Plan 和 Task；
@@ -32,16 +32,17 @@
 - 使用相同对象数量、事件数量、Blob 大小和加密配置；
 - 禁止某个候选绕过 Rust/FFI、数据库加密或平台密钥难点来获得虚假优势。
 
-## Flutter Spike
+## 实现路径
 
-候选 1：Dart core + Flutter UI。  
-候选 2：Flutter UI + Rust core，仅在 Dart core 无法满足契约或未来复用收益明确时实施。
+基线为 Dart core + Flutter UI。Flutter app 只能通过 application 层访问业务能力；数据库、密钥、文件和同步使用可替换 adapter。
 
 必须验证：Windows/移动构建、SQLite/SQLCipher 封装、Keystore/Keychain、后台/恢复同步、照片选择、FFI（若使用 Rust）、错误与取消传播。
 
-## Tauri Spike
+## 条件分支
 
-Web UI + Rust core，使用严格 capability 配置。必须验证：Windows/移动构建、WebView 数据边界、命令权限、SQLite/SQLCipher、平台密钥、移动后台行为、照片/文件访问和 CSP。
+- 只有 Dart core 在契约、性能或安全上有测量失败，才评估 Rust 窄接口；
+- 只有 Flutter 未通过 Safety Gate，或 Windows Restricted Collector 出现独立需求，才执行 Tauri spike；
+- 任何条件分支都必须记录失败证据，不能因技术偏好触发。
 
 ## 采集指标
 
@@ -57,5 +58,4 @@ Web UI + Rust core，使用严格 capability 配置。必须验证：Windows/移
 
 ## 退出条件
 
-两个候选完成必测平台的相同场景，或某候选因明确硬约束失败而提前淘汰。最终决定必须引用评分表和原始测量，不以熟悉度单独决定。
-
+Flutter 在 Android 真机和 Windows 完成同一场景，Safety Gates 全部通过，原始测量与复现命令进入仓库。若失败，按条件分支重新打开候选比较。
