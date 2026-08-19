@@ -1,0 +1,18 @@
+name: personal_os_in_memory
+description: Deterministic in-memory storage candidate for Personal OS tests and spikes.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  personal_os_domain:
+    path: ../../packages/domain
+  personal_os_events:
+    path: ../../packages/events
+  personal_os_storage_api:
+    path: ../../packages/storage_api
+
+dev_dependencies:
+  test: ^1.25.0
