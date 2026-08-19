@@ -49,7 +49,18 @@
 
 根据冻结需求和 M1 契约选择客户端、后端、本地/云端、数据库、模型与 Agent 编排方案，以及权限、加密、同步、备份、可观测性和测试架构。
 
-状态：Ready。先完成架构约束与候选方案对比，再冻结技术栈。
+状态：In Progress。
+
+- [x] 固化 local-first、隐私、受限采集端和跨设备约束
+- [x] 冻结 local-authoritative encrypted hybrid 架构原则
+- [x] 建立逻辑组件、设备角色、数据流和初版威胁模型
+- [x] 完成 Flutter/Tauri、SQLite/SQLCipher、CRDT 候选初评
+- [ ] 明确首个 dogfooding 设备与主要交互场景
+- [ ] 完成 Flutter 与 Tauri 垂直 spike
+- [ ] 冻结客户端与核心运行时边界
+- [ ] 定义密钥、恢复、同步协议和中继元数据
+- [ ] 用 M1 事件序列完成架构走查
+- [ ] 完成 M2 退出评审
 
 ## M3：单领域 MVP dogfooding
 
