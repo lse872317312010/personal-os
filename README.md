@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，进入 **M2 技术选型与总体架构准备**。M2 将依据已冻结契约比较方案，不因个人技术偏好直接锁定 Flutter、Rust、数据库或模型供应商。
+项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，正在推进 **M2 技术选型与总体架构**。已冻结 Redmi Turbo / Android 为首个 Primary Vault，并选择 Flutter + Dart-first core：手机先验证完整闭环，Windows 随后复用同一核心，平台能力通过 adapters 隔离。
 
 ## 首批领域
 
@@ -78,6 +78,8 @@
 - [M1 退出评审](docs/M1_EXIT_REVIEW.md)
 - [M2 启动输入](docs/M2_KICKOFF.md)
 - [M2 架构约束](architecture/ARCHITECTURE_REQUIREMENTS.md)
+- [M2 平台策略](architecture/PLATFORM_STRATEGY.md)
+- [M2 逻辑包与依赖边界](architecture/LOGICAL_PACKAGE_LAYOUT.md)
 - [M2 候选方案比较](architecture/OPTIONS.md)
 - [M2 推荐逻辑架构](architecture/PROPOSED_ARCHITECTURE.md)
 - [M2 威胁模型](architecture/THREAT_MODEL.md)
@@ -91,4 +93,4 @@
 
 ## 状态
 
-`M2 Ready / Technology Selection & Architecture`
+`M2 In Progress / Android-first Flutter Architecture`
