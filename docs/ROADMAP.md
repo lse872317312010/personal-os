@@ -55,9 +55,9 @@
 - [x] 冻结 local-authoritative encrypted hybrid 架构原则
 - [x] 建立逻辑组件、设备角色、数据流和初版威胁模型
 - [x] 完成 Flutter/Tauri、SQLite/SQLCipher、CRDT 候选初评
-- [ ] 明确首个 dogfooding 设备与主要交互场景
-- [ ] 完成 Flutter 与 Tauri 垂直 spike
-- [ ] 冻结客户端与核心运行时边界
+- [x] 明确 Redmi Turbo / Android 为首个 dogfooding 设备，并冻结手机优先交互
+- [ ] 完成 Flutter 在 Android 真机与 Windows 的垂直 spike
+- [x] 冻结 Flutter 客户端 + Dart-first core + 平台 adapters 边界
 - [ ] 冻结密钥恢复、同步协议和中继元数据细节
 - [x] 定义同步协议、设备角色和中继最小元数据草案
 - [x] 定义密钥层级、轮换和恢复候选
