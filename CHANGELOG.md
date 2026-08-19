@@ -2,6 +2,24 @@
 
 记录项目基线、范围、需求和决策的实质变化。项目尚未进入发布版本阶段。
 
+## 2026-08-20 — Coding Wave 1
+
+### Added
+
+- Policy package：D4 硬拒绝、敏感度继承、Consent 全范围校验和 R0–R4 风险判定；
+- Application、Storage、Model Gateway 和 Sync 的平台无关 ports；
+- 外貌分析最小闭环用例与 fake-port 测试；
+- 实现正式 EventStore port 的原子 in-memory adapter；
+- 17 个 Dart 测试案例和 Wave 1 集成评审。
+
+### Corrected
+
+- 主审发现并修正 R3 初稿：MVP 即使得到用户确认也不得执行外部动作，只能产生草案。
+
+### Pending
+
+- 环境缺少 Dart/Flutter SDK，编译、analyze 与测试执行证据仍待补齐。
+
 ## 2026-08-20 — 首批多智能体并行编码
 
 ### Added
