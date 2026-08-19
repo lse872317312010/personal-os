@@ -1,0 +1,15 @@
+name: personal_os_policy
+description: Fail-closed authorization, consent, sensitivity, and risk policy for Personal OS.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  personal_os_domain:
+    path: ../domain
+
+dev_dependencies:
+  test: ^1.25.0
+
