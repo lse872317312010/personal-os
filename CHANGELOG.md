@@ -2,6 +2,25 @@
 
 记录项目基线、范围、需求和决策的实质变化。项目尚未进入发布版本阶段。
 
+## 2026-08-20 — M2 架构原则与候选比较
+
+### Accepted
+
+- local-authoritative encrypted hybrid 架构原则；
+- 主设备持有完整 Vault，Restricted Collector 不持有完整投影；
+- 云端中继不拥有 D2/D3 业务明文解密能力。
+
+### Added
+
+- M2 架构约束、客户端/数据层候选比较、推荐逻辑架构；
+- 初版威胁模型和官方技术调研来源；
+- Decision 0003 记录本地权威混合架构。
+
+### Deferred
+
+- Flutter 与 Tauri、Dart 与 Rust 的最终选择；
+- 具体同步协议、密钥恢复和供应商选择。
+
 ## 2026-08-20 — M1 完成
 
 ### Accepted
