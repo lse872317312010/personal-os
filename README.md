@@ -80,6 +80,7 @@
 - [M2 架构约束](architecture/ARCHITECTURE_REQUIREMENTS.md)
 - [M2 平台策略](architecture/PLATFORM_STRATEGY.md)
 - [M2 逻辑包与依赖边界](architecture/LOGICAL_PACKAGE_LAYOUT.md)
+- [多智能体并行开发计划](docs/MULTI_AGENT_CODING_PLAN.md)
 - [M2 候选方案比较](architecture/OPTIONS.md)
 - [M2 推荐逻辑架构](architecture/PROPOSED_ARCHITECTURE.md)
 - [M2 威胁模型](architecture/THREAT_MODEL.md)
@@ -90,6 +91,13 @@
 - [密钥管理草案](architecture/KEY_MANAGEMENT.md)
 - [M1 架构走查](architecture/M1_ARCHITECTURE_WALKTHROUGH.md)
 - [变更记录](CHANGELOG.md)
+
+## 首批代码
+
+- `packages/domain`：纯 Dart 核心值对象、Actor、敏感度和状态；
+- `packages/events`：事件信封、事件目录与最小确定性 reducer；
+- `fixtures`：S1–S4 跨语言 JSON 契约 fixtures；
+- `test_contract`：CT-001–CT-504 测试 manifest 与证据状态。
 
 ## 状态
 
