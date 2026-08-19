@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-项目已完成 **M0 产品章程与范围冻结**，进入 **M1 Core Data Model & Event Log**。M1 只冻结核心语义和事件契约，仍不提前锁定 Flutter、Rust、数据库或模型供应商。
+项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，进入 **M2 技术选型与总体架构准备**。M2 将依据已冻结契约比较方案，不因个人技术偏好直接锁定 Flutter、Rust、数据库或模型供应商。
 
 ## 首批领域
 
@@ -72,8 +72,13 @@
 - [M1 示例事件序列](specs/EVENT_SEQUENCES.md)
 - [M1 删除、快照与压缩](specs/RETENTION_AND_SNAPSHOTS.md)
 - [M1 契约测试](specs/CONTRACT_TESTS.md)
+- [M1 并发与冲突](specs/CONCURRENCY_AND_CONFLICTS.md)
+- [M1 Schema 演进](specs/SCHEMA_EVOLUTION.md)
+- [M1 敏感度继承](specs/SENSITIVITY_PROPAGATION.md)
+- [M1 退出评审](docs/M1_EXIT_REVIEW.md)
+- [M2 启动输入](docs/M2_KICKOFF.md)
 - [变更记录](CHANGELOG.md)
 
 ## 状态
 
-`M1 In Progress / Core Data Model & Event Log`
+`M2 Ready / Technology Selection & Architecture`
