@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-项目处于 **需求分析与问题定义阶段**。当前优先级是充分展开需求、建立边界并形成可验收的需求基线，而不是提前锁定 Flutter、Rust、数据库或模型供应商。
+项目已完成 **M0 产品章程与范围冻结**，进入 **M1 Core Data Model & Event Log**。M1 只冻结核心语义和事件契约，仍不提前锁定 Flutter、Rust、数据库或模型供应商。
 
 ## 首批领域
 
@@ -50,6 +50,9 @@
 ## 文档入口
 
 - [项目章程](docs/PROJECT_CHARTER.md)
+- [M0 退出评审](docs/M0_EXIT_REVIEW.md)
+- [MVP 冻结范围](docs/MVP_SCOPE.md)
+- [MVP 验收标准](docs/ACCEPTANCE_CRITERIA.md)
 - [发展路线与里程碑](docs/ROADMAP.md)
 - [需求基线草案](docs/REQUIREMENTS.md)
 - [端到端用户场景](docs/USE_CASES.md)
@@ -62,8 +65,10 @@
 - [数据分类与处理规则](docs/DATA_POLICY.md)
 - [需求提炼清单](docs/REQUIREMENTS_INBOX.md)
 - [决策记录](docs/decisions/README.md)
+- [M1 核心数据模型](specs/CORE_DATA_MODEL.md)
+- [M1 事件日志契约](specs/EVENT_LOG.md)
 - [变更记录](CHANGELOG.md)
 
 ## 状态
 
-`M0 Discovery / 项目基线已建立，需求证据化进行中`
+`M1 In Progress / Core Data Model & Event Log`
