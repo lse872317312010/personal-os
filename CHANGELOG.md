@@ -2,6 +2,20 @@
 
 记录项目基线、范围、需求和决策的实质变化。项目尚未进入发布版本阶段。
 
+## 2026-08-20 — M2 Spike 与安全协议设计
+
+### Added
+
+- Flutter/Tauri 共用的垂直 Spike 范围、测量指标和淘汰条件；
+- 客户端 Safety Gates 与加权评分表；
+- E2EE 设备同步 envelope、gap detection、补采、撤销和 Restricted Collector 规则；
+- 设备、Vault、Blob、Account Epoch 与恢复密钥层级草案；
+- 使用 M1 S1–S4 完成推荐架构第一轮走查。
+
+### Blocked
+
+- 当前执行环境缺少 Flutter/Dart/Rust/SQLite 工具链，因此尚未把 Spike 标记为实际通过。
+
 ## 2026-08-20 — M2 架构原则与候选比较
 
 ### Accepted
