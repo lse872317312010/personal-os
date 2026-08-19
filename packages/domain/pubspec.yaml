@@ -1,0 +1,8 @@
+name: personal_os_domain
+description: Pure Dart domain primitives for Personal OS.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
