@@ -1,0 +1,21 @@
+name: personal_os_application
+description: Platform-neutral commands, queries, and use cases for Personal OS.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  personal_os_domain:
+    path: ../domain
+  personal_os_events:
+    path: ../events
+  personal_os_model_gateway_api:
+    path: ../model_gateway_api
+  personal_os_storage_api:
+    path: ../storage_api
+
+dev_dependencies:
+  test: ^1.25.0
+
