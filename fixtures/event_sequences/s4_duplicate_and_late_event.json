@@ -1,0 +1,27 @@
+{
+  "$schema": "../contract-fixture.schema.json",
+  "fixture_version": 1,
+  "sequence_id": "S4",
+  "title": "Duplicate and late events preserve audit truth",
+  "contract_tests": ["CT-002", "CT-201", "CT-202", "CT-206", "CT-207", "CT-504"],
+  "events": [
+    {"event_id":"S4-E10","event_type":"task.completed","event_version":1,"occurred_at":"2026-08-20T10:00:00Z","recorded_at":"2026-08-20T10:00:01Z","actor":{"type":"user","id":"user:self"},"subject_refs":["task:T1"],"correlation_id":"corr:S4","causation_id":null,"source_refs":["execution:E1"],"consent_refs":["consent:C2"],"sensitivity":"D2","payload":{"task_id":"T1","execution_ref":"execution:E1"},"integrity":{"kind":"fixture","digest":"fixture:S4-E10"}},
+    {"event_id":"S4-E10","event_type":"task.completed","event_version":1,"occurred_at":"2026-08-20T10:00:00Z","recorded_at":"2026-08-20T10:00:01Z","actor":{"type":"user","id":"user:self"},"subject_refs":["task:T1"],"correlation_id":"corr:S4","causation_id":null,"source_refs":["execution:E1"],"consent_refs":["consent:C2"],"sensitivity":"D2","payload":{"task_id":"T1","execution_ref":"execution:E1"},"integrity":{"kind":"fixture","digest":"fixture:S4-E10"}},
+    {"event_id":"S4-E11","event_type":"constraint.recorded","event_version":1,"occurred_at":"2026-08-19T08:00:00Z","recorded_at":"2026-08-20T10:05:01Z","actor":{"type":"user","id":"user:self"},"subject_refs":["constraint:CN1"],"correlation_id":"corr:S4","causation_id":null,"source_refs":[],"consent_refs":[],"sensitivity":"D2","payload":{"constraint_id":"CN1","effective_scope":"plan:P1","rule":"synthetic_plan_incompatibility"},"integrity":{"kind":"fixture","digest":"fixture:S4-E11"}}
+  ],
+  "expectations": {
+    "event_results": [
+      {"event_id":"S4-E10","occurrence":1,"result":"applied"},
+      {"event_id":"S4-E10","occurrence":2,"result":"ignored_duplicate","reason_code":"DUPLICATE_EVENT_ID"},
+      {"event_id":"S4-E11","result":"conflict","reason_code":"LATE_CONSTRAINT_INVALIDATES_HISTORICAL_APPROVAL"}
+    ],
+    "projection_assertions": [
+      {"path":"/tasks/T1/status","equals":"completed"},
+      {"path":"/audit/event_ids","equals":["S4-E10","S4-E11"]},
+      {"path":"/conflicts/plan:P1/status","equals":"unresolved"},
+      {"path":"/conflicts/plan:P1/current_pointer_changed","equals":false},
+      {"path":"/reprojection/earliest_occurred_at","equals":"2026-08-19T08:00:00Z"}
+    ],
+    "invariants": ["duplicate_event_has_single_effect","audit_order_uses_recorded_at","domain_reprojection_uses_occurred_at","history_is_not_deleted_or_rewritten","unresolved_conflict_does_not_move_current_pointer"]
+  }
+}
