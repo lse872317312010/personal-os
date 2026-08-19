@@ -77,6 +77,11 @@
 - [M1 敏感度继承](specs/SENSITIVITY_PROPAGATION.md)
 - [M1 退出评审](docs/M1_EXIT_REVIEW.md)
 - [M2 启动输入](docs/M2_KICKOFF.md)
+- [M2 架构约束](architecture/ARCHITECTURE_REQUIREMENTS.md)
+- [M2 候选方案比较](architecture/OPTIONS.md)
+- [M2 推荐逻辑架构](architecture/PROPOSED_ARCHITECTURE.md)
+- [M2 威胁模型](architecture/THREAT_MODEL.md)
+- [M2 技术调研来源](docs/research/M2_TECH_SOURCES.md)
 - [变更记录](CHANGELOG.md)
 
 ## 状态
