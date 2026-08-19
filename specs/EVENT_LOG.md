@@ -47,3 +47,10 @@
 
 密码、验证码、API key、私钥、恢复码；无必要的原始人像或聊天全文；未经授权的第三方敏感画像；可能泄露 D2/D3 的自由文本调试副本。
 
+## 配套规范
+
+- [状态机](STATE_MACHINES.md)
+- [授权模型](AUTHORIZATION.md)
+- [端到端事件序列](EVENT_SEQUENCES.md)
+- [删除、快照与压缩](RETENTION_AND_SNAPSHOTS.md)
+- [契约测试](CONTRACT_TESTS.md)
