@@ -10,6 +10,8 @@
 - 公司电脑可以作为受限采集端，但不能持有完整 Personal OS Vault；
 - 微信等采集不得采用破解、Hook 等高封号/侵入方式；非侵入式 OCR 可作为候选；
 - 需求、M1 事件契约和数据边界不能为技术实现让步。
+- Redmi Turbo（Android）是首个 Primary Vault 与 dogfooding 设备；
+- 程序必须便于跨平台，Android 先行但核心不能与 Android 或 Flutter UI 耦合。
 
 ## 必须满足
 
@@ -34,10 +36,12 @@
 - 对 D3 采用失败关闭，无法确认权限时拒绝而非降级放行；
 - 备份与恢复必须保留事件、Schema、密钥版本和删除状态的一致性。
 
+## 已决定的平台输入
+
+- Android 单端先验证完整闭环，Windows 随后作为 Secondary Trusted Device；
+- Flutter 是主客户端，v1 使用 Dart-first core；
+- Rust 与 Tauri 仅作为出现实证需求后的条件选项。
+
 ## 尚未确定
 
-- 首个交互客户端是 Android、Windows 还是两者同步起步；
-- Flutter、Tauri、原生或其他客户端；
-- 核心运行时使用 Dart、Rust 或分层组合；
 - 中继部署商、模型供应商和具体同步协议。
-
