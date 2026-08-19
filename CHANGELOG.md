@@ -134,3 +134,16 @@
 - 当前仍处于 M0，所有功能需求均未冻结；
 - 2026-08-17 原始对话尚未完整进入仓库，相关条目必须保留待核验标记；
 - 外形优化是 MVP 候选入口，不是已作出的 MVP 决策。
+# 2026-08-20 — M2 Android-first 平台决策
+
+### Accepted
+
+- Redmi Turbo / Android 作为首个 Primary Vault 与 dogfooding 真机；
+- Flutter 作为跨平台主客户端，v1 采用与 Flutter UI 解耦的 Dart-first core；
+- Windows 作为后续 Secondary Trusted Device，Tauri 与 Rust 改为有实证触发条件的候选。
+
+### Added
+
+- 手机优先的交互与发布顺序；
+- 跨平台包边界、ports/adapters 依赖规则；
+- Android 真机与 Windows vertical slice 的验证计划。
