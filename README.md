@@ -49,11 +49,15 @@
 
 ## 文档入口
 
+- [项目章程](docs/PROJECT_CHARTER.md)
 - [发展路线与里程碑](docs/ROADMAP.md)
+- [需求基线草案](docs/REQUIREMENTS.md)
 - [产品原则与边界](docs/PRODUCT_PRINCIPLES.md)
+- [数据分类与处理规则](docs/DATA_POLICY.md)
 - [需求提炼清单](docs/REQUIREMENTS_INBOX.md)
+- [决策记录](docs/decisions/README.md)
+- [变更记录](CHANGELOG.md)
 
 ## 状态
 
-`Discovery / 需求分析中`
-
+`M0 Discovery / 项目基线已建立，需求证据化进行中`
