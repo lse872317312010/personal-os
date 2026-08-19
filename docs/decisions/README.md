@@ -9,3 +9,4 @@
 - [0001 — 需求先于技术](0001-requirements-before-technology.md)
 - [0002 — MVP 采用最小分析与完整闭环](0002-minimal-analysis-complete-loop.md)
 - [0003 — 本地权威的加密混合架构](0003-local-authoritative-encrypted-hybrid.md)
+- [0004 — Android 先行的 Flutter + Dart 架构](0004-android-first-flutter-dart.md)
