@@ -98,6 +98,11 @@
 - `packages/events`：事件信封、事件目录与最小确定性 reducer；
 - `fixtures`：S1–S4 跨语言 JSON 契约 fixtures；
 - `test_contract`：CT-001–CT-504 测试 manifest 与证据状态。
+- `packages/policy`：Consent、D4、敏感度继承和 R0–R4 失败关闭策略；
+- `packages/application`：平台无关的外貌分析 command/query 与最小闭环；
+- `adapters/in_memory`：原子事件、投影和 outbox 测试适配器。
+
+本轮集成结论见 [Coding Wave 1 评审](docs/CODING_WAVE_1_REVIEW.md)。
 
 ## 状态
 
