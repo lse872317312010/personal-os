@@ -1,6 +1,6 @@
 # M2 候选方案比较 v0.1
 
-状态：proposal / not frozen
+状态：platform decision frozen；implementation pending
 
 ## 1. 数据权威模式
 
@@ -51,7 +51,7 @@ Tauri 2 官方覆盖主要桌面和移动平台，并以 WebView + Rust/原生�
 
 Automerge 适合 local-first 离线协作和多端同步，但 M1 明确要求高语义冲突不能自动合并。CRDT 可用于未来低风险自由文本或协作视图，不应替代核心事件、Consent、删除和状态机语义。
 
-## 4. 推荐组合（待客户端验证）
+## 4. 已选组合
 
 - 数据权威：local-authoritative hybrid；
 - 本地核心：SQLite 事件表 + 投影表 + outbox；
@@ -60,5 +60,8 @@ Automerge 适合 local-first 离线协作和多端同步，但 M1 明确要求�
 - 同步：客户端生成不可变事件包；云端只存 E2EE 密文和最小路由元数据；
 - 冲突：下载并集后由本地 M1 投影器检测和显式解决；
 - CRDT：仅限未来低风险子域；
-- 客户端：Flutter 与 Tauri 做一个垂直 spike 后决定；若移动优先，Flutter 优先级更高；若 Windows 优先，Tauri 进入强候选。
+- 客户端：Flutter，Redmi Turbo / Android 先行；
+- 核心：v1 Dart-first，业务包不依赖 Flutter；Rust 只在测量证明必要时引入；
+- Tauri：不再与 Flutter 做对称竞赛，仅作为未来 Windows Restricted Collector 的条件候选。
 
+该结论冻结方向，不替代真机证据。Flutter 仍需完成 Android 与 Windows vertical slice 的 Safety Gate、契约测试和资源测量。
