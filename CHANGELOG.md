@@ -2,6 +2,21 @@
 
 记录项目基线、范围、需求和决策的实质变化。项目尚未进入发布版本阶段。
 
+## 2026-08-20 — M1 契约展开
+
+### Added
+
+- Claim、Goal、Plan、Task、Consent 和 Review 的显式状态机；
+- Actor、Capability、ConsentRef 和授权决策规则；
+- 基线到计划、反馈修订、撤销删除、重复迟到事件等示例序列；
+- L0–L3 删除层级、tombstone、引用、Snapshot 和压缩语义；
+- 覆盖确定性、状态、时间、授权、删除和端到端场景的契约测试清单。
+
+### Updated
+
+- 核心数据模型与事件日志加入配套规范链接；
+- M1 Roadmap 仅剩并发/Schema/敏感度审查和退出评审。
+
 ## 2026-08-20 — M0 退出并进入 M1
 
 ### Accepted
