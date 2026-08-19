@@ -82,6 +82,11 @@
 - [M2 推荐逻辑架构](architecture/PROPOSED_ARCHITECTURE.md)
 - [M2 威胁模型](architecture/THREAT_MODEL.md)
 - [M2 技术调研来源](docs/research/M2_TECH_SOURCES.md)
+- [客户端垂直 Spike 计划](architecture/CLIENT_SPIKE_PLAN.md)
+- [客户端评分表](architecture/CLIENT_SCORECARD.md)
+- [同步协议草案](architecture/SYNC_PROTOCOL.md)
+- [密钥管理草案](architecture/KEY_MANAGEMENT.md)
+- [M1 架构走查](architecture/M1_ARCHITECTURE_WALKTHROUGH.md)
 - [变更记录](CHANGELOG.md)
 
 ## 状态
