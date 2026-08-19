@@ -1,6 +1,6 @@
 # M1 核心数据模型 v0.1
 
-状态：draft / technology-neutral
+状态：accepted / technology-neutral
 
 ## 通用元数据
 
@@ -60,4 +60,8 @@
 - [删除、保留、快照与压缩](RETENTION_AND_SNAPSHOTS.md)
 - [契约测试](CONTRACT_TESTS.md)
 
-仍待最终审查：并发冲突的显式解决事件、Schema 演进兼容表和字段级敏感度继承。
+最终配套规则：
+
+- [并发与冲突](CONCURRENCY_AND_CONFLICTS.md)
+- [Schema 演进](SCHEMA_EVOLUTION.md)
+- [敏感度继承](SENSITIVITY_PROPAGATION.md)
