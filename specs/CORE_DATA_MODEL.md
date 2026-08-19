@@ -53,5 +53,11 @@
 
 ## 待细化
 
-Actor/权限最小格式、删除 tombstone、并发冲突、Schema 演进、Snapshot 与事件重放边界。
+详细规则拆分为：
 
+- [状态机](STATE_MACHINES.md)
+- [Actor、权限与 Consent](AUTHORIZATION.md)
+- [删除、保留、快照与压缩](RETENTION_AND_SNAPSHOTS.md)
+- [契约测试](CONTRACT_TESTS.md)
+
+仍待最终审查：并发冲突的显式解决事件、Schema 演进兼容表和字段级敏感度继承。
