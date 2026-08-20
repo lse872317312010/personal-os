@@ -315,8 +315,13 @@ List<ObjectRef> _decodeRefs(Map<String, Object?> json, String key) =>
       }
       const fields = <String>{'type', 'id', 'revision'};
       _rejectUnknownFields(value, fields, '$key reference');
-      final revision = value['revision'];
-      if (revision != null && (revision is! int || revision < 0)) {
+      final rawRevision = value['revision'];
+      final int? revision;
+      if (rawRevision == null) {
+        revision = null;
+      } else if (rawRevision is int && rawRevision >= 0) {
+        revision = rawRevision;
+      } else {
         throw EventCodecException(
           EventCodecReason.invalidShape,
           '$key revision must be a non-negative integer',

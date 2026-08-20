@@ -10,7 +10,7 @@ final class SensitivityDecision {
         );
 
   const SensitivityDecision.denied(this.sensitivity, String reasonCode)
-      : policy = PolicyDecision(PolicyOutcome.deny, reasonCode);
+      : policy = const PolicyDecision(PolicyOutcome.deny, reasonCode);
 
   final Sensitivity sensitivity;
   final PolicyDecision policy;
@@ -48,4 +48,3 @@ PolicyDecision requestDeclassification({
     PolicyReason.declassificationReviewRequired,
   );
 }
-

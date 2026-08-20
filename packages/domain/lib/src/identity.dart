@@ -39,7 +39,7 @@ final class SchemaVersion {
 /// A reference is pinned to a concrete revision unless [revision] is absent.
 /// Mutable/current-state code should prefer pinned references.
 final class ObjectRef {
-  ObjectRef({required this.type, required this.id, this.revision})
+  ObjectRef({required String type, required this.id, this.revision})
       : type = _requireNonBlank(type, 'ObjectRef.type');
 
   final String type;
