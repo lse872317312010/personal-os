@@ -35,6 +35,7 @@ final class AppController extends ChangeNotifier {
   SubmissionStatus _feedbackSubmission = SubmissionStatus.idle;
   String? _feedbackCode;
   final Map<String, String> _taskStates = <String, String>{};
+  bool _planStarted = false;
   String? _reviewId;
   String? _reviewState;
 
@@ -49,6 +50,20 @@ final class AppController extends ChangeNotifier {
   String taskState(String taskId) => _taskStates[taskId] ?? 'planned';
   String? get reviewId => _reviewId;
   String? get reviewState => _reviewState;
+  bool get planStarted => _planStarted;
+  int get completedStep {
+    if (_reviewState == 'accepted' || _reviewState == 'rejected') return 5;
+    if (_reviewId != null ||
+        _taskStates.values.any((state) => state != 'planned')) {
+      return 4;
+    }
+    if (_planStarted) return 3;
+    if (_result != null) return 2;
+    return 0;
+  }
+
+  bool get hasFinishedTask => _taskStates.values
+      .any((state) => state == 'completed' || state == 'skipped');
 
   void unlockVault() {
     _vaultUnlocked = true;
@@ -121,7 +136,22 @@ final class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void continueFromClaims() {
+    if (_result == null) return;
+    navigate(AppDestination.plan);
+  }
+
+  void startPlan() {
+    if (_result == null) return;
+    _planStarted = true;
+    navigate(AppDestination.tasks);
+  }
+
   Future<void> completeTask(String taskId) async {
+    if (!_planStarted) {
+      _feedbackFail('plan_not_started');
+      return;
+    }
     await _runFeedback(() async {
       await _actionFeedback.completeTask(
         CompleteTaskCommand(
@@ -135,11 +165,16 @@ final class AppController extends ChangeNotifier {
         ),
       );
       _taskStates[taskId] = 'completed';
+      _destination = AppDestination.review;
       return 'task_completed';
     });
   }
 
   Future<void> skipTask(String taskId) async {
+    if (!_planStarted) {
+      _feedbackFail('plan_not_started');
+      return;
+    }
     await _runFeedback(() async {
       await _actionFeedback.skipTask(
         SkipTaskCommand(
@@ -153,11 +188,16 @@ final class AppController extends ChangeNotifier {
         ),
       );
       _taskStates[taskId] = 'skipped';
+      _destination = AppDestination.review;
       return 'task_skipped';
     });
   }
 
   Future<void> createReview() async {
+    if (!hasFinishedTask) {
+      _feedbackFail('task_feedback_required');
+      return;
+    }
     final taskIds = _result?.taskIds ?? const <String>[];
     if (taskIds.isEmpty) {
       _feedbackFail('review_sources_required');

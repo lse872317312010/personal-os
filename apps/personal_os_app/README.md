@@ -39,6 +39,35 @@ Vault adapter owns encrypted blob ingestion and returns the reference.
 7. `adapters/model_fixture` is a deterministic demo/test adapter. It does not
    open the blob, inspect a person, or provide production AI analysis.
 
+## Android MVP build and Redmi Turbo install
+
+The checked-in Android host contains its Gradle settings, application module,
+Kotlin activity, themes, and a restrictive manifest. It intentionally declares
+no internet, camera, microphone, location, contacts, or shared-storage
+permission. Android backup and cleartext traffic are disabled.
+
+The Gradle wrapper launcher/JAR is generated locally from the installed Flutter
+SDK template and ignored by Git. This avoids checking a generated binary into
+the repository while keeping the checked-in Gradle configuration reviewable.
+
+From Windows PowerShell:
+
+```powershell
+./tool/android_mvp/build_debug.ps1
+./tool/android_mvp/install_redmi_turbo.ps1
+```
+
+From WSL/Linux/macOS:
+
+```sh
+./tool/android_mvp/build_debug.sh
+./tool/android_mvp/install_redmi_turbo.sh
+```
+
+See `tool/android_mvp/README.md` for the USB-debugging and HyperOS checklist.
+The scripts do not collect device IDs, logcat, bug reports, screenshots, or
+phone files.
+
 ## Verification status
 
 Flutter and Dart SDKs were unavailable in the authoring environment. The files
@@ -47,7 +76,7 @@ and dependency directions were statically reviewed, but `flutter pub get`,
 unlock, encrypted persistence, and camera/photo-picker integration are **not
 verified**.
 
-When a Flutter SDK is available:
+When a Flutter SDK is available, use the scripts above or run:
 
 ```sh
 cd apps/personal_os_app
@@ -56,7 +85,3 @@ flutter analyze
 flutter test
 flutter build apk --debug
 ```
-
-The checked-in Android directory is only the minimal host declaration. Run a
-compatible `flutter create --platforms=android .` and review its generated
-Gradle/resource files before the first build; do not overwrite the Dart shell.

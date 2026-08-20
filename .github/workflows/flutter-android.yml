@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/flutter-android.yml"
       - "tool/check_flutter_app.sh"
+      - "tool/android_mvp/**"
       - "apps/personal_os_app/**"
       - "packages/**"
       - "adapters/**"
@@ -14,6 +15,7 @@ on:
     paths:
       - ".github/workflows/flutter-android.yml"
       - "tool/check_flutter_app.sh"
+      - "tool/android_mvp/**"
       - "apps/personal_os_app/**"
       - "packages/**"
       - "adapters/**"
@@ -47,7 +49,7 @@ jobs:
         run: flutter --version
 
       - name: Check app and build debug APK
-        run: bash tool/check_flutter_app.sh
+        run: bash tool/android_mvp/build_debug.sh
 
       - name: Upload debug APK
         if: success()

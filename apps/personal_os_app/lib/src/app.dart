@@ -20,8 +20,13 @@ final class _PersonalOsAppState extends State<PersonalOsApp> {
         title: 'Personal OS',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xff315c4c),
+          ),
           useMaterial3: true,
+          inputDecorationTheme: const InputDecorationTheme(
+            border: OutlineInputBorder(),
+          ),
         ),
         home: AnimatedBuilder(
           animation: widget.composition.controller,
@@ -63,26 +68,43 @@ final class _UnlockedShell extends StatelessWidget {
           AppDestination.review => ReviewScreen(controller: controller),
         },
         bottomNavigationBar: NavigationBar(
-          selectedIndex: controller.destination.index,
-          onDestinationSelected: (index) =>
-              controller.navigate(AppDestination.values[index]),
-          destinations: AppDestination.values
-              .map(
-                (destination) => NavigationDestination(
-                  icon: Icon(_iconFor(destination)),
-                  label: destination.label,
-                ),
-              )
-              .toList(growable: false),
+          selectedIndex: _primaryIndex(controller.destination),
+          onDestinationSelected: (index) => controller.navigate(
+            <AppDestination>[
+              AppDestination.home,
+              AppDestination.capture,
+              AppDestination.tasks,
+              AppDestination.review,
+            ][index],
+          ),
+          destinations: const <NavigationDestination>[
+            NavigationDestination(
+              icon: Icon(Icons.home_outlined),
+              label: '首页',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.auto_awesome_outlined),
+              label: '分析',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.task_alt_outlined),
+              label: '行动',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.insights_outlined),
+              label: '复盘',
+            ),
+          ],
         ),
       );
 }
 
-IconData _iconFor(AppDestination destination) => switch (destination) {
-      AppDestination.home => Icons.home_outlined,
-      AppDestination.capture => Icons.add_a_photo_outlined,
-      AppDestination.claims => Icons.fact_check_outlined,
-      AppDestination.plan => Icons.route_outlined,
-      AppDestination.tasks => Icons.task_alt_outlined,
-      AppDestination.review => Icons.insights_outlined,
+int _primaryIndex(AppDestination destination) => switch (destination) {
+      AppDestination.home => 0,
+      AppDestination.capture ||
+      AppDestination.claims ||
+      AppDestination.plan =>
+        1,
+      AppDestination.tasks => 2,
+      AppDestination.review => 3,
     };

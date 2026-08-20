@@ -20,11 +20,11 @@ final class VaultLockScreen extends StatelessWidget {
                   children: <Widget>[
                     const Icon(Icons.shield_outlined, size: 72),
                     const SizedBox(height: 20),
-                    Text('Personal Vault',
+                    Text('我的 Personal OS',
                         style: Theme.of(context).textTheme.headlineMedium),
                     const SizedBox(height: 12),
                     const Text(
-                      'Redmi Turbo 主设备入口。此骨架尚未接入系统生物识别和硬件密钥。',
+                      '当前为离线 MVP：数据只保存在本次运行的本地内存中，不上传云端。尚未接入系统生物识别和硬件密钥。',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
@@ -32,7 +32,7 @@ final class VaultLockScreen extends StatelessWidget {
                       key: const Key('unlock-vault'),
                       onPressed: controller.unlockVault,
                       icon: const Icon(Icons.lock_open),
-                      label: const Text('演示解锁'),
+                      label: const Text('进入离线体验'),
                     ),
                   ],
                 ),

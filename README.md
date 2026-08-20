@@ -120,6 +120,8 @@ Flutter 真实反馈链、严格事件 codec 与账户隔离同步模拟见 [Cod
 
 Runtime 编排、恢复契约 CI 与 Redmi Turbo 证据 runbook 见 [Coding Wave 9 评审](docs/CODING_WAVE_9_REVIEW.md)。
 
+面向实际安装的中文离线闭环、Android 包装与 MVP 五级验收门见 [Coding Wave 10 评审](docs/CODING_WAVE_10_REVIEW.md)。
+
 ## 状态
 
 `M2 In Progress / Android-first Flutter Architecture`

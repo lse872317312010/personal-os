@@ -2,6 +2,27 @@
 
 记录项目基线、范围、需求和决策的实质变化。项目尚未进入发布版本阶段。
 
+## 2026-08-20 — Coding Wave 10
+
+### Added
+
+- 中文手机 MVP：授权、建议、计划、行动、反馈与复盘完整引导；
+- 完整 Android Gradle host、跨 Windows/WSL 构建与 Redmi 安装脚本；
+- STATIC→TEST→BUILD→DEVICE→DOGFOOD 五级可用性验收门；
+- 完整 journey、流程门控与验收审计 tests。
+
+### Hardened
+
+- 计划未确认不能执行任务，任务未反馈不能创建复盘；
+- Manifest 零敏感权限、禁用 backup 与 cleartext；
+- Release signing 不使用 debug key，仓库不存签名秘密；
+- Synthetic evidence 永远不能产生已验证结论。
+
+### Pending
+
+- GitHub Actions 构建首个 debug APK；
+- Redmi Turbo 真机九场景与真实周期 dogfood。
+
 ## 2026-08-20 — Coding Wave 9
 
 ### Added

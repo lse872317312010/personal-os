@@ -10,15 +10,15 @@ void main() {
       PersonalOsApp(composition: AppComposition.inMemoryDemo()),
     );
 
-    expect(find.text('Personal Vault'), findsOneWidget);
-    expect(find.text('今天从一次观察开始'), findsNothing);
+    expect(find.text('我的 Personal OS'), findsOneWidget);
+    expect(find.text('今天，从一个小改变开始'), findsNothing);
 
     await tester.tap(find.byKey(const Key('unlock-vault')));
     await tester.pump();
-    expect(find.text('今天从一次观察开始'), findsOneWidget);
+    expect(find.text('今天，从一个小改变开始'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('lock-vault')));
     await tester.pump();
-    expect(find.text('Personal Vault'), findsOneWidget);
+    expect(find.text('我的 Personal OS'), findsOneWidget);
   });
 }

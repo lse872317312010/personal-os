@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "kind": "synthetic",
+  "candidate_commit": "0000000000000000000000000000000000000000",
+  "gates": {
+    "static": {"status": "not_run", "checks": []},
+    "flutter_test": {"status": "blocked", "checks": []},
+    "apk": {"status": "blocked", "checks": []},
+    "redmi_device": {"status": "not_run", "checks": []},
+    "dogfood": {"status": "not_run", "checks": []}
+  }
+}

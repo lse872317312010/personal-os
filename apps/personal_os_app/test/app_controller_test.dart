@@ -70,6 +70,26 @@ void main() {
     expect(controller.errorCode, AppearanceFailureCode.policyDenied);
     expect(gateway.calls, 0);
   });
+
+  test('guided navigation stays gated until analysis succeeds', () async {
+    final controller = _controller(_CountingGateway())..unlockVault();
+
+    controller.continueFromClaims();
+    controller.startPlan();
+    expect(controller.destination.name, 'home');
+
+    controller.setConsent(true);
+    await controller.analyzeBlobReference(
+      blobReference: 'blob://vault/one',
+      observationContext: 'front',
+    );
+    expect(controller.completedStep, 2);
+
+    controller.continueFromClaims();
+    expect(controller.destination.name, 'plan');
+    controller.startPlan();
+    expect(controller.destination.name, 'tasks');
+  });
 }
 
 AppController _controller(
