@@ -5,6 +5,7 @@
 ## 已冻结的候选语义
 
 - 单个或批量 append 先在 staging state 中完成 reducer 校验，再一次性提交；任一事件失败时 Event Log、Projection、seen IDs、序号和 Outbox 均不变化。
+- 批次在创建 staging state 前预扫描敏感度；任何 D4 事件均以 `d4_persistence_forbidden` 整批拒绝，不能进入内存 Event Log、Projection 或 Outbox。
 - `event_id` 已存在或在同一批次重复时视为幂等成功，不产生第二条事件、投影变化或 Outbox 项。
 - `expected_revision` 不匹配时返回 `revisionConflict`，整批拒绝。
 - Event Log 和 Outbox 使用 adapter 分配的单调 sequence 确定读取顺序，不依赖设备时钟。

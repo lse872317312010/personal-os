@@ -114,6 +114,50 @@ void main() {
       );
       expect(await store.readById('e1'), isNull);
     });
+
+    test('D4 event is rejected before any store mutation', () async {
+      final store = InMemoryEventStore();
+
+      await expectLater(
+        store.appendAll([_event('d4', 0, sensitivity: Sensitivity.d4)]),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'event_append_rejected:d4_persistence_forbidden',
+          ),
+        ),
+      );
+      expect(store.readEvents(), isEmpty);
+      expect(store.readAllProjections(), isEmpty);
+      expect(store.readOutbox(), isEmpty);
+    });
+
+    test('D4 in a mixed formal batch rejects all with zero side effects',
+        () async {
+      final store = InMemoryEventStore();
+      await expectLater(
+        store.appendAll([
+          _event('d1', 0, objectId: 'safe-goal'),
+          _event(
+            'd4',
+            0,
+            objectId: 'forbidden-goal',
+            sensitivity: Sensitivity.d4,
+          ),
+        ]),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'event_append_rejected:d4_persistence_forbidden',
+          ),
+        ),
+      );
+      expect(store.readEvents(), isEmpty);
+      expect(store.readAllProjections(), isEmpty);
+      expect(store.readOutbox(), isEmpty);
+    });
   });
 }
 
@@ -122,6 +166,7 @@ EventEnvelope _event(
   int expectedRevision, {
   String objectId = 'goal-1',
   String eventType = EventTypes.goalCreated,
+  Sensitivity sensitivity = Sensitivity.d1,
 }) {
   final instant = DateTime.utc(2026, 8, 20);
   return EventEnvelope(
@@ -137,7 +182,7 @@ EventEnvelope _event(
     ),
     subjectRefs: [ObjectRef(type: 'goal', id: EntityId(objectId))],
     correlationId: 'correlation-1',
-    sensitivity: Sensitivity.d1,
+    sensitivity: sensitivity,
     payload: {'expected_revision': expectedRevision},
   );
 }

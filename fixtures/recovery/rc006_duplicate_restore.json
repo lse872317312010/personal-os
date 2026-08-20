@@ -1,0 +1,10 @@
+{
+  "$schema": "recovery-fixture.schema.json",
+  "fixture_version": 1,
+  "case_id": "RC-006",
+  "title": "Consumed package cannot be replayed",
+  "mode": "protocol_simulation",
+  "preconditions": {"known_generation": 7, "package_status": "consumed", "prior_restore_result": "unlocked"},
+  "input": {"envelope": "synthetic-valid-envelope-generation-7", "recovery_code": "synthetic-correct-code-token"},
+  "expect": {"result": "rejected", "error_code": "RECOVERY_ALREADY_CONSUMED", "terminal_state": "failed", "ordered_states": ["intake", "envelope_validated", "failed"], "invariants": ["restore_is_single_use", "no_duplicate_device_grant", "rotation_remains_required"]}
+}

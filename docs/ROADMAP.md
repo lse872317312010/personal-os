@@ -58,11 +58,14 @@
 - [x] 明确 Redmi Turbo / Android 为首个 dogfooding 设备，并冻结手机优先交互
 - [ ] 完成 Flutter 在 Android 真机与 Windows 的垂直 spike
 - [x] 冻结 Flutter 客户端 + Dart-first core + 平台 adapters 边界
-- [ ] 冻结密钥恢复、同步协议和中继元数据细节
+- [x] 冻结 v1 密钥恢复策略：可信设备迁移优先，离线恢复包与恢复码兜底，服务端不能单独解密
 - [x] 定义同步协议、设备角色和中继最小元数据草案
 - [x] 定义密钥层级、轮换和恢复候选
+- [x] 完成恢复包协议/测试设计，并覆盖验证、轮换、撤销、备份分离和失败路径
 - [x] 用 M1 事件序列完成第一轮架构走查
 - [ ] 完成 M2 退出评审
+
+退出证据与真实平台门禁统一维护在 [M2 Verification Matrix](M2_VERIFICATION_MATRIX.md)，fake/simulation 不可替代真机与跨平台证据。
 
 ## M3：单领域 MVP dogfooding
 

@@ -2,6 +2,129 @@
 
 记录项目基线、范围、需求和决策的实质变化。项目尚未进入发布版本阶段。
 
+## 2026-08-20 — Coding Wave 9
+
+### Added
+
+- Vault/EventStore/Model/Sync 的 fail-closed runtime coordinator；
+- 恢复协议与 fixtures 的 dependency-free 一致性审计；
+- Redmi Turbo 九场景真机 runbook 与严格非敏感 evidence schema；
+- 独立 Repository Contracts CI。
+
+### Verified
+
+- 恢复审计真实执行通过，Python tests 8/8；
+- Android synthetic evidence、SQLite schema、依赖图和 shell syntax 通过。
+
+### Pending
+
+- Runtime Dart tests 与 Redmi Turbo 九场景仍待有工具链/设备的环境执行。
+
+## 2026-08-20 — Coding Wave 8
+
+### Added
+
+- Security-state-first 的纯 Dart recovery orchestrator；
+- opaque key lease 的 SQLite/SQLCipher driver lifecycle contract；
+- Android-first、跨平台可替换的 device security bridge；
+- M2 真机/跨平台验证矩阵与本地 package dependency gate。
+
+### Hardened
+
+- Relay 外层恢复 envelope 不暴露 generation/status；
+- native bridge 任意异常都转换为稳定脱敏错误；
+- 恢复成功前严格执行撤销、epoch、tombstone 和一致性门禁。
+
+### Not Yet Verified
+
+- 新增 28 项 Dart tests 因环境无 Dart SDK 尚未实际执行；
+- contract 不等于真实 SQLCipher、Keystore、StrongBox 或生物认证实现。
+
+## 2026-08-20 — Coding Wave 7
+
+### Added
+
+- Driver-neutral SQLite EventStore，原子写入事件、投影和 outbox；
+- subject revision 无损索引、精确事件幂等和 collision 检测；
+- 流式密文 Blob engine、失败清理、crypto-erasure 与安全日志边界；
+- Recovery Protocol v1、12 组语言中立 fixtures 与恢复测试契约。
+
+### Verified
+
+- SQLite schema v1 在内存 SQLite 上迁移、约束和触发器验证通过；
+- JSON fixtures、shell 脚本语法和 whitespace 检查通过。
+
+### Not Yet Verified
+
+- 当前环境缺少 Dart/Flutter SDK，新增 Dart tests 尚未实际执行；
+- SQLCipher、Android Keystore、Redmi Turbo 真机与 Windows 互操作仍是 M2 硬门禁。
+
+## 2026-08-20 — Coding Wave 6
+
+### Added
+
+- Flutter Task/Review 的真实 Application 事件闭环；
+- EventEnvelope/Projection 严格稳定 JSON codec 与深层不可变数据；
+- 账户隔离、密文专用的 In-memory Relay；
+- 可信设备 SyncWorker、AAD 验证、ACK 校验与明文 buffer 清理；
+- Release 模式仍生效的 Revision、SchemaVersion 与 ActorRef 不变量。
+
+### Hardened
+
+- Relay cursor 与 envelope 幂等均绑定 account pseudonym；
+- SyncPort 不暴露业务 EventEnvelope；
+- D4 在 codec、sync worker、application、store 与 schema 多层拒绝。
+
+## 2026-08-20 — Coding Wave 4–5
+
+### Added
+
+- Task 完成/跳过与 Review 接受/拒绝的完整反馈用例；
+- SQLite Vault schema v1、迁移和可执行 SQLite smoke validator；
+- 独立 synthetic model fixture adapter；
+- 流式 BlobStore、删除语义与受限 metadata；
+- 仅传输密文 envelope 的 Relay Sync API。
+
+### Hardened
+
+- Application、In-memory Store 和 SQLite 三层拒绝 D4；
+- 删除 tombstone 使用不可关联随机 token，不保存目标哈希；
+- Tombstone 传播状态改为 append-only log；
+- Flutter UI 不再定义模型结论；Relay adapter 不再接触 EventEnvelope 明文。
+
+## 2026-08-20 — Coding Wave 3
+
+### Added
+
+- 覆盖 S1–S4 事件词汇的扩展 reducer、删除 barrier 和 Conflict 生命周期；
+- Android-first Flutter shell 与 Android CI；
+- 精确 revision 的 in-memory Consent repository；
+- 平台无关 VaultSession、UnlockGrant、KeyProvider 和设备撤销接口。
+
+### Corrected
+
+- 删除 Flutter demo 的本地假授权，改由真实 Policy adapter 二次失败关闭；
+- Android host 不完整时只在 CI 临时副本补全，避免生成器覆盖源码。
+
+### Blocked
+
+- GitHub 连接写入额度暂时耗尽，Wave 2/3 等待恢复后同步；本地代码不等同于远端完成。
+
+## 2026-08-20 — Coding Wave 2
+
+### Added
+
+- 外貌分析 Application → Policy Core 真实 fail-closed adapter；
+- S1–S4 JSON fixture 的纯 Dart runner、稳定机器输出和明确 unsupported 语义；
+- 根级 Dart 检查脚本与 GitHub Actions Core 门禁；
+- 13 个 adapter/runner 测试，累计 30 个 Dart test cases。
+
+### Hardened
+
+- 外貌分析只能使用固定 `appearance_review / portrait / derive / D3` scope；
+- Consent 必须唯一且绑定具体 revision，repository/clock 异常默认拒绝；
+- contract runner 禁止输出 payload，并在持久化前拒绝 D4。
+
 ## 2026-08-20 — Coding Wave 1
 
 ### Added

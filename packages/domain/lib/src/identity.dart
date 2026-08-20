@@ -16,7 +16,7 @@ final class EntityId {
 
 /// Monotonically increasing object revision. Zero means no prior revision.
 final class Revision {
-  const Revision(this.value) : assert(value >= 0);
+  Revision(int value) : value = _requireNonNegative(value, 'Revision');
 
   final int value;
 
@@ -31,7 +31,7 @@ final class Revision {
 
 /// Version of a persisted domain object representation.
 final class SchemaVersion {
-  const SchemaVersion(this.value) : assert(value > 0);
+  SchemaVersion(int value) : value = _requirePositive(value, 'SchemaVersion');
 
   final int value;
 }
@@ -68,3 +68,16 @@ String _requireNonBlank(String value, String label) {
   return value;
 }
 
+int _requireNonNegative(int value, String label) {
+  if (value < 0) {
+    throw ArgumentError.value(value, label, 'must be non-negative');
+  }
+  return value;
+}
+
+int _requirePositive(int value, String label) {
+  if (value <= 0) {
+    throw ArgumentError.value(value, label, 'must be positive');
+  }
+  return value;
+}

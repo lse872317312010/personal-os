@@ -1,0 +1,10 @@
+name: personal_os_recovery
+description: Crypto-agnostic, security-state-first recovery orchestration for Personal OS.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dev_dependencies:
+  test: ^1.25.0

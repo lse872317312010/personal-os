@@ -7,6 +7,10 @@ import 'package:personal_os_storage_api/storage_api.dart';
 /// Why an append transaction was rejected.
 enum AppendFailure { revisionConflict, invalidEvent }
 
+abstract final class InMemoryRejectionReason {
+  static const d4PersistenceForbidden = 'd4_persistence_forbidden';
+}
+
 /// A durable-order event returned by the candidate store.
 final class StoredEvent {
   const StoredEvent({required this.sequence, required this.event});
@@ -96,6 +100,17 @@ final class InMemoryEventStore implements EventStore {
 
   /// Synchronous test/spike API exposing detailed transaction diagnostics.
   AppendResult appendTransaction(Iterable<EventEnvelope> events) {
+    final batch = List<EventEnvelope>.of(events);
+    for (final event in batch) {
+      if (event.sensitivity == Sensitivity.d4) {
+        return AppendResult.rejected(
+          failure: AppendFailure.invalidEvent,
+          failedEventId: event.eventId,
+          reasonCode: InMemoryRejectionReason.d4PersistenceForbidden,
+        );
+      }
+    }
+
     final stagedEvents = List<StoredEvent>.of(_events);
     var stagedProjections = Map<String, ObjectProjection>.of(_projections);
     var stagedSeenIds = Set<String>.of(_seenEventIds);
@@ -105,7 +120,7 @@ final class InMemoryEventStore implements EventStore {
     final appendedIds = <String>[];
     final duplicateIds = <String>[];
 
-    for (final event in events) {
+    for (final event in batch) {
       if (stagedSeenIds.contains(event.eventId)) {
         duplicateIds.add(event.eventId);
         continue;

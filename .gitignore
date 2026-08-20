@@ -1,0 +1,16 @@
+# Dart / Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/
+
+# Python verification caches
+__pycache__/
+*.py[cod]
+
+# IDE / operating system
+.idea/
+.vscode/
+.DS_Store

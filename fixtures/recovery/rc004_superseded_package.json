@@ -1,0 +1,10 @@
+{
+  "$schema": "recovery-fixture.schema.json",
+  "fixture_version": 1,
+  "case_id": "RC-004",
+  "title": "Old generation is rejected after rotation",
+  "mode": "protocol_simulation",
+  "preconditions": {"known_generation": 8, "package_status": "superseded"},
+  "input": {"envelope": "synthetic-valid-envelope-generation-7", "recovery_code": "synthetic-correct-code-token"},
+  "expect": {"result": "rejected", "error_code": "RECOVERY_PACKAGE_SUPERSEDED", "terminal_state": "failed", "ordered_states": ["intake", "envelope_validated", "failed"], "invariants": ["no_generation_downgrade", "no_business_read", "relay_deletion_not_security_boundary"]}
+}

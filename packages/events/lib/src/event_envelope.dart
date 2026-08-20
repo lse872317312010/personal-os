@@ -1,5 +1,7 @@
 import 'package:personal_os_domain/domain.dart';
 
+import 'deep_freeze.dart';
+
 /// M1 append-only event envelope. Payload meaning is owned by each event type.
 final class EventEnvelope {
   EventEnvelope({
@@ -24,9 +26,9 @@ final class EventEnvelope {
         subjectRefs = List<ObjectRef>.unmodifiable(subjectRefs),
         sourceRefs = List<ObjectRef>.unmodifiable(sourceRefs),
         consentRefs = List<ObjectRef>.unmodifiable(consentRefs),
-        payload = Map<String, Object?>.unmodifiable(payload),
-        integrity = Map<String, Object?>.unmodifiable(integrity),
-        extensions = Map<String, Object?>.unmodifiable(extensions) {
+        payload = deepFreezeMap(payload),
+        integrity = deepFreezeMap(integrity),
+        extensions = deepFreezeMap(extensions) {
     if (eventVersion <= 0) {
       throw ArgumentError.value(eventVersion, 'eventVersion', 'must be > 0');
     }
@@ -59,4 +61,3 @@ String _nonBlank(String value, String label) {
   }
   return value;
 }
-

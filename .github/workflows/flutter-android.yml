@@ -1,0 +1,60 @@
+name: Flutter Android
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/flutter-android.yml"
+      - "tool/check_flutter_app.sh"
+      - "apps/personal_os_app/**"
+      - "packages/**"
+      - "adapters/**"
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/flutter-android.yml"
+      - "tool/check_flutter_app.sh"
+      - "apps/personal_os_app/**"
+      - "packages/**"
+      - "adapters/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-android-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-and-build:
+    name: Format, analyze, test, and build debug APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Flutter 3.24.5
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.5"
+          channel: stable
+          cache: true
+
+      - name: Verify Flutter toolchain
+        run: flutter --version
+
+      - name: Check app and build debug APK
+        run: bash tool/check_flutter_app.sh
+
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: personal-os-android-debug
+          path: apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

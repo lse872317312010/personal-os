@@ -1,0 +1,10 @@
+{
+  "$schema": "recovery-fixture.schema.json",
+  "fixture_version": 1,
+  "case_id": "RC-007",
+  "title": "Unknown format version is rejected without downgrade",
+  "mode": "protocol_simulation",
+  "preconditions": {"supported_format_versions": [1]},
+  "input": {"envelope": "synthetic-envelope-format-version-99", "recovery_code": "synthetic-code-not-consumed"},
+  "expect": {"result": "rejected", "error_code": "RECOVERY_FORMAT_UNSUPPORTED", "terminal_state": "failed", "ordered_states": ["intake", "failed"], "invariants": ["no_format_downgrade", "recovery_code_not_evaluated", "no_business_read"]}
+}

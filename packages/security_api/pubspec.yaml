@@ -1,0 +1,10 @@
+name: personal_os_security_api
+description: Platform-neutral security capabilities for the Personal OS vault.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dev_dependencies:
+  test: ^1.25.0

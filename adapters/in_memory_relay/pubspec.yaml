@@ -1,0 +1,14 @@
+name: personal_os_in_memory_relay
+description: Opaque encrypted-envelope relay for Personal OS tests and spikes.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  personal_os_sync_api:
+    path: ../../packages/sync_api
+
+dev_dependencies:
+  test: ^1.25.0

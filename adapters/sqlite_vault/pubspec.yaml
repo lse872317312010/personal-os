@@ -1,0 +1,19 @@
+name: personal_os_sqlite_vault_schema
+description: Driver-neutral SQLite/SQLCipher Vault schema contract.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.3.0
+
+dependencies:
+  personal_os_domain:
+    path: ../../packages/domain
+  personal_os_events:
+    path: ../../packages/events
+  personal_os_storage_api:
+    path: ../../packages/storage_api
+
+dev_dependencies:
+  test: ^1.25.0
+  lints: ^5.0.0

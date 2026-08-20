@@ -8,12 +8,18 @@ final class ActorRef {
     required String actorId,
     required this.actorType,
     required String authoritySource,
-    this.sessionOrRunId,
-    this.onBehalfOf,
+    String? sessionOrRunId,
+    String? onBehalfOf,
     Iterable<String> capabilityRefs = const <String>[],
   })  : actorId = _nonBlank(actorId, 'actorId'),
         authoritySource = _nonBlank(authoritySource, 'authoritySource'),
-        capabilityRefs = List<String>.unmodifiable(capabilityRefs) {
+        sessionOrRunId = _optionalNonBlank(sessionOrRunId, 'sessionOrRunId'),
+        onBehalfOf = _optionalNonBlank(onBehalfOf, 'onBehalfOf'),
+        capabilityRefs = List<String>.unmodifiable(
+          capabilityRefs.map(
+            (reference) => _nonBlank(reference, 'capabilityRefs'),
+          ),
+        ) {
     if (actorType != ActorType.user && onBehalfOf == null) {
       throw ArgumentError('Non-user actors require onBehalfOf');
     }
@@ -62,3 +68,5 @@ String _nonBlank(String value, String label) {
   return value;
 }
 
+String? _optionalNonBlank(String? value, String label) =>
+    value == null ? null : _nonBlank(value, label);

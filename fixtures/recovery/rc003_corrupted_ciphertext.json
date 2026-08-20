@@ -1,0 +1,10 @@
+{
+  "$schema": "recovery-fixture.schema.json",
+  "fixture_version": 1,
+  "case_id": "RC-003",
+  "title": "Corrupted ciphertext has the same public error as a wrong code",
+  "mode": "protocol_simulation",
+  "preconditions": {"package_status": "recovery_ready"},
+  "input": {"envelope": "synthetic-envelope-with-corrupted-ciphertext", "recovery_code": "synthetic-correct-code-token"},
+  "expect": {"result": "rejected", "error_code": "RECOVERY_AUTH_FAILED", "terminal_state": "failed", "ordered_states": ["intake", "envelope_validated", "failed"], "invariants": ["no_auth_failure_oracle", "no_partial_key_import", "no_business_read"]}
+}

@@ -12,3 +12,5 @@ dependencies:
   personal_os_events:
     path: ../events
 
+dev_dependencies:
+  test: ^1.25.0

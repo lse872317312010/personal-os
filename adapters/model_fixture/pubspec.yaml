@@ -1,0 +1,14 @@
+name: personal_os_model_fixture
+description: Deterministic synthetic model gateway for Personal OS tests and demos.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  personal_os_model_gateway_api:
+    path: ../../packages/model_gateway_api
+
+dev_dependencies:
+  test: ^1.25.0

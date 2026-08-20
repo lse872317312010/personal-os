@@ -1,0 +1,10 @@
+{
+  "$schema": "recovery-fixture.schema.json",
+  "fixture_version": 1,
+  "case_id": "RC-009",
+  "title": "Valid package remains locked when security state is rolled back",
+  "mode": "protocol_simulation",
+  "preconditions": {"package_status": "recovery_ready", "package_anchor_revision": 43},
+  "input": {"envelope": "synthetic-valid-envelope-generation-7", "recovery_code": "synthetic-correct-code-token", "incoming_security_state_revision": 42},
+  "expect": {"result": "rejected", "error_code": "SECURITY_STATE_ROLLBACK", "terminal_state": "failed", "ordered_states": ["intake", "envelope_validated", "package_authenticated", "account_verified", "device_bound", "security_state_syncing", "failed"], "invariants": ["no_business_read_before_security_state_applied", "no_security_state_rollback", "staged_keys_not_committed"]}
+}

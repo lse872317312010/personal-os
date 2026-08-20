@@ -1,0 +1,10 @@
+{
+  "$schema": "recovery-fixture.schema.json",
+  "fixture_version": 1,
+  "case_id": "RC-005",
+  "title": "Explicitly revoked package is rejected",
+  "mode": "protocol_simulation",
+  "preconditions": {"known_generation": 7, "package_status": "revoked"},
+  "input": {"envelope": "synthetic-revoked-envelope-generation-7", "recovery_code": "synthetic-correct-code-token"},
+  "expect": {"result": "rejected", "error_code": "RECOVERY_PACKAGE_REVOKED", "terminal_state": "failed", "ordered_states": ["intake", "envelope_validated", "failed"], "invariants": ["revoked_is_terminal", "no_business_read", "no_key_import"]}
+}

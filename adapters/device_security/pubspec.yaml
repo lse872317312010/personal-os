@@ -1,0 +1,14 @@
+name: personal_os_device_security
+description: Platform-replaceable device security bridge for Personal OS.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  personal_os_security_api:
+    path: ../../packages/security_api
+
+dev_dependencies:
+  test: ^1.25.2

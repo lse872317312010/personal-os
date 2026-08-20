@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-os.invalid/evidence/android/evidence.schema.json",
+  "title": "Personal OS Android validation evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "recordKind",
+    "targetClass",
+    "buildProfile",
+    "startedAtUtc",
+    "completedAtUtc",
+    "overall",
+    "scenarios"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "recordKind": { "enum": ["real_device", "synthetic"] },
+    "targetClass": { "const": "redmi_turbo" },
+    "buildProfile": { "enum": ["debug", "profile", "release"] },
+    "startedAtUtc": { "type": "string", "format": "date-time" },
+    "completedAtUtc": { "type": "string", "format": "date-time" },
+    "overall": { "$ref": "#/$defs/result" },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protectionLevel",
+        "userAuthenticationAvailable",
+        "deviceCredentialAvailable",
+        "nonExportableKeys",
+        "atomicDeviceRevocation"
+      ],
+      "properties": {
+        "protectionLevel": {
+          "enum": ["unavailable", "software", "trusted_environment", "strongbox"]
+        },
+        "userAuthenticationAvailable": { "type": "boolean" },
+        "deviceCredentialAvailable": { "type": "boolean" },
+        "nonExportableKeys": { "type": "boolean" },
+        "atomicDeviceRevocation": { "type": "boolean" }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": { "$ref": "#/$defs/scenario" }
+    }
+  },
+  "$defs": {
+    "result": { "enum": ["pass", "fail", "blocked"] },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "result", "checksPassed", "checksTotal", "failureCode"],
+      "properties": {
+        "id": {
+          "enum": [
+            "install_launch",
+            "offline_operation",
+            "screen_lock",
+            "device_reboot",
+            "capability_report",
+            "vault_wrong_key",
+            "trusted_device_recovery",
+            "offline_package_recovery",
+            "device_revocation"
+          ]
+        },
+        "result": { "$ref": "#/$defs/result" },
+        "checksPassed": { "type": "integer", "minimum": 0 },
+        "checksTotal": { "type": "integer", "minimum": 1 },
+        "failureCode": {
+          "enum": [
+            "none",
+            "not_run",
+            "build_unavailable",
+            "install_failed",
+            "launch_failed",
+            "network_dependency",
+            "lock_bypass",
+            "state_not_restored",
+            "capability_mismatch",
+            "wrong_key_accepted",
+            "recovery_failed",
+            "revoked_device_authorized",
+            "unexpected_result"
+          ]
+        }
+      }
+    }
+  }
+}

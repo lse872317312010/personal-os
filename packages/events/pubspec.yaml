@@ -10,3 +10,5 @@ dependencies:
   personal_os_domain:
     path: ../domain
 
+dev_dependencies:
+  test: ^1.25.0

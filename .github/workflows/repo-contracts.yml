@@ -1,0 +1,41 @@
+name: Repository contracts
+
+on:
+  pull_request:
+    paths:
+      - "adapters/sqlite_vault/**"
+      - "architecture/RECOVERY_PROTOCOL.md"
+      - "evidence/android/**"
+      - "fixtures/recovery/**"
+      - "tool/contract_audit/**"
+      - "tool/check_contracts.sh"
+      - "tool/validate_local_dependencies.py"
+      - "packages/**/pubspec.yaml"
+      - "adapters/**/pubspec.yaml"
+      - ".github/workflows/repo-contracts.yml"
+  push:
+    branches: [main]
+    paths:
+      - "adapters/sqlite_vault/**"
+      - "architecture/RECOVERY_PROTOCOL.md"
+      - "evidence/android/**"
+      - "fixtures/recovery/**"
+      - "tool/contract_audit/**"
+      - "tool/check_contracts.sh"
+      - "tool/validate_local_dependencies.py"
+      - "packages/**/pubspec.yaml"
+      - "adapters/**/pubspec.yaml"
+      - ".github/workflows/repo-contracts.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify repository contracts
+        run: bash tool/check_contracts.sh

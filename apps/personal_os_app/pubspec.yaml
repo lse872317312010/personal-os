@@ -1,0 +1,35 @@
+name: personal_os_app
+description: Android-first Flutter shell for the Personal OS primary vault.
+version: 0.0.1+1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  personal_os_application:
+    path: ../../packages/application
+  personal_os_domain:
+    path: ../../packages/domain
+  personal_os_in_memory:
+    path: ../../adapters/in_memory
+  personal_os_in_memory_policy:
+    path: ../../adapters/in_memory_policy
+  personal_os_model_fixture:
+    path: ../../adapters/model_fixture
+  personal_os_model_gateway_api:
+    path: ../../packages/model_gateway_api
+  personal_os_policy:
+    path: ../../packages/policy
+  personal_os_policy_application:
+    path: ../../adapters/policy_application
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

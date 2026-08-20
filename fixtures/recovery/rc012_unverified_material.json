@@ -1,0 +1,10 @@
+{
+  "$schema": "recovery-fixture.schema.json",
+  "fixture_version": 1,
+  "case_id": "RC-012",
+  "title": "Generated but unverified material cannot restore",
+  "mode": "protocol_simulation",
+  "preconditions": {"package_status": "generated_unverified", "generation": 1},
+  "input": {"envelope": "synthetic-unverified-envelope-generation-1", "recovery_code": "synthetic-code-not-evaluated"},
+  "expect": {"result": "rejected", "error_code": "RECOVERY_MATERIAL_UNVERIFIED", "terminal_state": "failed", "ordered_states": ["intake", "failed"], "invariants": ["generated_is_not_ready", "recovery_code_not_evaluated", "no_key_import", "no_business_read"]}
+}

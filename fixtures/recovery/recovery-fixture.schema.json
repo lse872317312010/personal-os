@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-os.invalid/schemas/recovery-fixture-v1.json",
+  "title": "Personal OS recovery protocol fixture",
+  "type": "object",
+  "required": ["fixture_version", "case_id", "title", "mode", "preconditions", "input", "expect"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "fixture_version": {"const": 1},
+    "case_id": {"type": "string", "pattern": "^RC-[0-9]{3}$"},
+    "title": {"type": "string", "minLength": 1},
+    "mode": {"enum": ["protocol_simulation", "relay_capability_check"]},
+    "preconditions": {"type": "object"},
+    "input": {"type": "object"},
+    "expect": {
+      "type": "object",
+      "required": ["result", "terminal_state", "invariants"],
+      "properties": {
+        "result": {"enum": ["accepted", "rejected", "blocked"]},
+        "error_code": {"type": "string"},
+        "terminal_state": {"type": "string"},
+        "ordered_states": {"type": "array", "items": {"type": "string"}},
+        "invariants": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

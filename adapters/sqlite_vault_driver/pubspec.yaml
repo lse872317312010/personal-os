@@ -1,0 +1,11 @@
+name: personal_os_sqlite_vault_driver
+description: Driver-neutral lifecycle contract for a future SQLite/SQLCipher vault adapter.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.3.0
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.0

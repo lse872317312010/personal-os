@@ -10,5 +10,8 @@ Personal OS 的纯 Dart 领域基础包。它只定义稳定身份、版本、�
 - Actor 审计身份，并强制非用户 Actor 声明 `onBehalfOf`；
 - Claim、Goal、Plan、Task、Consent、Review 状态枚举。
 
-领域实体的完整字段将在实际 vertical slice 中按用例逐步加入，避免在没有真实调用方时制造大而空的模型。本包尚未在 Dart 工具链中编译验证。
+所有会进入持久化边界的标识与版本值都在运行期验证：ID 和引用不得为空白，
+`Revision` 不得为负，`SchemaVersion` 必须大于零。实现不依赖仅在 debug
+模式生效的 `assert`。Actor 的 capability 引用会被防御性复制并冻结。
 
+领域实体的完整字段将在实际 vertical slice 中按用例逐步加入，避免在没有真实调用方时制造大而空的模型。本包尚未在 Dart 工具链中编译验证。

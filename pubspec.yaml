@@ -1,0 +1,8 @@
+name: personal_os_workspace
+description: Tooling entry point for the platform-neutral Personal OS Dart core.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+

@@ -77,6 +77,7 @@
 - [M1 敏感度继承](specs/SENSITIVITY_PROPAGATION.md)
 - [M1 退出评审](docs/M1_EXIT_REVIEW.md)
 - [M2 启动输入](docs/M2_KICKOFF.md)
+- [M2 验证矩阵](docs/M2_VERIFICATION_MATRIX.md)
 - [M2 架构约束](architecture/ARCHITECTURE_REQUIREMENTS.md)
 - [M2 平台策略](architecture/PLATFORM_STRATEGY.md)
 - [M2 逻辑包与依赖边界](architecture/LOGICAL_PACKAGE_LAYOUT.md)
@@ -89,6 +90,7 @@
 - [客户端评分表](architecture/CLIENT_SCORECARD.md)
 - [同步协议草案](architecture/SYNC_PROTOCOL.md)
 - [密钥管理草案](architecture/KEY_MANAGEMENT.md)
+- [恢复协议 v1](architecture/RECOVERY_PROTOCOL.md)
 - [M1 架构走查](architecture/M1_ARCHITECTURE_WALKTHROUGH.md)
 - [变更记录](CHANGELOG.md)
 
@@ -103,6 +105,20 @@
 - `adapters/in_memory`：原子事件、投影和 outbox 测试适配器。
 
 本轮集成结论见 [Coding Wave 1 评审](docs/CODING_WAVE_1_REVIEW.md)。
+
+后续已加入真实 Policy adapter、JSON contract runner 和 Dart Core CI，见 [Coding Wave 2 评审](docs/CODING_WAVE_2_REVIEW.md)。
+
+Android Flutter shell、安全能力接口与扩展 reducer 的本地集成情况见 [Coding Wave 3 评审](docs/CODING_WAVE_3_REVIEW.md)。
+
+完整反馈闭环、SQLite schema、Blob 和密文同步边界见 [Coding Wave 4–5 评审](docs/CODING_WAVE_4_5_REVIEW.md)。
+
+Flutter 真实反馈链、严格事件 codec 与账户隔离同步模拟见 [Coding Wave 6 评审](docs/CODING_WAVE_6_REVIEW.md)。
+
+事务型 SQLite EventStore、密文附件引擎与恢复协议测试资产见 [Coding Wave 7 评审](docs/CODING_WAVE_7_REVIEW.md)。
+
+恢复状态机、Vault driver 与设备安全 bridge contract 见 [Coding Wave 8 评审](docs/CODING_WAVE_8_REVIEW.md)。
+
+Runtime 编排、恢复契约 CI 与 Redmi Turbo 证据 runbook 见 [Coding Wave 9 评审](docs/CODING_WAVE_9_REVIEW.md)。
 
 ## 状态
 

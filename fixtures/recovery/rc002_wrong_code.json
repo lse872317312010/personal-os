@@ -1,0 +1,10 @@
+{
+  "$schema": "recovery-fixture.schema.json",
+  "fixture_version": 1,
+  "case_id": "RC-002",
+  "title": "Wrong recovery code fails without an oracle",
+  "mode": "protocol_simulation",
+  "preconditions": {"package_status": "recovery_ready"},
+  "input": {"envelope": "synthetic-valid-envelope", "recovery_code": "synthetic-wrong-code-token"},
+  "expect": {"result": "rejected", "error_code": "RECOVERY_AUTH_FAILED", "terminal_state": "failed", "ordered_states": ["intake", "envelope_validated", "failed"], "invariants": ["no_auth_failure_oracle", "no_business_read", "no_secret_in_logs"]}
+}

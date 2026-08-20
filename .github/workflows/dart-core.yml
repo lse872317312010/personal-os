@@ -1,0 +1,51 @@
+name: Dart core
+
+on:
+  pull_request:
+    paths:
+      - "packages/**"
+      - "adapters/**"
+      - "test_contract/runner_dart/**"
+      - "pubspec.yaml"
+      - "analysis_options.yaml"
+      - "tool/check_dart_core.sh"
+      - "tool/validate_local_dependencies.py"
+      - ".github/workflows/dart-core.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/**"
+      - "adapters/**"
+      - "test_contract/runner_dart/**"
+      - "pubspec.yaml"
+      - "analysis_options.yaml"
+      - "tool/check_dart_core.sh"
+      - "tool/validate_local_dependencies.py"
+      - ".github/workflows/dart-core.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dart-core-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Format, analyze, and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: "3.3.4"
+
+      - name: Verify platform-neutral Dart core
+        run: bash tool/check_dart_core.sh

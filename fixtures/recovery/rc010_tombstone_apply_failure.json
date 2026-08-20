@@ -1,0 +1,10 @@
+{
+  "$schema": "recovery-fixture.schema.json",
+  "fixture_version": 1,
+  "case_id": "RC-010",
+  "title": "Tombstone application failure prevents vault unlock",
+  "mode": "protocol_simulation",
+  "preconditions": {"package_status": "recovery_ready", "security_state_signature": "synthetic-valid-signature-label"},
+  "input": {"envelope": "synthetic-valid-envelope-generation-7", "recovery_code": "synthetic-correct-code-token", "fault": "synthetic-tombstone-transaction-failure"},
+  "expect": {"result": "rejected", "error_code": "DELETION_TOMBSTONE_APPLY_FAILED", "terminal_state": "failed", "ordered_states": ["intake", "envelope_validated", "package_authenticated", "account_verified", "device_bound", "security_state_syncing", "device_revocations_applied", "account_epoch_applied", "failed"], "invariants": ["no_business_read_before_security_state_applied", "tombstones_apply_atomically", "staged_keys_not_committed"]}
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "recovery-fixture.schema.json",
+  "fixture_version": 1,
+  "case_id": "RC-011",
+  "title": "Recovery material creation verification rotation and revocation lifecycle",
+  "mode": "protocol_simulation",
+  "preconditions": {"material_state": "not_configured", "generation": 0},
+  "input": {"operations": ["create_generation_1", "full_isolated_verify", "require_rotation", "create_and_verify_generation_2", "revoke_generation_2"]},
+  "expect": {"result": "accepted", "terminal_state": "revoked", "ordered_states": ["not_configured", "generated_unverified", "recovery_ready", "rotation_required", "recovery_ready", "revoked"], "invariants": ["generation_strictly_increases", "generation_1_is_superseded", "revoked_is_terminal", "audit_contains_no_secrets"]}
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "recovery-fixture.schema.json",
+  "fixture_version": 1,
+  "case_id": "RC-008",
+  "title": "Relay data and account credentials are insufficient to decrypt",
+  "mode": "relay_capability_check",
+  "preconditions": {"relay_has": ["login_credentials", "encrypted_recovery_package", "encrypted_events", "encrypted_blobs", "server_configuration"], "relay_lacks": ["recovery_code", "trusted_device_private_key"]},
+  "input": {"attempt": "synthetic-server-only-recovery-attempt"},
+  "expect": {"result": "blocked", "error_code": "RECOVERY_AUTH_FAILED", "terminal_state": "failed", "ordered_states": ["intake", "envelope_validated", "failed"], "invariants": ["server_alone_cannot_decrypt_package", "server_alone_cannot_derive_vault_key", "password_reset_cannot_unlock_old_vault", "no_business_plaintext"]}
+}

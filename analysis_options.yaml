@@ -1,0 +1,27 @@
+analyzer:
+  errors:
+    dead_code: error
+    invalid_assignment: error
+    missing_required_argument: error
+    return_of_invalid_type: error
+  exclude:
+    - "**/.dart_tool/**"
+    - "**/build/**"
+
+linter:
+  rules:
+    - avoid_dynamic_calls
+    - avoid_print
+    - cancel_subscriptions
+    - close_sinks
+    - directives_ordering
+    - discarded_futures
+    - no_adjacent_strings_in_list
+    - only_throw_errors
+    - prefer_final_fields
+    - prefer_final_locals
+    - sort_constructors_first
+    - unawaited_futures
+    - unnecessary_lambdas
+    - use_super_parameters
+

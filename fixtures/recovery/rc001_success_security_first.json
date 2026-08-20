@@ -1,0 +1,15 @@
+{
+  "$schema": "recovery-fixture.schema.json",
+  "fixture_version": 1,
+  "case_id": "RC-001",
+  "title": "Valid package applies revocations and tombstones before unlock",
+  "mode": "protocol_simulation",
+  "preconditions": {"known_generation": 6, "package_status": "recovery_ready", "security_state_revision": 40},
+  "input": {"envelope": "synthetic-valid-envelope-generation-7", "recovery_code": "synthetic-correct-code-token", "incoming_security_state_revision": 43},
+  "expect": {
+    "result": "accepted",
+    "terminal_state": "unlocked",
+    "ordered_states": ["intake", "envelope_validated", "package_authenticated", "account_verified", "device_bound", "security_state_syncing", "device_revocations_applied", "account_epoch_applied", "deletion_tombstones_applied", "security_state_applied", "vault_data_syncing", "consistency_verified", "unlocked"],
+    "invariants": ["no_business_read_before_security_state_applied", "revoked_device_has_no_new_epoch_key", "deleted_objects_remain_unreadable", "successful_restore_requires_rotation"]
+  }
+}

@@ -1,4 +1,13 @@
 abstract final class EventTypes {
+  static const sourceRegistered = 'source.registered';
+  static const observationRecorded = 'observation.recorded';
+  static const baselineCreated = 'baseline.created';
+  static const opportunityIdentified = 'opportunity.identified';
+  static const recommendationCreated = 'recommendation.created';
+  static const executionRecorded = 'execution.recorded';
+  static const outcomeRecorded = 'outcome.recorded';
+  static const constraintRecorded = 'constraint.recorded';
+
   static const claimProposed = 'claim.proposed';
   static const claimConfirmed = 'claim.confirmed';
   static const claimDisputed = 'claim.disputed';
@@ -18,6 +27,8 @@ abstract final class EventTypes {
   static const planStopped = 'plan.stopped';
 
   static const taskPlanned = 'task.planned';
+  static const taskReady = 'task.ready';
+  static const taskInProgress = 'task.in_progress';
   static const taskCompleted = 'task.completed';
   static const taskSkipped = 'task.skipped';
   static const taskFailed = 'task.failed';
@@ -29,7 +40,18 @@ abstract final class EventTypes {
   static const consentExpired = 'consent.expired';
 
   static const reviewCreated = 'review.created';
+  static const reviewUserReviewed = 'review.user_reviewed';
   static const reviewAccepted = 'review.accepted';
   static const reviewRejected = 'review.rejected';
-}
 
+  static const modelRevisionProposed = 'model.revision.proposed';
+  static const modelRevisionAccepted = 'model.revision.accepted';
+
+  static const deletionRequested = 'deletion.requested';
+  static const deletionCompleted = 'deletion.completed';
+
+  static const conflictDetected = 'conflict.detected';
+  static const conflictResolutionProposed = 'conflict.resolution.proposed';
+  static const conflictResolved = 'conflict.resolved';
+  static const conflictDismissed = 'conflict.dismissed';
+}
