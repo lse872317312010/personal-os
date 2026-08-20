@@ -9,8 +9,8 @@ final class SensitivityDecision {
           PolicyReason.allowed,
         );
 
-  const SensitivityDecision.denied(this.sensitivity, String reasonCode)
-      : policy = const PolicyDecision(PolicyOutcome.deny, reasonCode);
+  SensitivityDecision.denied(this.sensitivity, String reasonCode)
+      : policy = PolicyDecision(PolicyOutcome.deny, reasonCode);
 
   final Sensitivity sensitivity;
   final PolicyDecision policy;
@@ -25,7 +25,7 @@ SensitivityDecision deriveSensitivity({
     declaredMinimum,
   ]);
   if (inherited == Sensitivity.d4) {
-    return const SensitivityDecision.denied(
+    return SensitivityDecision.denied(
       Sensitivity.d4,
       PolicyReason.d4ProcessingForbidden,
     );
