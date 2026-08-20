@@ -51,7 +51,7 @@ void main() {
     );
 
     expect(controller.submission, SubmissionStatus.succeeded);
-    expect(controller.result?.claimIds, hasLength(1));
+    expect(controller.result?.claimIds, hasLength(2));
     expect(controller.result?.taskIds, hasLength(1));
     expect(gateway.calls, 1);
   });
