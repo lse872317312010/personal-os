@@ -2,6 +2,8 @@
   "schema_version": 1,
   "kind": "synthetic",
   "candidate_commit": "0000000000000000000000000000000000000000",
+  "records": [],
+  "evidence_writer_version": "1.1.0",
   "gates": {
     "static": {"status": "not_run", "checks": []},
     "flutter_test": {"status": "blocked", "checks": []},
