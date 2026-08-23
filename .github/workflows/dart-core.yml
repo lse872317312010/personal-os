@@ -6,9 +6,13 @@ on:
       - "packages/**"
       - "adapters/**"
       - "test_contract/runner_dart/**"
+      - "apps/personal_os_app/lib/**"
       - "pubspec.yaml"
       - "analysis_options.yaml"
       - "tool/check_dart_core.sh"
+      - "tool/check_contracts.sh"
+      - "tool/check_composition_root.py"
+      - "tool/tests/**"
       - "tool/validate_local_dependencies.py"
       - ".github/workflows/dart-core.yml"
   push:
@@ -18,9 +22,13 @@ on:
       - "packages/**"
       - "adapters/**"
       - "test_contract/runner_dart/**"
+      - "apps/personal_os_app/lib/**"
       - "pubspec.yaml"
       - "analysis_options.yaml"
       - "tool/check_dart_core.sh"
+      - "tool/check_contracts.sh"
+      - "tool/check_composition_root.py"
+      - "tool/tests/**"
       - "tool/validate_local_dependencies.py"
       - ".github/workflows/dart-core.yml"
   workflow_dispatch:
@@ -49,3 +57,6 @@ jobs:
 
       - name: Verify platform-neutral Dart core
         run: bash tool/check_dart_core.sh
+
+      - name: Verify repository contracts (ADR-0008 §4 composition root audit)
+        run: bash tool/check_contracts.sh
