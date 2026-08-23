@@ -6,6 +6,10 @@ on:
       - "packages/**"
       - "adapters/**"
       - "test_contract/runner_dart/**"
+      - "apps/personal_os_app/lib/**"
+      - "tool/check_composition_root.py"
+      - "tool/tests/**"
+      - "tool/check_contracts.sh"
       - "pubspec.yaml"
       - "analysis_options.yaml"
       - "tool/check_dart_core.sh"
@@ -19,6 +23,10 @@ on:
       - "packages/**"
       - "adapters/**"
       - "test_contract/runner_dart/**"
+      - "apps/personal_os_app/lib/**"
+      - "tool/check_composition_root.py"
+      - "tool/tests/**"
+      - "tool/check_contracts.sh"
       - "pubspec.yaml"
       - "analysis_options.yaml"
       - "tool/check_dart_core.sh"
@@ -50,3 +58,6 @@ jobs:
 
       - name: Verify platform-neutral Dart core
         run: bash tool/check_dart_core.sh
+
+      - name: Verify repository contracts
+        run: bash tool/check_contracts.sh
