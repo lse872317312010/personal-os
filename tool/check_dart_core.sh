@@ -9,6 +9,8 @@ cd "${REPO_ROOT}"
 
 python3 tool/validate_local_dependencies.py
 
+bash tool/check_secrets.sh
+
 mapfile -d '' PACKAGE_FILES < <(
   find "${CORE_ROOTS[@]}" -mindepth 2 -maxdepth 2 -name pubspec.yaml -print0 | sort -z
 )
