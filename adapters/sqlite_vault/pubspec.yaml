@@ -17,3 +17,5 @@ dependencies:
 dev_dependencies:
   test: ^1.25.0
   lints: ^5.0.0
+  personal_os_in_memory:
+    path: ../../adapters/in_memory
