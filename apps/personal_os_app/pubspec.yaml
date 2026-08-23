@@ -25,6 +25,8 @@ dependencies:
     path: ../../packages/policy
   personal_os_policy_application:
     path: ../../adapters/policy_application
+  personal_os_storage_api:
+    path: ../../packages/storage_api
 
 dev_dependencies:
   flutter_test:
