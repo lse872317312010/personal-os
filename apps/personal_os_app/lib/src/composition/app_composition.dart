@@ -5,16 +5,24 @@ import 'package:personal_os_in_memory_policy/in_memory_policy.dart';
 import 'package:personal_os_model_fixture/model_fixture.dart';
 import 'package:personal_os_policy/policy.dart';
 import 'package:personal_os_policy_application/policy_application.dart';
+import 'package:personal_os_storage_api/storage_api.dart';
 
 import '../controller/app_controller.dart';
 
 /// Replace this composition root with encrypted persistence, keystore-backed
 /// unlock, and a real model adapter. Widgets never reach those adapters.
 final class AppComposition {
-  AppComposition({required this.controller, required this.eventStore});
+  AppComposition({
+    required this.controller,
+    required this.eventStore,
+    required this.vaultExporter,
+    required this.compositionMode,
+  });
 
   final AppController controller;
   final InMemoryEventStore eventStore;
+  final VaultExporter vaultExporter;
+  final String compositionMode;
 
   factory AppComposition.inMemoryDemo() {
     final clock = _SystemClock();
@@ -40,6 +48,8 @@ final class AppComposition {
     );
     return AppComposition(
       eventStore: eventStore,
+      vaultExporter: const VaultExporter(),
+      compositionMode: 'demo',
       controller: AppController(
         analyzeAppearance: useCase,
         actionFeedback: ActionFeedbackUseCase(
