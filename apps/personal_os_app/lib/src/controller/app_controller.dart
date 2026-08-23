@@ -208,8 +208,8 @@ final class AppController extends ChangeNotifier {
         CreateReviewCommand(
           actor: _actor,
           correlationId: _correlation('create-review'),
-          sourceRefs: taskIds
-              .map((id) => ObjectRef(type: 'task', id: EntityId(id))),
+          sourceRefs:
+              taskIds.map((id) => ObjectRef(type: 'task', id: EntityId(id))),
           sensitivity: Sensitivity.d3,
           consentRefs: _appearanceConsentRefs,
         ),
@@ -238,7 +238,8 @@ final class AppController extends ChangeNotifier {
           consentRefs: _appearanceConsentRefs,
         ),
       );
-      _reviewState = decision == ReviewDecision.accept ? 'accepted' : 'rejected';
+      _reviewState =
+          decision == ReviewDecision.accept ? 'accepted' : 'rejected';
       return decision == ReviewDecision.accept
           ? 'review_accepted'
           : 'review_rejected';

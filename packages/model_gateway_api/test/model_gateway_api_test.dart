@@ -24,7 +24,8 @@ void main() {
 
     test('rejects blank imageRef', () {
       expect(
-        () => AppearanceAnalysisInput(imageRef: '  ', observationContext: 'ctx'),
+        () =>
+            AppearanceAnalysisInput(imageRef: '  ', observationContext: 'ctx'),
         throwsArgumentError,
       );
     });
@@ -50,27 +51,36 @@ void main() {
     });
 
     test('accepts boundary confidence values', () {
-      expect(AppearanceFinding(dimension: 'd', statement: 's', confidence: 0.0).confidence, 0.0);
-      expect(AppearanceFinding(dimension: 'd', statement: 's', confidence: 1.0).confidence, 1.0);
+      expect(
+          AppearanceFinding(dimension: 'd', statement: 's', confidence: 0.0)
+              .confidence,
+          0.0);
+      expect(
+          AppearanceFinding(dimension: 'd', statement: 's', confidence: 1.0)
+              .confidence,
+          1.0);
     });
 
     test('rejects confidence below zero', () {
       expect(
-        () => AppearanceFinding(dimension: 'd', statement: 's', confidence: -0.1),
+        () =>
+            AppearanceFinding(dimension: 'd', statement: 's', confidence: -0.1),
         throwsArgumentError,
       );
     });
 
     test('rejects confidence above one', () {
       expect(
-        () => AppearanceFinding(dimension: 'd', statement: 's', confidence: 1.1),
+        () =>
+            AppearanceFinding(dimension: 'd', statement: 's', confidence: 1.1),
         throwsArgumentError,
       );
     });
 
     test('rejects blank dimension', () {
       expect(
-        () => AppearanceFinding(dimension: '  ', statement: 's', confidence: 0.5),
+        () =>
+            AppearanceFinding(dimension: '  ', statement: 's', confidence: 0.5),
         throwsArgumentError,
       );
     });
@@ -112,10 +122,12 @@ void main() {
     test('accepts valid result', () {
       final result = AppearanceAnalysisResult(
         findings: [
-          AppearanceFinding(dimension: 'skin', statement: 'oily', confidence: 0.9),
+          AppearanceFinding(
+              dimension: 'skin', statement: 'oily', confidence: 0.9),
         ],
         actions: [
-          AppearanceActionSuggestion(title: 'Use toner', rationale: 'oil control'),
+          AppearanceActionSuggestion(
+              title: 'Use toner', rationale: 'oil control'),
         ],
         modelTraceRef: 'trace-xyz',
       );

@@ -12,8 +12,7 @@ final class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
         padding: const EdgeInsets.all(20),
         children: <Widget>[
-          Text('今天，从一个小改变开始',
-              style: Theme.of(context).textTheme.headlineSmall),
+          Text('今天，从一个小改变开始', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 12),
           const Text('MVP 使用合成示例生成建议，不调用真实 AI，也不会上传照片。'),
           const SizedBox(height: 16),

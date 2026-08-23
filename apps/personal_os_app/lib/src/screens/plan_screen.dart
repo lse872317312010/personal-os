@@ -11,8 +11,7 @@ final class PlanScreen extends StatelessWidget {
   Widget build(BuildContext context) => ListView(
         padding: const EdgeInsets.all(20),
         children: <Widget>[
-          Text('一个可执行的小行动',
-              style: Theme.of(context).textTheme.headlineSmall),
+          Text('一个可执行的小行动', style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 12),
           Card(
             child: ListTile(

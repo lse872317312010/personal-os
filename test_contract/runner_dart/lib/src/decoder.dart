@@ -23,7 +23,8 @@ FixtureDocument decodeFixture(String source) {
         .toList(growable: false),
     events: events,
     expectedResults: rawResults
-        .map((value) => _string(_map(value, 'event_result')['result'], 'result'))
+        .map(
+            (value) => _string(_map(value, 'event_result')['result'], 'result'))
         .toList(growable: false),
     projectionAssertionCount:
         _list(expectations['projection_assertions'], 'projection_assertions')
@@ -44,7 +45,8 @@ EventEnvelope decodeEvent(Map<String, Object?> json) {
   final payload = Map<String, Object?>.of(_map(json['payload'], 'payload'));
   // The fixture vocabulary predates the reducer field name. Preserve the
   // original key while supplying the equivalent reducer input.
-  if (payload['execution_record_ref'] == null && payload['execution_ref'] != null) {
+  if (payload['execution_record_ref'] == null &&
+      payload['execution_ref'] != null) {
     payload['execution_record_ref'] = payload['execution_ref'];
   }
   return EventEnvelope(
@@ -103,7 +105,8 @@ Future<List<String>> loadFixturePaths(String manifestPath) async {
   final base = manifestFile.parent;
   return _list(root['fixtures'], 'fixtures')
       .map((entry) => _map(entry, 'fixture entry'))
-      .map((entry) => base.uri.resolve(_string(entry['path'], 'path')).toFilePath())
+      .map((entry) =>
+          base.uri.resolve(_string(entry['path'], 'path')).toFilePath())
       .toList(growable: false);
 }
 

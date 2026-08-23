@@ -176,7 +176,8 @@ FixtureReport runFixture(FixtureDocument fixture) {
   );
 }
 
-String encodeStableReport(CorpusReport report) => '${jsonEncode(report.toJson())}\n';
+String encodeStableReport(CorpusReport report) =>
+    '${jsonEncode(report.toJson())}\n';
 
 String _basenameWithoutJson(String path) {
   final name = path.replaceAll('\\', '/').split('/').last;

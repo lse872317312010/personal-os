@@ -32,7 +32,8 @@ final class DeviceSecureUnlockAdapter implements SecureUnlockPort {
         reason: request.reason,
         allowDeviceCredential: request.allowDeviceCredential,
       ));
-      final grant = UnlockGrant.opaque(id: ticket.id, expiresAt: ticket.expiresAt);
+      final grant =
+          UnlockGrant.opaque(id: ticket.id, expiresAt: ticket.expiresAt);
       _success(SecurityOperation.authenticate);
       return grant;
     } on PlatformSecurityFailure catch (error) {
@@ -67,18 +68,29 @@ final class DeviceSecureUnlockAdapter implements SecureUnlockPort {
 SecurityException mapPlatformSecurityFailure(PlatformSecurityFailure failure) =>
     _mapFailure(failure);
 
-SecurityException _mapFailure(PlatformSecurityFailure failure) => SecurityException(
+SecurityException _mapFailure(PlatformSecurityFailure failure) =>
+    SecurityException(
       switch (failure.code) {
-        PlatformSecurityFailureCode.cancelled => SecurityErrorCode.unlockCancelled,
+        PlatformSecurityFailureCode.cancelled =>
+          SecurityErrorCode.unlockCancelled,
         PlatformSecurityFailureCode.denied => SecurityErrorCode.unlockDenied,
-        PlatformSecurityFailureCode.authenticationUnavailable => SecurityErrorCode.unlockUnavailable,
-        PlatformSecurityFailureCode.authenticationExpired => SecurityErrorCode.unlockExpired,
-        PlatformSecurityFailureCode.keyNotFound => SecurityErrorCode.keyNotFound,
-        PlatformSecurityFailureCode.purposeMismatch => SecurityErrorCode.keyPurposeMismatch,
-        PlatformSecurityFailureCode.keyDestroyed => SecurityErrorCode.keyDestroyed,
-        PlatformSecurityFailureCode.invalidEnvelope => SecurityErrorCode.wrappedKeyInvalid,
-        PlatformSecurityFailureCode.rotationConflict => SecurityErrorCode.rotationConflict,
-        PlatformSecurityFailureCode.deviceRevoked => SecurityErrorCode.deviceRevoked,
-        PlatformSecurityFailureCode.unavailable => SecurityErrorCode.providerUnavailable,
+        PlatformSecurityFailureCode.authenticationUnavailable =>
+          SecurityErrorCode.unlockUnavailable,
+        PlatformSecurityFailureCode.authenticationExpired =>
+          SecurityErrorCode.unlockExpired,
+        PlatformSecurityFailureCode.keyNotFound =>
+          SecurityErrorCode.keyNotFound,
+        PlatformSecurityFailureCode.purposeMismatch =>
+          SecurityErrorCode.keyPurposeMismatch,
+        PlatformSecurityFailureCode.keyDestroyed =>
+          SecurityErrorCode.keyDestroyed,
+        PlatformSecurityFailureCode.invalidEnvelope =>
+          SecurityErrorCode.wrappedKeyInvalid,
+        PlatformSecurityFailureCode.rotationConflict =>
+          SecurityErrorCode.rotationConflict,
+        PlatformSecurityFailureCode.deviceRevoked =>
+          SecurityErrorCode.deviceRevoked,
+        PlatformSecurityFailureCode.unavailable =>
+          SecurityErrorCode.providerUnavailable,
       },
     );

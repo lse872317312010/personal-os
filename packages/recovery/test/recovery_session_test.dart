@@ -5,7 +5,8 @@ import 'package:test/test.dart';
 
 void main() {
   group('RecoverySession', () {
-    test('applies security state before vault reads and unlocks once', () async {
+    test('applies security state before vault reads and unlocks once',
+        () async {
       final fixture = Fixture();
       final secret = RecoverySecret([1, 2, 3]);
 
@@ -58,9 +59,11 @@ void main() {
         'enable-reads',
       ]);
       expect(fixture.enableReadsCalled, isTrue);
-      expect(fixture.audit.events.every((event) =>
-          event.sessionId == 'session-opaque' &&
-          event.packageId == 'package-opaque'), isTrue);
+      expect(
+          fixture.audit.events.every((event) =>
+              event.sessionId == 'session-opaque' &&
+              event.packageId == 'package-opaque'),
+          isTrue);
       expect(fixture.audit.events.first.generation, isNull);
       expect(fixture.audit.events[1].generation, isNull);
       expect(fixture.audit.events[2].generation, 7);
@@ -79,8 +82,8 @@ void main() {
         expect(fixture.audit.events.every((event) => event.generation == null),
             isTrue);
         expect(fixture.enableReadsCalled, isFalse);
-        expect(fixture.audit.events.last.errorCode,
-            RecoveryErrorCode.authFailed);
+        expect(
+            fixture.audit.events.last.errorCode, RecoveryErrorCode.authFailed);
       }
     });
 
@@ -112,7 +115,8 @@ void main() {
         result.errorCode,
         RecoveryErrorCode.deletionTombstoneApplyFailed,
       );
-      expect(fixture.calls, containsAllInOrder(['revocations', 'epoch', 'tombstones']));
+      expect(fixture.calls,
+          containsAllInOrder(['revocations', 'epoch', 'tombstones']));
       expect(fixture.calls, isNot(contains('commit-security')));
       expect(fixture.calls, isNot(contains('sync-ciphertext')));
       expect(fixture.enableReadsCalled, isFalse);
@@ -312,7 +316,8 @@ final class Fixture
   Future<void> consumeAndRequireRotation({
     required String packageId,
     required int generation,
-  }) async => calls.add('consume-and-rotate');
+  }) async =>
+      calls.add('consume-and-rotate');
 }
 
 final class Audit implements RecoveryAuditPort {

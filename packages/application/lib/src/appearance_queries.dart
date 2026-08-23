@@ -29,4 +29,3 @@ final class AppearanceHistoryQueryHandler {
     return AppearanceHistory(List<EventEnvelope>.unmodifiable(events));
   }
 }
-

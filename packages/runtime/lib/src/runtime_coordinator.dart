@@ -82,7 +82,8 @@ final class RuntimeCoordinator {
 
   /// Suspends network and model access while retaining the unlocked local vault.
   Future<void> enterBackground() async {
-    if (_state == RuntimeState.background || _state == RuntimeState.locked) return;
+    if (_state == RuntimeState.background || _state == RuntimeState.locked)
+      return;
     _requireState(RuntimeState.foreground);
     try {
       await _sync.stop();
@@ -97,7 +98,8 @@ final class RuntimeCoordinator {
 
   /// Restarts model and sync access only after a valid background transition.
   Future<void> enterForeground() async {
-    if (_state == RuntimeState.foreground || _state == RuntimeState.locked) return;
+    if (_state == RuntimeState.foreground || _state == RuntimeState.locked)
+      return;
     _requireState(RuntimeState.background);
     try {
       await _model.enable();
@@ -116,7 +118,8 @@ final class RuntimeCoordinator {
     if (_state == RuntimeState.closed) {
       throw const RuntimeFailure('invalid_runtime_transition');
     }
-    if (_state != RuntimeState.foreground && _state != RuntimeState.background) {
+    if (_state != RuntimeState.foreground &&
+        _state != RuntimeState.background) {
       throw const RuntimeFailure('invalid_runtime_transition');
     }
     _state = RuntimeState.locking;
@@ -132,7 +135,8 @@ final class RuntimeCoordinator {
   /// Permanently closes this coordinator after enforcing the lock boundary.
   Future<void> close() async {
     if (_state == RuntimeState.closed) return;
-    if (_state == RuntimeState.foreground || _state == RuntimeState.background) {
+    if (_state == RuntimeState.foreground ||
+        _state == RuntimeState.background) {
       try {
         await lock();
       } on RuntimeFailure {

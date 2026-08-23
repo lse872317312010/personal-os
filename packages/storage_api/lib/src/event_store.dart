@@ -22,4 +22,3 @@ final class EventAppendConflict implements Exception {
   @override
   String toString() => 'EventAppendConflict: $message';
 }
-

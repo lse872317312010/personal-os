@@ -105,7 +105,8 @@ abstract final class EventEnvelopeJsonCodec {
         'event_version $eventVersion is not supported',
       );
     }
-    final sensitivity = _decodeSensitivity(_requiredString(json, 'sensitivity'));
+    final sensitivity =
+        _decodeSensitivity(_requiredString(json, 'sensitivity'));
     _ensurePersistable(sensitivity);
     return EventEnvelope(
       eventId: _requiredString(json, 'event_id'),
@@ -349,7 +350,8 @@ void _rejectUnknownFields(
   Set<String> fields,
   String context,
 ) {
-  final unknown = json.keys.where((key) => !fields.contains(key)).toList()..sort();
+  final unknown = json.keys.where((key) => !fields.contains(key)).toList()
+    ..sort();
   if (unknown.isNotEmpty) {
     throw EventCodecException(
       EventCodecReason.unknownField,
