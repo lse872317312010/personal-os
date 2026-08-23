@@ -267,7 +267,7 @@ final class _FakeBridge implements PlatformSecurityBridge {
     atomicDeviceRevocation: true,
   );
   PlatformSecurityFailure? failure;
-  Object? unexpectedFailure;
+  Error? unexpectedFailure;
   PlatformAuthenticationRequest? lastAuthentication;
   String? lastTicketId;
   PlatformWrappedKey? lastWrappedKey;

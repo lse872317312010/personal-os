@@ -280,7 +280,8 @@ final class _FakeTransaction implements SqlTransaction {
         'revision': parameters[0],
         'last_event_id': parameters[1],
         'state_json': parameters[2],
-        'state': jsonDecode(parameters[2]! as String)['state'],
+        'state': (jsonDecode(parameters[2]! as String)
+            as Map<String, Object?>)['state'],
       };
       return 1;
     }
@@ -368,7 +369,7 @@ SqlRow _projectionRow(List<Object?> p) => <String, Object?>{
       'revision': p[3],
       'last_event_id': p[4],
       'state_json': p[5],
-      'state': jsonDecode(p[5]! as String)['state'],
+      'state': (jsonDecode(p[5]! as String) as Map<String, Object?>)['state'],
     };
 
 Map<String, SqlRow> _copyMap(Map<String, SqlRow> source) =>

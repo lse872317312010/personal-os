@@ -234,7 +234,7 @@ final class SyncWorker {
     EncryptedSyncEnvelope envelope,
     OpaqueSyncCursor durableCursor,
   ) async {
-    String? rejection = _validateMetadata(envelope);
+    final String? rejection = _validateMetadata(envelope);
     if (rejection != null) {
       return SyncResult.rejected(rejection, envelopeId: envelope.envelopeId);
     }

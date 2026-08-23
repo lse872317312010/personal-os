@@ -87,7 +87,7 @@ void main() {
     );
     sourceItems.clear();
     expect(page.envelopes, hasLength(1));
-    expect(() => page.envelopes.clear(), throwsUnsupportedError);
+    expect(page.envelopes.clear, throwsUnsupportedError);
     final ids = ['env-1'];
     final receipt = SyncPushReceipt(
       acceptedEnvelopeIds: ids,
