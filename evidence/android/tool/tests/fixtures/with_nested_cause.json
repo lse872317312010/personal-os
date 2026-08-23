@@ -11,11 +11,8 @@
     "userAuthenticationAvailable": false,
     "deviceCredentialAvailable": false,
     "nonExportableKeys": false,
-    "atomicDeviceRevocation": false
-  },
-  "error": {
-    "code": "persistence.vault_locked",
-    "safe_message": "Vault session not unlocked before offline_operation scenario"
+    "atomicDeviceRevocation": false,
+    "cause": "nested leak inside capabilities"
   },
   "scenarios": [
     { "id": "install_launch", "result": "blocked", "checksPassed": 0, "checksTotal": 3, "failureCode": "not_run" },

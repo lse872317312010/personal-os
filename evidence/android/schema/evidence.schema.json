@@ -42,6 +42,7 @@
         "atomicDeviceRevocation": { "type": "boolean" }
       }
     },
+    "error": { "$ref": "#/$defs/error" },
     "scenarios": {
       "type": "array",
       "minItems": 9,
@@ -51,6 +52,23 @@
   },
   "$defs": {
     "result": { "enum": ["pass", "fail", "blocked"] },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^persistence\\.[a-z_]+$",
+          "description": "ADR-0014 stable wire value (persistence.*)."
+        },
+        "safe_message": {
+          "type": ["string", "null"],
+          "description": "Auditor-readable reason; must not contain paths, key material, or device fingerprints (ADR-0014 §3)."
+        }
+      },
+      "description": "ADR-0014 persistence-layer failure projection. cause / stack_trace are forbidden anywhere in the evidence tree (validated in code)."
+    },
     "scenario": {
       "type": "object",
       "additionalProperties": false,

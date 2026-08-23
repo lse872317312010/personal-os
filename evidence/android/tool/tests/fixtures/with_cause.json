@@ -6,16 +6,10 @@
   "startedAtUtc": "2026-08-20T00:00:00Z",
   "completedAtUtc": "2026-08-20T00:09:00Z",
   "overall": "blocked",
-  "capabilities": {
-    "protectionLevel": "unavailable",
-    "userAuthenticationAvailable": false,
-    "deviceCredentialAvailable": false,
-    "nonExportableKeys": false,
-    "atomicDeviceRevocation": false
-  },
   "error": {
     "code": "persistence.vault_locked",
-    "safe_message": "Vault session not unlocked before offline_operation scenario"
+    "safe_message": "vault locked",
+    "cause": "SecurityException(security.vault_locked)"
   },
   "scenarios": [
     { "id": "install_launch", "result": "blocked", "checksPassed": 0, "checksTotal": 3, "failureCode": "not_run" },

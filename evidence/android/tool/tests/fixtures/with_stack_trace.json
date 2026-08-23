@@ -6,16 +6,10 @@
   "startedAtUtc": "2026-08-20T00:00:00Z",
   "completedAtUtc": "2026-08-20T00:09:00Z",
   "overall": "blocked",
-  "capabilities": {
-    "protectionLevel": "unavailable",
-    "userAuthenticationAvailable": false,
-    "deviceCredentialAvailable": false,
-    "nonExportableKeys": false,
-    "atomicDeviceRevocation": false
-  },
   "error": {
-    "code": "persistence.vault_locked",
-    "safe_message": "Vault session not unlocked before offline_operation scenario"
+    "code": "persistence.vault_unlock_failed",
+    "safe_message": "vault unlock failed",
+    "stack_trace": "#0      VaultDriver.unlock (package:personal_os_sqlite_vault_driver/src/vault_driver.dart:83)\n#1      main (file:///home/user/secret.dart:1)"
   },
   "scenarios": [
     { "id": "install_launch", "result": "blocked", "checksPassed": 0, "checksTotal": 3, "failureCode": "not_run" },
