@@ -31,20 +31,24 @@ final class _PersonalOsAppState extends State<PersonalOsApp> {
         home: AnimatedBuilder(
           animation: widget.composition.controller,
           builder: (context, _) {
-            final controller = widget.composition.controller;
+            final AppController controller = widget.composition.controller;
             if (!controller.vaultUnlocked) {
               return VaultLockScreen(controller: controller);
             }
-            return _UnlockedShell(controller: controller);
+            return _UnlockedShell(
+              controller: controller,
+              composition: widget.composition,
+            );
           },
         ),
       );
 }
 
 final class _UnlockedShell extends StatelessWidget {
-  const _UnlockedShell({required this.controller});
+  const _UnlockedShell({required this.controller, required this.composition});
 
   final AppController controller;
+  final AppComposition composition;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -60,7 +64,8 @@ final class _UnlockedShell extends StatelessWidget {
           ],
         ),
         body: switch (controller.destination) {
-          AppDestination.home => HomeScreen(controller: controller),
+          AppDestination.home =>
+            HomeScreen(controller: controller, composition: composition),
           AppDestination.capture => CaptureScreen(controller: controller),
           AppDestination.claims => ClaimReviewScreen(controller: controller),
           AppDestination.plan => PlanScreen(controller: controller),

@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  path_provider: ^2.1.4
   personal_os_application:
     path: ../../packages/application
   personal_os_domain:
@@ -25,6 +26,8 @@ dependencies:
     path: ../../packages/policy
   personal_os_policy_application:
     path: ../../adapters/policy_application
+  personal_os_sqlite_vault:
+    path: ../../adapters/sqlite_vault
 
 dev_dependencies:
   flutter_test:
