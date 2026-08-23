@@ -9,7 +9,10 @@ python3 adapters/sqlite_vault/tool/validate_schema.py
 python3 tool/contract_audit/audit_recovery.py
 python3 -m unittest discover -s tool/contract_audit/tests -p 'test_*.py'
 python3 -m unittest discover -s tool/mvp_acceptance/tests -p 'test_*.py'
+python3 -m unittest discover -s tool/tests -p 'test_*.py'
 python3 evidence/android/tool/validate_evidence.py \
   evidence/android/records/synthetic.example.json
+# ADR-0010 v2 companion: gate status aggregator (summary report).
+python3 tool/gate_status.py
 
 echo 'repository contracts: PASS'
