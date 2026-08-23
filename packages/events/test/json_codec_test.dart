@@ -271,8 +271,8 @@ EventEnvelope _event([Sensitivity sensitivity = Sensitivity.d3]) => EventEnvelop
       },
     );
 
-Matcher _reason(String reason) => isA<EventCodecException>()
-    .having((error) => error.reasonCode, 'reasonCode', reason);
+Matcher _reason(String reason) => throwsA(isA<EventCodecException>()
+    .having((error) => error.reasonCode, 'reasonCode', reason));
 
 EventEnvelope _eventWithContainers(
   Map<String, Object?> payload,

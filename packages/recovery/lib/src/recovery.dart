@@ -424,6 +424,13 @@ final class RecoverySession {
   }
 
   Future<void> _discardBestEffort() async {
+    // Only discard staged security state if we have reached the security
+    // sync phase. Earlier failures (status gates, auth, generation, account
+    // or device binding) never fetched or staged security state, so calling
+    // discard would be an unnecessary observable side effect.
+    if (state.index < RecoverySessionState.securityStateSyncing.index) {
+      return;
+    }
     try {
       await _securityState.discardStagedState();
     } catch (_) {}
