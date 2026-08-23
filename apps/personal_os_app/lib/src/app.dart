@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'composition/app_composition.dart';
 import 'controller/app_controller.dart';
+import 'controller/theme_controller.dart';
 import 'navigation/app_destination.dart';
 import 'screens/screens.dart';
+import 'screens/theme_settings_sheet.dart';
 
 final class PersonalOsApp extends StatefulWidget {
   const PersonalOsApp({required this.composition, super.key});
@@ -16,41 +18,77 @@ final class PersonalOsApp extends StatefulWidget {
 
 final class _PersonalOsAppState extends State<PersonalOsApp> {
   @override
-  Widget build(BuildContext context) => MaterialApp(
+  Widget build(BuildContext context) {
+    final composition = widget.composition;
+    return AnimatedBuilder(
+      animation: composition.themeController,
+      builder: (context, _) => MaterialApp(
         title: 'Personal OS',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xff315c4c),
-          ),
-          useMaterial3: true,
-          inputDecorationTheme: const InputDecorationTheme(
-            border: OutlineInputBorder(),
-          ),
-        ),
+        theme: _lightTheme,
+        darkTheme: _darkTheme,
+        themeMode: composition.themeController.mode,
         home: AnimatedBuilder(
-          animation: widget.composition.controller,
+          animation: composition.controller,
           builder: (context, _) {
-            final controller = widget.composition.controller;
+            final controller = composition.controller;
             if (!controller.vaultUnlocked) {
               return VaultLockScreen(controller: controller);
             }
-            return _UnlockedShell(controller: controller);
+            return _UnlockedShell(
+              controller: controller,
+              themeController: composition.themeController,
+            );
           },
         ),
-      );
+      ),
+    );
+  }
 }
 
+final ThemeData _lightTheme = ThemeData(
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: const Color(0xff315c4c),
+    brightness: Brightness.light,
+  ),
+  useMaterial3: true,
+  inputDecorationTheme: const InputDecorationTheme(
+    border: OutlineInputBorder(),
+  ),
+);
+
+final ThemeData _darkTheme = ThemeData(
+  colorScheme: ColorScheme.fromSeed(
+    seedColor: const Color(0xff315c4c),
+    brightness: Brightness.dark,
+  ),
+  useMaterial3: true,
+  inputDecorationTheme: const InputDecorationTheme(
+    border: OutlineInputBorder(),
+  ),
+);
+
 final class _UnlockedShell extends StatelessWidget {
-  const _UnlockedShell({required this.controller});
+  const _UnlockedShell({
+    required this.controller,
+    required this.themeController,
+  });
 
   final AppController controller;
+  final ThemeController themeController;
 
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(
           title: Text(controller.destination.label),
           actions: <Widget>[
+            IconButton(
+              key: const Key('open-theme-settings'),
+              tooltip: '主题',
+              onPressed: () =>
+                  showThemeSettingsSheet(context, controller: themeController),
+              icon: const Icon(Icons.palette_outlined),
+            ),
             IconButton(
               key: const Key('lock-vault'),
               tooltip: '锁定 Vault',

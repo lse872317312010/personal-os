@@ -2,6 +2,20 @@
 
 记录项目基线、范围、需求和决策的实质变化。项目尚未进入发布版本阶段。
 
+## 2026-08-23 — Coding Wave 20k
+
+### Added
+
+- ThemeController（in-memory 进程级 ThemeMode 偏好，遵循 ADR-0009 易失·演示边界）；
+- ThemeSettingsSheet 模态底部表单：跟随系统 / 浅色 / 深色三选一；
+- AppBar 新增主题入口 IconButton（key `open-theme-settings`），不影响现有 Vault 解锁/锁定流程；
+- MaterialApp 显式注入 `theme` / `darkTheme` / `themeMode`，主题切换即时生效。
+
+### Tests
+
+- `theme_controller_test.dart`：默认值、setMode 通知幂等、循环切换、dispose 安全；
+- `theme_toggle_test.dart`：解锁后打开 sheet、选择 dark / light 同步 MaterialApp 与 controller、重开 sheet 保留选中态。
+
 ## 2026-08-20 — Coding Wave 10
 
 ### Added

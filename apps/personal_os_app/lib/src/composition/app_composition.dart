@@ -7,14 +7,20 @@ import 'package:personal_os_policy/policy.dart';
 import 'package:personal_os_policy_application/policy_application.dart';
 
 import '../controller/app_controller.dart';
+import '../controller/theme_controller.dart';
 
 /// Replace this composition root with encrypted persistence, keystore-backed
 /// unlock, and a real model adapter. Widgets never reach those adapters.
 final class AppComposition {
-  AppComposition({required this.controller, required this.eventStore});
+  AppComposition({
+    required this.controller,
+    required this.eventStore,
+    required this.themeController,
+  });
 
   final AppController controller;
   final InMemoryEventStore eventStore;
+  final ThemeController themeController;
 
   factory AppComposition.inMemoryDemo() {
     final clock = _SystemClock();
@@ -40,6 +46,7 @@ final class AppComposition {
     );
     return AppComposition(
       eventStore: eventStore,
+      themeController: ThemeController(),
       controller: AppController(
         analyzeAppearance: useCase,
         actionFeedback: ActionFeedbackUseCase(
