@@ -1,9 +1,16 @@
-# M2 多智能体并行开发计划 v0.2（真实 Backlog 同步 · 2026-08-23）
+# M2 多智能体并行开发计划 v0.3（真实 Backlog 同步 · 2026-08-23）
 
 状态：living-document · 当前 main = commit 27d0b9e  
 目标：在不削弱 M1 契约的前提下，完成 Android-first Flutter Personal OS 的首个可运行纵向切片，并保留 Windows/iOS 跨平台边界。
 
-> **变更自 v0.1**：
+> **变更自 v0.2**：
+> 1. 新增 **Wave 17a/b/c + Wave 18a/b/c/d + Wave 19a/b/c/d 共 9 条新 PR 行**（§5.1 第 18–26 行 + 本 v0.3 自身），全部已 PUSHED 到 GitHub `feature/wave-*` 分支；其中 Wave 19a/b/c 已开 Pull Request（PR #8/#9/#10），其余 6 个分支待开 PR；
+> 2. **ADR-0009 与 ADR-0010 正式收录**（由 Wave 18c 落地）：ADR-0009 定义 in-memory adapter 进程级生命周期规则，ADR-0010 定义 evidence ledger SHA-256 链 + `records[]` 数组 + `validate_evidence.py` 双形态自调度校验，§4 门禁与 §7 合并顺序均以这两篇 ADR 为裁判标准；
+> 3. **§6.1 仪表盘新增 Wave 17 / 18 / 19 三行**，并把 Wave 17 从 v0.2 的"启动中"细化为 a/b/c 三子 PR 全部 PUSHED；Wave 18 标为 🟢 完成；Wave 19 标为 🟡 进行中（19d 本 PR 即收尾）；
+> 4. **PR 与 Branch 区分**：v0.2 把状态都写成"✅ PUSHED"，未区分是否已开 PR。v0.3 在状态列加入 `✅ PR OPEN` / `✅ PUSHED (PR 待开)` 两种细分；
+> 5. **§7 合并顺序**新增第 8 条 Wave 18→Wave 19 依赖链：Wave 18a/b/c/d 全部合并后，Wave 19b/c 才能在 main 上原生编译（19b/19c 在自己的分支内已 merge 17a/17b 作为 base，所以 diff 干净，但 main 上需要先有 17a/17b/18a 才能让 19b/19c 跑起来）。
+
+> **变更自 v0.1**（保留 v0.2 引言，便于历史追溯）：
 > 1. 新增 **§5.1 Backlog 真实状态表**（13 条已推送 PR + 2 条架构文档 PR，共 15 项 Wave 11–Wave 16），每一项都能链接到真实 feature/wave-* 分支；
 > 2. 新增 **§6.1 波次进度仪表盘**（4 波次 × Wave 11/12/13/14/15/16/17），明确 `已完成 / 进行中 / 规划中`，供主 reviewer 一眼判断当前距离 G0→G6 门禁还有多远；
 > 3. §5 首批 Backlog 保留为"理想工作项清单"，但所有真实进度统一回显到 §5.1 的状态列中，避免两张表对不上。
@@ -122,7 +129,18 @@ flowchart TD
 | 14 | **Wave 16 I 侧 ADR-0008 硬断言 + 团队 PR 模板**：check_contracts.sh 新增 constraint-4（screens/controller 0 容忍 import adapter）与 constraint-2（launcher 只有 3 个）+ smoke_adr0008_grep.sh 三步真自测（含 negative FAIL 证明）+ `.github/PULL_REQUEST_TEMPLATE.md` 规范骨架 | I / Wave 16 | Trae Subagent | ✅ PUSHED | G1 硬门禁升级 | `feature/wave-16/I-adr0008-grep-and-pr-template` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-16/I-adr0008-grep-and-pr-template) |
 | 15 | ADR 三补（Wave B）：0006 Flutter 平台边界 + 0007 四层加密栈 + 0008 Composition 金规则 + README index | A / Wave B | Trae Subagent | ✅ PUSHED | §4 门禁全部以这些 ADR 为裁判标准 | `feature/wave-B/A-adr-0006-0008` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-B/A-adr-0006-0008) |
 | 16 | REQUIREMENTS_INBOX：10 条男士外貌分析结构化需求（与 D2 拍照观察闭环对齐） | A / Wave B | Trae Subagent | ✅ PUSHED | 产品侧门禁 | `feature/wave-B/A-requirements-inbox-0817` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-B/A-requirements-inbox-0817) |
-| 17 | (本条为 v0.2 自身更新)：MULTI_AGENT_CODING_PLAN.md 把上面 16 项真实状态同步进 §5.1 + §6.1 仪表盘 | B / Wave B1.3 | Trae Subagent | ✅ PUSHED（本 PR）| 流程文档门禁 | `feature/wave-B1.3/A-backlog-sync-13prs` · 本 PR 提交后链接将在此处补全 |
+| 17 | (v0.2 自身更新)：MULTI_AGENT_CODING_PLAN.md 把上面 16 项真实状态同步进 §5.1 + §6.1 仪表盘 | B / Wave B1.3 | Trae Subagent | ✅ PUSHED | 流程文档门禁 | `feature/wave-B/A-backlog-sync-13prs` · 待开 PR |
+| 18 | **Wave 17a 纯 Dart Vault 导出打包器**：`packages/storage_api/lib/src/vault_exporter.dart` 445 行 — JSON 单文档 schema_version=1 + HMAC-SHA256 + SHA-256 自实现（无 `package:crypto` 依赖）+ `exportFromSnapshot` 入口（demo/devSqlite 路径）+ 6 单元测试 | D / Wave 17a | Trae Subagent | ✅ PUSHED (PR 待开) | D2 数据生命周期导出端 | `feature/wave-17a_D-export-packager` · 待开 PR |
+| 19 | **Wave 17b DeleteGuard 状态机**：3 项 acknowledgement checkbox + 大小写敏感 "DELETE" typed confirm + `canDelete` getter + `blockers` 列表 + 5 单元测试 — 纯 Dart，无 Flutter 依赖 | D / Wave 17b | Trae Subagent | ✅ PUSHED (PR 待开) | D2 删除前最后一道闸 | `feature/wave-17b_D-delete-guard` · 待开 PR |
+| 20 | **Wave 17c RecoveryVerifier**：`packages/storage_api/lib/src/recovery_verifier.dart` — SHA-256 文档摘要 + HMAC-SHA256 签名校验 + 冲突检测（不同 composition_mode / 缺事件 / 序号跳变）+ 5 单元测试 | D / Wave 17c | Trae Subagent | ✅ PUSHED (PR 待开) | D2 数据生命周期恢复端 | `feature/wave-17c_D-recovery-verifier` · 待开 PR |
+| 21 | **Wave 18a InMemoryBlobStore**：`adapters/in_memory/lib/src/in_memory_blob_store.dart` — 让 demo 模式也能存照片；进程内存生命周期（ADR-0009 §1）；blob capability-addressed（无 list() port）+ 4 单元测试 | C / Wave 18a | Trae Subagent | ✅ PUSHED (PR 待开) | C2 · ADR-0009 §1 | `feature/wave-18a_C-in-memory-blob-store` · 待开 PR |
+| 22 | **Wave 18b EventStore.readAll() 端口**：`packages/storage_api/lib/src/event_store.dart` 新增 `readAll()` 抽象方法 + InMemoryEventStore 实现 + VaultExporter 切换至 readAll + 5 单元测试 | B / Wave 18b | Trae Subagent | ✅ PUSHED (PR 待开) | B 公共端口扩展；Wave 17a 真行为接线前置 | `feature/wave-18b_B-eventstore-readall` · 待开 PR |
+| 23 | **Wave 18c ADR-0009 + ADR-0010 双 ADR 落地**：`docs/decisions/0009-in-memory-adapter-lifecycle.md`（demo=进程生命周期 / devSqlite=重启保留 / prodEncrypted=Keystore 销毁即不可恢复）+ `docs/decisions/0010-evidence-ledger-chain.md`（records[] 数组 + SHA-256 链 + 三级 kind=synthetic/real/device） | A / Wave 18c | Trae Subagent | ✅ PUSHED (PR 待开) | §4 门禁裁判标准升级 | `feature/wave-18c_A-adr-0009-0010` · 待开 PR |
+| 24 | **Wave 18d Integration Test Skeleton**：`apps/personal_os_app/integration_test/restart_consistency_test.dart` — 验证 G5 vertical slice 重启一致性；`flutter-android.yml` 加 `flutter test integration_test/` 步骤（`continue-on-error: true`，待 Wave 17/18 全部合入后改硬 fail） | T / Wave 18d | Trae Subagent | ✅ PUSHED (PR 待开) | G5 vertical slice 入口 | `feature/wave-18d_T-integration-test-skeleton` · 待开 PR |
+| 25 | **Wave 19a ADR-0010 SHA-256 evidence ledger chain 实施**：`tool/evidence_writer.py` v1.1.0 — `--append-record` / `--validate-chain` 模式 + `records[]` 数组 + record_id = SHA-256(prev + commit + ts + gate + status)[:12] + `validate_evidence.py` 双形态自调度校验（chain vs Android record）+ 8 单元测试 + `check_contracts.sh` 接入 + repo-contracts.yml 路径触发 | I / Wave 19a | Trae Subagent | ✅ PR OPEN | ADR-0010 §1-§4 落地 | `feature/wave-19a_I-evidence-chain-v11` · [PR #8](https://github.com/lse872317312010/personal-os/pull/8) |
+| 26 | **Wave 19b ExportScreen 接通 VaultExporter**：`apps/personal_os_app/lib/src/screens/export_screen.dart` — passphrase TextField + includeBlobs toggle + CTA 仅在 `readEvents().isNotEmpty` 时启用 + SHA-256/HMAC 签名/字节数显示 + VaultExportRejected 错误处理；AppComposition 暴露 `vaultExporter` + `compositionMode`；7 widget 测试 | D / Wave 19b | Trae Subagent | ✅ PR OPEN | D2 UI 接通 Wave 17a 打包器 | `feature/wave-19b_D-export-screen-wiring` · [PR #9](https://github.com/lse872317312010/personal-os/pull/9) |
+| 27 | **Wave 19c DeleteScreen 接通 DeleteGuard**：`apps/personal_os_app/lib/src/screens/delete_screen.dart` — 3 CheckboxListTile + DELETE 大小写敏感 TextField + 红色 CTA + `guard.blockers` 内联提示 + caller-owned `onConfirmDelete` 回调（Wave 18 将 wire Keystore 销毁/SQLCipher 删库/blob 清理）；9 widget 测试 | D / Wave 19c | Trae Subagent | ✅ PR OPEN | D2 UI 接通 Wave 17b 状态机 | `feature/wave-19c_D-delete-screen-wiring` · [PR #10](https://github.com/lse872317312010/personal-os/pull/10) |
+| 28 | (v0.3 自身更新)：本 PR — MULTI_AGENT_CODING_PLAN.md 把上面 27 项真实状态同步进 §5.1 + §6.1 仪表盘 + §7 合并顺序，并补 ADR-0009/0010 引用 | B / Wave 19d | Trae Subagent | ✅ PUSHED (本 PR) | 流程文档门禁 | `feature/wave-19d_B-backlog-v03-sync` · 本 PR |
 
 ## 6. 推荐执行波次
 
