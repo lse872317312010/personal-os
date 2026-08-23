@@ -259,6 +259,7 @@ final class RecoverySession {
   final DateTime Function() _clock;
   final List<RecoverySessionState> _states = [RecoverySessionState.intake];
   bool _started = false;
+  bool _securityStateStageMayExist = false;
   int? _authenticatedGeneration;
 
   RecoverySessionState get state => _states.last;
@@ -310,6 +311,7 @@ final class RecoverySession {
         }
         _advance(RecoverySessionState.deviceBound);
         _advance(RecoverySessionState.securityStateSyncing);
+        _securityStateStageMayExist = true;
 
         final snapshot = await _fetchSecurityState();
         if (!snapshot.signatureValid || !snapshot.accountBindingValid) {
@@ -346,6 +348,7 @@ final class RecoverySession {
         }
         _advance(RecoverySessionState.deletionTombstonesApplied);
         await _securityState.commitStagedState(snapshot);
+        _securityStateStageMayExist = false;
         _advance(RecoverySessionState.securityStateApplied);
 
         await _vaultSync.syncCiphertextOnly();
@@ -425,16 +428,14 @@ final class RecoverySession {
   }
 
   Future<void> _discardBestEffort() async {
-    // Only discard staged security state if we have reached the security
-    // sync phase. Earlier failures (status gates, auth, generation, account
-    // or device binding) never fetched or staged security state, so calling
-    // discard would be an unnecessary observable side effect.
-    if (state.index < RecoverySessionState.securityStateSyncing.index) {
-      return;
-    }
+    if (!_securityStateStageMayExist) return;
     try {
       await _securityState.discardStagedState();
-    } catch (_) {}
+    } catch (_) {
+      // Recovery failure must remain the primary error.
+    } finally {
+      _securityStateStageMayExist = false;
+    }
   }
 
   void _advance(RecoverySessionState next) {
