@@ -1,0 +1,56 @@
+name: Dart core (Windows)
+
+on:
+  pull_request:
+    paths:
+      - "packages/**"
+      - "adapters/**"
+      - "test_contract/runner_dart/**"
+      - "pubspec.yaml"
+      - "analysis_options.yaml"
+      - "tool/check_dart_core.sh"
+      - "tool/validate_local_dependencies.py"
+      - ".github/workflows/dart-core-windows.yml"
+  push:
+    branches:
+      - main
+      - "feature/**"
+    paths:
+      - "packages/**"
+      - "adapters/**"
+      - "test_contract/runner_dart/**"
+      - "pubspec.yaml"
+      - "analysis_options.yaml"
+      - "tool/check_dart_core.sh"
+      - "tool/validate_local_dependencies.py"
+      - ".github/workflows/dart-core-windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dart-core-windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Format, analyze, and test on Windows
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: "3.3.4"
+
+      - name: Verify platform-neutral Dart core on Windows
+        run: bash tool/check_dart_core.sh
