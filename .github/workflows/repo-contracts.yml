@@ -16,7 +16,7 @@ on:
       - "adapters/**/pubspec.yaml"
       - ".github/workflows/repo-contracts.yml"
   push:
-    branches: [main]
+    branches: [main, "feature/**"]
     paths:
       - "adapters/sqlite_vault/**"
       - "architecture/RECOVERY_PROTOCOL.md"
