@@ -5,6 +5,7 @@ enum AppDestination {
   plan,
   tasks,
   review,
+  settings,
 }
 
 extension AppDestinationLabel on AppDestination {
@@ -15,5 +16,6 @@ extension AppDestinationLabel on AppDestination {
         AppDestination.plan => '行动计划',
         AppDestination.tasks => '任务',
         AppDestination.review => '复盘',
+        AppDestination.settings => '设置',
       };
 }

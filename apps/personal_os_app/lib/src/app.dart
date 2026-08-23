@@ -66,6 +66,7 @@ final class _UnlockedShell extends StatelessWidget {
           AppDestination.plan => PlanScreen(controller: controller),
           AppDestination.tasks => TaskScreen(controller: controller),
           AppDestination.review => ReviewScreen(controller: controller),
+          AppDestination.settings => SettingsScreen(controller: controller),
         },
         bottomNavigationBar: NavigationBar(
           selectedIndex: _primaryIndex(controller.destination),
@@ -75,6 +76,7 @@ final class _UnlockedShell extends StatelessWidget {
               AppDestination.capture,
               AppDestination.tasks,
               AppDestination.review,
+              AppDestination.settings,
             ][index],
           ),
           destinations: const <NavigationDestination>[
@@ -94,6 +96,10 @@ final class _UnlockedShell extends StatelessWidget {
               icon: Icon(Icons.insights_outlined),
               label: '复盘',
             ),
+            NavigationDestination(
+              icon: Icon(Icons.settings_outlined),
+              label: '设置',
+            ),
           ],
         ),
       );
@@ -107,4 +113,5 @@ int _primaryIndex(AppDestination destination) => switch (destination) {
         1,
       AppDestination.tasks => 2,
       AppDestination.review => 3,
+      AppDestination.settings => 4,
     };
