@@ -9,11 +9,15 @@ on:
       - "fixtures/recovery/**"
       - "tool/contract_audit/**"
       - "tool/mvp_acceptance/**"
+      - "tool/tests/**"
+      - "tool/check_persistence_imports.py"
       - "evidence/mvp/**"
       - "tool/check_contracts.sh"
       - "tool/validate_local_dependencies.py"
       - "packages/**/pubspec.yaml"
       - "adapters/**/pubspec.yaml"
+      - "apps/personal_os_app/lib/**"
+      - "packages/**/lib/**"
       - ".github/workflows/repo-contracts.yml"
   push:
     branches: [main]
@@ -24,11 +28,15 @@ on:
       - "fixtures/recovery/**"
       - "tool/contract_audit/**"
       - "tool/mvp_acceptance/**"
+      - "tool/tests/**"
+      - "tool/check_persistence_imports.py"
       - "evidence/mvp/**"
       - "tool/check_contracts.sh"
       - "tool/validate_local_dependencies.py"
       - "packages/**/pubspec.yaml"
       - "adapters/**/pubspec.yaml"
+      - "apps/personal_os_app/lib/**"
+      - "packages/**/lib/**"
       - ".github/workflows/repo-contracts.yml"
   workflow_dispatch:
 
