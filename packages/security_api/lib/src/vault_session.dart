@@ -40,7 +40,8 @@ final class DefaultVaultSession implements VaultSession {
 
   @override
   Future<void> unlock({required String reason}) async {
-    final grant = await _unlockPort.requestUnlock(UnlockRequest(reason: reason));
+    final grant =
+        await _unlockPort.requestUnlock(UnlockRequest(reason: reason));
     if (!grant.isValidAt(_clock())) {
       _grant = null;
       throw const SecurityException(SecurityErrorCode.unlockExpired);

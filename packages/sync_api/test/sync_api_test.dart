@@ -46,9 +46,11 @@ void main() {
   });
 
   test('diagnostics redact cursor, ciphertext, and signature', () {
-    final item = envelope(ciphertext: Uint8List.fromList(utf8.encode('secret')));
+    final item =
+        envelope(ciphertext: Uint8List.fromList(utf8.encode('secret')));
     expect(item.toString(), isNot(contains('secret')));
-    expect(item.toString(), isNot(contains(base64Encode(utf8.encode('secret')))));
+    expect(
+        item.toString(), isNot(contains(base64Encode(utf8.encode('secret')))));
     expect(item.toString(), contains('<6 bytes>'));
     expect(
       OpaqueSyncCursor('private-cursor').toString(),
@@ -85,7 +87,7 @@ void main() {
     );
     sourceItems.clear();
     expect(page.envelopes, hasLength(1));
-    expect(() => page.envelopes.clear(), throwsUnsupportedError);
+    expect(page.envelopes.clear, throwsUnsupportedError);
     final ids = ['env-1'];
     final receipt = SyncPushReceipt(
       acceptedEnvelopeIds: ids,

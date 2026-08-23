@@ -62,7 +62,8 @@ final class DeviceSequenceRange {
 
   SequenceGap? gapAfter(int previouslyReceived) {
     if (previouslyReceived < -1) {
-      throw RangeError.range(previouslyReceived, -1, null, 'previouslyReceived');
+      throw RangeError.range(
+          previouslyReceived, -1, null, 'previouslyReceived');
     }
     final expected = previouslyReceived + 1;
     return first > expected
@@ -106,7 +107,8 @@ final class EncryptedSyncEnvelope {
     ]) {
       if (value.isEmpty) throw ArgumentError('metadata must not be empty');
     }
-    if (_ciphertext.isEmpty) throw ArgumentError('ciphertext must not be empty');
+    if (_ciphertext.isEmpty)
+      throw ArgumentError('ciphertext must not be empty');
     if (_signature.isEmpty) throw ArgumentError('signature must not be empty');
   }
 
@@ -147,8 +149,7 @@ final class SealedSyncPayload {
     required this.recipientEpoch,
     required Uint8List ciphertext,
     required Uint8List signature,
-  })
-      : _ciphertext = Uint8List.fromList(ciphertext),
+  })  : _ciphertext = Uint8List.fromList(ciphertext),
         _signature = Uint8List.fromList(signature);
   final String recipientEpoch;
   final Uint8List _ciphertext;
@@ -161,8 +162,7 @@ final class SyncPushReceipt {
   SyncPushReceipt({
     required List<String> acceptedEnvelopeIds,
     required this.cursor,
-  })
-      : acceptedEnvelopeIds = List.unmodifiable(acceptedEnvelopeIds);
+  }) : acceptedEnvelopeIds = List.unmodifiable(acceptedEnvelopeIds);
   final List<String> acceptedEnvelopeIds;
   final OpaqueSyncCursor cursor;
 }

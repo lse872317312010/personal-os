@@ -5,8 +5,7 @@ final class SqliteVaultSchema {
   const SqliteVaultSchema._();
 
   static const int version = 1;
-  static const String migrationAsset =
-      'migrations/0001_vault_schema.sql';
+  static const String migrationAsset = 'migrations/0001_vault_schema.sql';
 
   static const Set<String> persistedSensitivities = <String>{
     'D0',
@@ -82,7 +81,8 @@ final class VaultPersistenceValidator {
 
   static void validateSensitivity(String sensitivity) {
     if (!SqliteVaultSchema.persistedSensitivities.contains(sensitivity)) {
-      throw VaultSchemaViolation('Sensitivity $sensitivity cannot be persisted');
+      throw VaultSchemaViolation(
+          'Sensitivity $sensitivity cannot be persisted');
     }
   }
 

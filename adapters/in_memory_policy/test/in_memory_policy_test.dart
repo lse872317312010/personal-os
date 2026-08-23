@@ -31,18 +31,25 @@ void main() {
       initialGrants: [grant(revision: 1), grant(revision: 2)],
     );
 
-    expect((await repository.findRevision(
-      consentId: 'consent-1',
-      revision: 1,
-    ))?.revision, 1);
-    expect(await repository.findRevision(
-      consentId: 'consent-1',
-      revision: 3,
-    ), isNull);
-    expect(await repository.findRevision(
-      consentId: 'another-consent',
-      revision: 2,
-    ), isNull);
+    expect(
+        (await repository.findRevision(
+          consentId: 'consent-1',
+          revision: 1,
+        ))
+            ?.revision,
+        1);
+    expect(
+        await repository.findRevision(
+          consentId: 'consent-1',
+          revision: 3,
+        ),
+        isNull);
+    expect(
+        await repository.findRevision(
+          consentId: 'another-consent',
+          revision: 2,
+        ),
+        isNull);
   });
 
   test('does not fall back to latest revision', () async {
@@ -50,10 +57,12 @@ void main() {
       initialGrants: [grant(revision: 8)],
     );
 
-    expect(await repository.findRevision(
-      consentId: 'consent-1',
-      revision: 7,
-    ), isNull);
+    expect(
+        await repository.findRevision(
+          consentId: 'consent-1',
+          revision: 7,
+        ),
+        isNull);
   });
 
   test('returns revoked and expired revisions without filtering', () async {
@@ -63,17 +72,24 @@ void main() {
       initialGrants: [revoked, expired],
     );
 
-    expect((await repository.findRevision(
-      consentId: 'consent-1',
-      revision: 1,
-    ))?.status, ConsentStatus.revoked);
-    expect((await repository.findRevision(
-      consentId: 'consent-1',
-      revision: 2,
-    ))?.validUntil, start);
+    expect(
+        (await repository.findRevision(
+          consentId: 'consent-1',
+          revision: 1,
+        ))
+            ?.status,
+        ConsentStatus.revoked);
+    expect(
+        (await repository.findRevision(
+          consentId: 'consent-1',
+          revision: 2,
+        ))
+            ?.validUntil,
+        start);
   });
 
-  test('takes collection snapshots and returns fresh value snapshots', () async {
+  test('takes collection snapshots and returns fresh value snapshots',
+      () async {
     final mutablePurposes = <String>{'appearance_review'};
     final repository = InMemoryConsentRevisionRepository();
     repository.add(grant(revision: 1, purposes: mutablePurposes));

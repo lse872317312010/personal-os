@@ -32,4 +32,3 @@ abstract interface class IdGenerator {
 abstract interface class Clock {
   DateTime now();
 }
-

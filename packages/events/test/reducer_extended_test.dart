@@ -3,7 +3,8 @@ import 'package:personal_os_events/events.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('S1 point-in-time objects are projected without invented lifecycles', () {
+  test('S1 point-in-time objects are projected without invented lifecycles',
+      () {
     for (final entry in <(String, String, String)>[
       (EventTypes.sourceRegistered, 'source', 'registered'),
       (EventTypes.observationRecorded, 'observation', 'recorded'),
@@ -65,7 +66,8 @@ void main() {
     expect(projections['review:R1']?.state, 'accepted');
   });
 
-  test('deletion barrier marks scope and completion marks erased refs deleted', () {
+  test('deletion barrier marks scope and completion marks erased refs deleted',
+      () {
     final requested = _reduce(
       _event(
         EventTypes.deletionRequested,
@@ -99,7 +101,8 @@ void main() {
     expect(completed.projections['source:S1']?.state, 'deleted');
     expect(completed.projections['blob:S1-raw']?.state, 'deleted');
     expect(
-      completed.projections['tombstone:TS1']?.attributes['contains_content_hash'],
+      completed
+          .projections['tombstone:TS1']?.attributes['contains_content_hash'],
       isFalse,
     );
   });
@@ -143,12 +146,14 @@ void main() {
     expect(detected.projections['plan:P1'], same(plan));
   });
 
-  test('unknown semantic event is rejected and unsupported version quarantined', () {
+  test('unknown semantic event is rejected and unsupported version quarantined',
+      () {
     final unknown = _reduce(_event('future.semantic', 'future'));
     expect(unknown.disposition, ReductionDisposition.rejected);
     expect(unknown.reasonCode, ReductionReason.unsupportedEventType);
 
-    final future = _reduce(_event(EventTypes.sourceRegistered, 'source', version: 2));
+    final future =
+        _reduce(_event(EventTypes.sourceRegistered, 'source', version: 2));
     expect(future.disposition, ReductionDisposition.quarantined);
     expect(future.reasonCode, ReductionReason.unsupportedEventVersion);
   });

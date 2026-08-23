@@ -1,5 +1,10 @@
 # Personal OS
 
+![Dart core](https://github.com/lse872317312010/personal-os/actions/workflows/dart-core.yml/badge.svg)
+![Dart core (Windows)](https://github.com/lse872317312010/personal-os/actions/workflows/dart-core-windows.yml/badge.svg)
+![Flutter Android](https://github.com/lse872317312010/personal-os/actions/workflows/flutter-android.yml/badge.svg)
+![Repository contracts](https://github.com/lse872317312010/personal-os/actions/workflows/repo-contracts.yml/badge.svg)
+
 一个长期演进的 **AI-native 个人决策操作系统**。
 
 它不是单一的健身、饮食、外貌或社交 App，而是把个人目标、真实状态、约束、行动、反馈和长期记忆连接起来，持续帮助用户做出更好的决策。首位 dogfooding 用户是项目创建者本人，未来保留产品化与商业化可能。

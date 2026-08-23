@@ -99,4 +99,3 @@ PolicyDecision evaluateConsent({
   }
   return PolicyDecision.allowed();
 }
-

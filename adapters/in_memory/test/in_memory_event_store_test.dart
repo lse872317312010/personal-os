@@ -29,7 +29,8 @@ void main() {
       expect(store.readProjection('goal', 'goal-1')?.revision.value, 1);
     });
 
-    test('revision conflict rejects the whole batch without partial commit', () {
+    test('revision conflict rejects the whole batch without partial commit',
+        () {
       final store = InMemoryEventStore();
       final result = store.appendTransaction([
         _event('e1', 0, objectId: 'goal-1'),
@@ -57,13 +58,15 @@ void main() {
       expect(store.readOutbox(), isEmpty);
     });
 
-    test('reads use stable sequences and outbox acknowledgement is idempotent', () {
+    test('reads use stable sequences and outbox acknowledgement is idempotent',
+        () {
       final store = InMemoryEventStore();
       store.append(_event('z-event', 0, objectId: 'goal-z'));
       store.append(_event('a-event', 0, objectId: 'goal-a'));
 
       expect(store.readEvents().map((e) => e.sequence), [1, 2]);
-      expect(store.readEvents(afterSequence: 1).single.event.eventId, 'a-event');
+      expect(
+          store.readEvents(afterSequence: 1).single.event.eventId, 'a-event');
       expect(store.acknowledgeOutbox(1), isTrue);
       expect(store.acknowledgeOutbox(1), isTrue);
       expect(store.readOutbox().map((e) => e.sequence), [2]);

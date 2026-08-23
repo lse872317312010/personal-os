@@ -1,4 +1,4 @@
-name: Dart core
+name: Dart core (Windows)
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ on:
       - "analysis_options.yaml"
       - "tool/check_dart_core.sh"
       - "tool/validate_local_dependencies.py"
-      - ".github/workflows/dart-core.yml"
+      - ".github/workflows/dart-core-windows.yml"
   push:
     branches:
       - main
@@ -23,21 +23,25 @@ on:
       - "analysis_options.yaml"
       - "tool/check_dart_core.sh"
       - "tool/validate_local_dependencies.py"
-      - ".github/workflows/dart-core.yml"
+      - ".github/workflows/dart-core-windows.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: dart-core-${{ github.workflow }}-${{ github.ref }}
+  group: dart-core-windows-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   verify:
-    name: Format, analyze, and test
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    name: Format, analyze, and test on Windows
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Check out repository
@@ -48,5 +52,5 @@ jobs:
         with:
           sdk: "3.3.4"
 
-      - name: Verify platform-neutral Dart core
+      - name: Verify platform-neutral Dart core on Windows
         run: bash tool/check_dart_core.sh

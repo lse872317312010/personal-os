@@ -138,7 +138,8 @@ final class ActionFeedbackUseCase {
       expectedRevision: command.expectedTaskRevision,
     );
     if (command.reason.trim().isEmpty) {
-      throw const FeedbackUseCaseFailure(FeedbackFailureCode.skipReasonRequired);
+      throw const FeedbackUseCaseFailure(
+          FeedbackFailureCode.skipReasonRequired);
     }
     final eventId = _ids.nextId('event');
     await _eventStore.appendAll(<EventEnvelope>[

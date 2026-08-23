@@ -18,8 +18,10 @@ void main() {
     ]);
   });
 
-  test('failed unlock is redacted, closes, destroys key, and relocks', () async {
-    final fixture = Fixture(schemaVersion: 0)..connection.tx.failMigration = true;
+  test('failed unlock is redacted, closes, destroys key, and relocks',
+      () async {
+    final fixture = Fixture(schemaVersion: 0)
+      ..connection.tx.failMigration = true;
 
     await expectLater(
       fixture.driver.unlock(),
@@ -104,7 +106,8 @@ void main() {
     await fixture.driver.close();
 
     expect(fixture.driver.state, VaultLifecycleState.closed);
-    await expectLater(fixture.driver.unlock(), throwsA(isA<VaultDriverFailure>()));
+    await expectLater(
+        fixture.driver.unlock(), throwsA(isA<VaultDriverFailure>()));
   });
 
   test('invalid migration chain is rejected before opening', () {
@@ -183,7 +186,8 @@ final class FakeConnection implements VaultConnection {
   bool failClose = false;
 
   @override
-  Future<T> transaction<T>(Future<T> Function(VaultTransaction tx) action) async {
+  Future<T> transaction<T>(
+      Future<T> Function(VaultTransaction tx) action) async {
     transactionCount++;
     return action(tx);
   }

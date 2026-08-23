@@ -99,53 +99,54 @@ AppController _controller(
   final store = InMemoryEventStore();
   final ids = _Ids();
   return AppController(
-      analyzeAppearance: AnalyzeAppearanceUseCase(
-        eventStore: store,
-        modelGateway: gateway,
-        policy: AppearancePolicyAdapter(
-          consents: InMemoryConsentRevisionRepository(
-            initialGrants: includeGrant
-                ? <ConsentGrant>[
-                    ConsentGrant(
-                      consentId: 'local-appearance-consent',
-                      revision: 1,
-                      subjectId: 'me',
-                      authorizedActorId: 'me',
-                      purposes: const <String>{'appearance_review'},
-                      resources: const <String>{'portrait'},
-                      actions: const <String>{'derive'},
-                      maximumSensitivity: Sensitivity.d3,
-                      validFrom: DateTime.utc(2026, 8, 19),
-                      validUntil: DateTime.utc(2026, 8, 21),
-                      status: ConsentStatus.active,
-                    ),
-                  ]
-                : const <ConsentGrant>[],
-          ),
-          clock: FixedPolicyClock(DateTime.utc(2026, 8, 20)),
+    analyzeAppearance: AnalyzeAppearanceUseCase(
+      eventStore: store,
+      modelGateway: gateway,
+      policy: AppearancePolicyAdapter(
+        consents: InMemoryConsentRevisionRepository(
+          initialGrants: includeGrant
+              ? <ConsentGrant>[
+                  ConsentGrant(
+                    consentId: 'local-appearance-consent',
+                    revision: 1,
+                    subjectId: 'me',
+                    authorizedActorId: 'me',
+                    purposes: const <String>{'appearance_review'},
+                    resources: const <String>{'portrait'},
+                    actions: const <String>{'derive'},
+                    maximumSensitivity: Sensitivity.d3,
+                    validFrom: DateTime.utc(2026, 8, 19),
+                    validUntil: DateTime.utc(2026, 8, 21),
+                    status: ConsentStatus.active,
+                  ),
+                ]
+              : const <ConsentGrant>[],
         ),
-        ids: ids,
-        clock: const _Clock(),
+        clock: FixedPolicyClock(DateTime.utc(2026, 8, 20)),
       ),
-      actionFeedback: ActionFeedbackUseCase(
-        eventStore: store,
-        ids: ids,
-        clock: const _Clock(),
-      ),
-      profileId: EntityId('me'),
-      actor: ActorRef(
-        actorId: 'me',
-        actorType: ActorType.user,
-        authoritySource: 'test',
-      ),
-    );
+      ids: ids,
+      clock: const _Clock(),
+    ),
+    actionFeedback: ActionFeedbackUseCase(
+      eventStore: store,
+      ids: ids,
+      clock: const _Clock(),
+    ),
+    profileId: EntityId('me'),
+    actor: ActorRef(
+      actorId: 'me',
+      actorType: ActorType.user,
+      authoritySource: 'test',
+    ),
+  );
 }
 
 final class _CountingGateway implements AppearanceAnalysisGateway {
   int calls = 0;
 
   @override
-  Future<AppearanceAnalysisResult> analyze(AppearanceAnalysisInput input) async {
+  Future<AppearanceAnalysisResult> analyze(
+      AppearanceAnalysisInput input) async {
     calls++;
     return const FixtureAppearanceAnalysisGateway(
       behavior: FixtureAppearanceBehavior.syntheticSuccess,
