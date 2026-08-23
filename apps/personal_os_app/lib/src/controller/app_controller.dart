@@ -38,6 +38,11 @@ final class AppController extends ChangeNotifier {
   bool _planStarted = false;
   String? _reviewId;
   String? _reviewState;
+  /// Session-scoped acknowledgement of the demo-mode volatility warning
+  /// (ADR-0009 §2). Lives as long as the AppComposition instance — i.e.
+  /// the process — and resets on cold start, which is exactly the
+  /// lifecycle the in-memory demo store follows.
+  bool _volatileDemoAcknowledged = false;
 
   bool get vaultUnlocked => _vaultUnlocked;
   bool get consentGranted => _consentGranted;
@@ -51,6 +56,7 @@ final class AppController extends ChangeNotifier {
   String? get reviewId => _reviewId;
   String? get reviewState => _reviewState;
   bool get planStarted => _planStarted;
+  bool get volatileDemoAcknowledged => _volatileDemoAcknowledged;
   int get completedStep {
     if (_reviewState == 'accepted' || _reviewState == 'rejected') return 5;
     if (_reviewId != null ||
@@ -78,6 +84,15 @@ final class AppController extends ChangeNotifier {
 
   void setConsent(bool granted) {
     _consentGranted = granted;
+    notifyListeners();
+  }
+
+  /// Mark the demo-mode volatility warning as acknowledged for the rest
+  /// of this process's lifetime (ADR-0009 §2). Idempotent: calling it
+  /// multiple times is a no-op.
+  void markVolatileDemoAcknowledged() {
+    if (_volatileDemoAcknowledged) return;
+    _volatileDemoAcknowledged = true;
     notifyListeners();
   }
 
