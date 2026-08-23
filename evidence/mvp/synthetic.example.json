@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "kind": "synthetic",
+  "candidate_commit": "f70a202000000000000000000000000000000000",
+  "records": [
+    {
+      "record_id": "9163515eda9d",
+      "previous_record_id": "000000000000",
+      "recorded_at": "2026-08-23T12:00:00Z",
+      "candidate_commit": "f70a202000000000000000000000000000000000",
+      "kind": "real",
+      "wave": "19a",
+      "track": "I",
+      "gate": "G4",
+      "status": "PASS",
+      "artifacts": [
+        {
+          "name": "tool/validate_evidence.py",
+          "sha256": ""
+        },
+        {
+          "name": "tool/evidence_writer.py",
+          "sha256": ""
+        }
+      ],
+      "evidence_writer_version": "1.1.0",
+      "notes": "RealSqlCipherPlatformOpener verified",
+      "cumulative_hash": "294ab2d97a3f34a9afd4c3f8695b1acd832043429ab794a1c7cf966a7279a9dd"
+    },
+    {
+      "record_id": "ad4eec8271f8",
+      "previous_record_id": "9163515eda9d",
+      "recorded_at": "2026-08-23T13:00:00Z",
+      "candidate_commit": "27d0b9e000000000000000000000000000000000",
+      "kind": "real",
+      "wave": "20a",
+      "track": "D",
+      "gate": "G3",
+      "status": "PASS",
+      "artifacts": [
+        {
+          "name": "tool/validate_evidence.py",
+          "sha256": ""
+        },
+        {
+          "name": "tool/evidence_writer.py",
+          "sha256": ""
+        }
+      ],
+      "evidence_writer_version": "1.1.0",
+      "notes": "Volatile demo banner shipped",
+      "cumulative_hash": "efe8d6b2cd36be8f81d2a3c78f4099d328db530702a36e0016694f2c94b60e62"
+    },
+    {
+      "record_id": "f35d3ebc15e1",
+      "previous_record_id": "ad4eec8271f8",
+      "recorded_at": "2026-08-23T14:00:00Z",
+      "candidate_commit": "caf7502000000000000000000000000000000000",
+      "kind": "real",
+      "wave": "20f",
+      "track": "I",
+      "gate": "G4",
+      "status": "PASS",
+      "artifacts": [
+        {
+          "name": "tool/validate_evidence.py",
+          "sha256": ""
+        },
+        {
+          "name": "tool/evidence_writer.py",
+          "sha256": ""
+        }
+      ],
+      "evidence_writer_version": "1.1.0",
+      "notes": "ADR-0011 envelope validator shipped",
+      "cumulative_hash": "4f7fadb3d935b2ea015c5091f8bd0e77a0fe31e1377343b816b5c8c420467e88"
+    }
+  ],
+  "evidence_writer_version": "1.1.0",
+  "gates": {
+    "static": {
+      "status": "pass",
+      "checks": []
+    },
+    "flutter_test": {
+      "status": "blocked",
+      "checks": []
+    },
+    "apk": {
+      "status": "blocked",
+      "checks": []
+    },
+    "redmi_device": {
+      "status": "not_run",
+      "checks": []
+    },
+    "dogfood": {
+      "status": "not_run",
+      "checks": []
+    }
+  }
+}
