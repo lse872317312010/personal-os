@@ -12,9 +12,11 @@ python3 tool/validate_local_dependencies.py
 bash tool/check_secrets.sh
 
 # Run toolchain unit tests (Python + shell)
-if command -v python3 >/dev/null 2>&1; then
+if python3 -c 'import pytest' >/dev/null 2>&1; then
   echo "Running toolchain Python tests"
-  python3 -m pytest tool/tests/ -q 2>/dev/null || echo "  (pytest not available, skipping toolchain tests)"
+  python3 -m pytest tool/tests/ -q
+else
+  echo "pytest not available; skipping toolchain Python tests"
 fi
 if [[ -f tool/tests/test_check_secrets.sh ]]; then
   echo "Running toolchain shell tests"
