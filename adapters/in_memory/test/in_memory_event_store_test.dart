@@ -20,13 +20,42 @@ void main() {
       final store = InMemoryEventStore();
       store.append(_event('e1', 0));
 
-      final result = store.append(_event('e1', 999));
+      final result = store.append(_event('e1', 0));
 
       expect(result.committed, isTrue);
       expect(result.duplicateEventIds, ['e1']);
       expect(store.readEvents(), hasLength(1));
       expect(store.readOutbox(), hasLength(1));
       expect(store.readProjection('goal', 'goal-1')?.revision.value, 1);
+    });
+
+    test('same event_id with different content is a conflict', () async {
+      final EventStore store = InMemoryEventStore();
+      await store.appendAll([_event('e1', 0)]);
+
+      await expectLater(
+        store.appendAll([_event('e1', 1)]),
+        throwsA(
+          isA<EventAppendConflict>().having(
+            (error) => error.message,
+            'message',
+            InMemoryRejectionReason.eventIdConflict,
+          ),
+        ),
+      );
+      expect((await store.readById('e1'))?.payload['expected_revision'], 0);
+    });
+
+    test('conflicting duplicate inside a batch rolls back all state', () async {
+      final store = InMemoryEventStore();
+
+      await expectLater(
+        store.appendAll([_event('e1', 0), _event('e1', 1)]),
+        throwsA(isA<EventAppendConflict>()),
+      );
+      expect(store.readEvents(), isEmpty);
+      expect(store.readAllProjections(), isEmpty);
+      expect(store.readOutbox(), isEmpty);
     });
 
     test('revision conflict rejects the whole batch without partial commit',
