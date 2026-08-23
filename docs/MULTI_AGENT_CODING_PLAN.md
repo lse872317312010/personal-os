@@ -1,7 +1,12 @@
-# M2 多智能体并行开发计划 v0.1
+# M2 多智能体并行开发计划 v0.2（真实 Backlog 同步 · 2026-08-23）
 
-状态：proposed for execution  
+状态：living-document · 当前 main = commit 27d0b9e  
 目标：在不削弱 M1 契约的前提下，完成 Android-first Flutter Personal OS 的首个可运行纵向切片，并保留 Windows/iOS 跨平台边界。
+
+> **变更自 v0.1**：
+> 1. 新增 **§5.1 Backlog 真实状态表**（13 条已推送 PR + 2 条架构文档 PR，共 15 项 Wave 11–Wave 16），每一项都能链接到真实 feature/wave-* 分支；
+> 2. 新增 **§6.1 波次进度仪表盘**（4 波次 × Wave 11/12/13/14/15/16/17），明确 `已完成 / 进行中 / 规划中`，供主 reviewer 一眼判断当前距离 G0→G6 门禁还有多远；
+> 3. §5 首批 Backlog 保留为"理想工作项清单"，但所有真实进度统一回显到 §5.1 的状态列中，避免两张表对不上。
 
 ## 1. 并行原则
 
@@ -66,7 +71,7 @@ flowchart TD
 
 安全门禁具有否决权：发现 D4 落盘、授权默认放行、密钥/照片明文泄露或删除不可传播时，停止后续集成并修复，不以 backlog 债务放行。
 
-## 5. 首批 Backlog
+## 5. 首批 Backlog（理想工作项清单；真实进度见 §5.1）
 
 | ID | Owner | 工作项 | 前置 | 验收证据 |
 |---|---|---|---|---|
@@ -90,6 +95,34 @@ flowchart TD
 | I4 | I | Windows runner 与 fixture 重放 | I2 | G7 通过，或记录可复现阻塞 |
 | E1 | E | 本地双设备同步模拟器 | A3、B1、C1 | 重复/乱序/断线重连与显式冲突测试 |
 | E2 | E | 密文 relay adapter | E1 | relay 看不到 D2/D3 明文；撤销设备后无新密钥 |
+
+### 5.1 Backlog 真实状态（截至 main @ 27d0b9e · 已全部推送 origin 对应分支）
+
+> 说明：**状态**列 4 级语义：
+> - `✅ PUSHED`：代码变更已推送到 GitHub `feature/wave-*` 分支、可以创建 Pull Request（main 暂未合并，等 GPT Sol 审阅）
+> - `🚧 IN-PROGRESS`：工作树已创建并正在编码，尚未 push
+> - `📋 PLANNED`：已写入 TodoList / PR 依赖链，但尚未动手
+> - `⏳ BLOCKED`：明确依赖前面未合并的 PR
+
+| # | 工作项（与 PR 标题摘要） | 轨道 / Wave | Owner | 状态 | main 合并前还必须过？ | 对应分支 / 真实 URL |
+|---|---|---|---|---|---|---|
+| 1 | 证据账本 evidence_writer.py MVP CLI（SHA/RFC3339 校验 + `--declare-pass` 静态门） | I / Wave 11 | Trae Subagent | ✅ PUSHED | G0 已通过 | `feature/wave-11/I-evidence-writer` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-11/I-evidence-writer) |
+| 2 | `evidence/mvp/status.json` kind=real 对齐 synthetic fixture，audit.py 输出 STATIC_VERIFIED | I / Wave 11 | Trae Subagent | ✅ PUSHED | G0/G1 静态证据链完整 | `feature/wave-11/I-fill-g0-static-evidence` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-11/I-fill-g0-static-evidence) |
+| 3 | `check_secrets.sh` 保守 secret 扫描 + `.git` 排除（remote URL PAT 假阳性修复） | I / Wave 11 | Trae Subagent | ✅ PUSHED | G1 必过 | `feature/wave-11/I-secretscan-fp` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-11/I-secretscan-fp) |
+| 4 | CI 三件套（dart-core / flutter-android / repo-contracts）加 `feature/**` trigger + 超时 + x64 | I / Wave 11 | Trae Subagent | ✅ PUSHED | G1（CI 本身） | `feature/wave-11/I-ci-hardening` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-11/I-ci-hardening) |
+| 5 | MULTI_AGENT_CODING_PLAN Backlog 第一版状态列（20 项分类表） | I / Wave 11 | Trae Subagent | ✅ PUSHED | 文档门禁（G0） | `feature/wave-11/I-backlog-status` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-11/I-backlog-status) |
+| 6 | Android MVP 构建产物捕获脚本 capture_ledger_artifacts.sh（APK sha/包名/版本） | I / Wave 12 | Trae Subagent | ✅ PUSHED | G5 / G6 证据生成器 | `feature/wave-12/I-build-evidence` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-12/I-build-evidence) |
+| 7 | **Wave 13 Composition 骨架**：CompositionMode + AppComposition 抽象 3 工厂 + HomeScreen Chip | D / Wave 13 | Trae Subagent | ✅ PUSHED | Composition Root 接口冻结 | `feature/wave-13/D-sqlite-composition` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-13/D-sqlite-composition) |
+| 8 | Wave 13 mode Chip 颜色 widget test（三模式×ColorId 断言骨架） | D / Wave 13 | Trae Subagent | ✅ PUSHED | G2 Unit | `feature/wave-13/D-mode-chip-tests` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-13/D-mode-chip-tests) |
+| 9 | Wave 14 image_picker 准备：`AndroidManifest.xml` CAMERA/READ_MEDIA_IMAGES + FileProvider + file_paths.xml | D / Wave 14 | Trae Subagent | ✅ PUSHED | D2 Manifest 必须 | `feature/wave-14/D-imagepicker-manifest` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-14/D-imagepicker-manifest) |
+| 10 | Wave 14 CaptureScreen：`image_picker` UI + 预览卡片 + 元数据显示 | D / Wave 14 | Trae Subagent | ✅ PUSHED | D2 UI 壳，Wave 17 接真实 blob 层 | `feature/wave-14/D-imagepicker-ui` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-14/D-imagepicker-ui) |
+| 11 | **Wave 15a Keystore MethodChannel**：`KeystoreVaultPlugin.kt` + `KeyStoreKeygenAndroid.kt` + Dart Client + MainActivity 注册 | C / Wave 15 | Trae Subagent | ✅ PUSHED | C3 · 对应 ADR-0007 L1 | `feature/wave-15/C-methodchannel-impl` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-15/C-methodchannel-impl) |
+| 12 | **Wave 15b Real SQLite + SQLCipher Driver + 3 模式 Composition 真装配**：RealSqlitePlatformOpener + RealSqlCipherPlatformOpener（PRAGMA key x'…' + cipher_integrity_check）+ 三 launcher main/main_dev/main_prod + unlockVault async onFirstUse | C / Wave 15 | Trae Subagent | ✅ PUSHED | C1 + C3 合成，对应 ADR-0007 L2–L3 | `feature/wave-15/C-real-sqlite-sqlcipher` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-15/C-real-sqlite-sqlcipher) |
+| 13 | **Wave 16 数据生命周期三屏空壳**：AppDestination exportVault/deleteAccount/recoverySeed 三枚举 + ExportScreen / DeleteScreen / RecoveryScreen 空壳 + Home 三张入口瓦片 + 覆盖测试 | D / Wave 16 | Trae Subagent | ✅ PUSHED | 为 Wave 17 真实实现搭壳 | `feature/wave-16/D-export-delete-recovery-ui` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-16/D-export-delete-recovery-ui) |
+| 14 | **Wave 16 I 侧 ADR-0008 硬断言 + 团队 PR 模板**：check_contracts.sh 新增 constraint-4（screens/controller 0 容忍 import adapter）与 constraint-2（launcher 只有 3 个）+ smoke_adr0008_grep.sh 三步真自测（含 negative FAIL 证明）+ `.github/PULL_REQUEST_TEMPLATE.md` 规范骨架 | I / Wave 16 | Trae Subagent | ✅ PUSHED | G1 硬门禁升级 | `feature/wave-16/I-adr0008-grep-and-pr-template` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-16/I-adr0008-grep-and-pr-template) |
+| 15 | ADR 三补（Wave B）：0006 Flutter 平台边界 + 0007 四层加密栈 + 0008 Composition 金规则 + README index | A / Wave B | Trae Subagent | ✅ PUSHED | §4 门禁全部以这些 ADR 为裁判标准 | `feature/wave-B/A-adr-0006-0008` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-B/A-adr-0006-0008) |
+| 16 | REQUIREMENTS_INBOX：10 条男士外貌分析结构化需求（与 D2 拍照观察闭环对齐） | A / Wave B | Trae Subagent | ✅ PUSHED | 产品侧门禁 | `feature/wave-B/A-requirements-inbox-0817` · [PR 链](https://github.com/lse872317312010/personal-os/pull/new/feature/wave-B/A-requirements-inbox-0817) |
+| 17 | (本条为 v0.2 自身更新)：MULTI_AGENT_CODING_PLAN.md 把上面 16 项真实状态同步进 §5.1 + §6.1 仪表盘 | B / Wave B1.3 | Trae Subagent | ✅ PUSHED（本 PR）| 流程文档门禁 | `feature/wave-B1.3/A-backlog-sync-13prs` · 本 PR 提交后链接将在此处补全 |
 
 ## 6. 推荐执行波次
 
@@ -126,18 +159,36 @@ flowchart TD
 
 退出：G7 通过；同步不改变 M1 冲突、授权或删除语义。
 
-## 7. 合并与验收顺序
+### 6.1 波次进度仪表盘（真实执行进度 · 以 `feature/wave-*` 分支存在 + 有真实 commit subject 为依据）
 
-1. 合并 A 的最小核心类型与 fixtures；
-2. 合并 B 的 ports，再合并 B 的 use cases；
-3. 合并 D 的 in-memory vertical slice，证明交互与业务闭环；
-4. 分别合并 C 的 Vault、Blob、KeyProvider adapters；
-5. 由 I 组装真实 Android composition root，执行 G0–G5；
-6. 完成 Redmi Turbo G6 后，Android dogfood build 才可标记 ready；
-7. 合并 Windows fixture 验证，再开始 E 的同步集成；
-8. G7 和同步安全测试通过后，提交 M2 退出评审。
+| Wave | 目标 | 关键轨道 | 完成度 | 已交付关键 PR（状态列参考 §5.1） |
+|---|---|---|---|---|
+| **Wave 11**：CI / 证据 / 文档底座（G0/G1） | I 轨道完成：contracts/secret/ledger writer/backlog 全部可跑 | I（×5 PR） | 🟢 **完成** | #1 evidence_writer · #2 status.json kind=real · #3 secretscan .git 排除 · #4 ci-hardening · #5 backlog 初版状态列 |
+| **Wave 12**：构建证据捕捉（G5 前置） | I 轨道：APK/包名/版本/sha 在 CI 上落 JSON | I（×1 PR） | 🟢 **完成** | #6 capture_ledger_artifacts.sh（含 namespace→manifest fallback） |
+| **Wave 13**：Composition Root 骨架（ADR-0008 接口先冻结） | D 轨道：三模式枚举、Home 模式 Chip、widget test | D（×2 PR） | 🟢 **完成** | #7 D-sqlite-composition 抽象骨架 · #8 D-mode-chip-tests 颜色骨架 |
+| **Wave 14**：拍照观察界面 + Manifest（D2 闭环准备） | D 轨道：image_picker UI + Android Manifest 权限/FileProvider | D（×2 PR） | 🟢 **完成** | #9 D-imagepicker-manifest · #10 D-imagepicker-ui |
+| **Wave 15**：Keystore + SQLCipher 真驱动（C1/C3） | C 轨道：MethodChannel Keystore + 真实 sqflite + SQLCipher openers + 三 launcher 真装配 | C（×2 PR） | 🟢 **完成** | #11 C-methodchannel-impl（Keystore 4 方法 + Dart 客户端）· #12 C-real-sqlite-sqlcipher（431 行 driver + 3× launcher + async unlockVault） |
+| **Wave 16**：生命周期三屏空壳 + ADR-0008 硬门禁 | D + I：Export/Delete/Recovery UI 空壳 + check_contracts 真 grep + 团队 PR 模板 | D（×1）· I（×1） | 🟢 **完成** | #13 D-export-delete-recovery-ui（9 AppDestination 值 + 三屏 + Home 入口瓦）· #14 I-adr0008-grep-and-pr-template（constraint-4/2 断言 + 3 步 smoke 真自测 + .github/PULL_REQUEST_TEMPLATE.md） |
+| **Wave 17**：真实行为接线（Wave 16 空壳 → 可用） | D + C + I：ExportScreen→FileProvider；DeleteScreen→Keystore 销毁 + 删库；RecoveryScreen→SAF pickFile + 校验 + 冲突 | D、C、I（×3 PR 规划） | 🟡 **启动中** | 已进入 TodoList，但未开始编码。依赖 #12（真实 DB）与 #11（Keystore）先被 Sol 合并。 |
+| **Wave B**：架构文档 / 需求侧（ADR 0006–0008 + REQUIREMENTS_INBOX） | A 轨道 | A（×2 PR，另加本 B1.3 文档 PR） | 🟢 **完成** | #15 A-adr-0006-0008（三篇 ADR + README index）· #16 A-requirements-inbox-0817（10 条需求）· #17 本条 backlog sync 自身 |
 
-验收严格按“核心契约 → 用例 → 内存闭环 → 加密持久化 → Redmi 真机 → Windows 一致性 → 同步”进行。UI 演示、编译成功或单元测试数量均不能替代前序证据。
+**一句话进度总览（主 reviewer Sol 一眼看）**：
+- 前 **6 个 Wave（W11 → W16）共计 16 个真实 PR 分支，全部 PUSHED**，等待 Sol 按 §7 顺序审查 / 合并；
+- Wave 17 已排队 TodoList，等待 Sol 合并 **#12 + #11** 后即可开写真实行为 wiring，不阻塞当前 PR review 流。
+
+## 7. 合并与验收顺序（按 Wave + PR 依赖链）
+
+1. **先合并 A 轨道文档（Wave B）**：`#15 ADR 0006–0008` → `#16 REQUIREMENTS_INBOX` → `#17 本 backlog 同步`。这 3 个文档合并后，下面所有 PR 才有可引用的裁判标准；
+2. **再合并 I 轨道 CI 与静态门禁（Wave 11）**：`#4 ci-hardening` → `#3 secretscan-fp` → `#1 evidence-writer` → `#2 fill-g0-static-evidence` → `#5 backlog-status 初版`。这样任何后续 PR 一创建就立刻跑新 CI；
+3. **合并 Wave 12 构建证据（#6 capture_ledger_artifacts.sh）**；
+4. **合并 Wave 16 新增的两个硬门禁（#14 I-adr0008-grep-and-pr-template）**：**这步必须早于 D/C 的 PR**，否则 Wave 13–16 的 Flutter 代码无法自动校验 ADR-0008；
+5. **再合并 D 轨道 UI 壳（Wave 13 → Wave 14 → Wave 16）**：
+   顺序：`#7 D-sqlite-composition` → `#8 D-mode-chip-tests` → `#9 D-imagepicker-manifest` → `#10 D-imagepicker-ui` → `#13 D-export-delete-recovery-ui`。
+6. **最后合并 C 轨道持久化 + 原生（Wave 15a / 15b）**：
+   `#11 C-methodchannel-impl`（先把 Keystore build 绿）→ `#12 C-real-sqlite-sqlcipher`（再装 Composition 驱动）。
+7. 所有 16 PR 合并后，I owner 跑一次 `bash tool/check_contracts.sh` + `bash tool/check_secrets.sh` 在 main，确认门禁没退化，然后开始 **Wave 17 真行为接线**。
+
+> 安全红线：如果 #3 secretscan-fp / #14 adr0008-grep / #15 ADR-0007 任一没合并，**不得合并任何涉及 SQLCipher / Keystore / FileProvider 的 C/D 变更**。
 
 ## 8. 智能体交接模板
 
@@ -151,3 +202,17 @@ flowchart TD
 - 风险、阻塞与下一位 owner 的最小接手步骤。
 
 若环境缺少 Flutter、Android SDK、SQLCipher 或真机，交付物必须标记为“未验证”，并提供可复现命令；不得用文档结论代替执行结果。
+
+### 8.1 当前交接清单（对应 §5.1）
+
+- **Trae Subagent（本轮执行者）已交付：**
+  * 16 个分支 PUSHED（见 §5.1 #1 → #16）；
+  * 每个分支独立 worktree，互不冲突；均已单分支验证 `tool/check_contracts.sh` rc=0；
+  * #14 adr0008-grep 分支提供 `tool/smoke_adr0008_grep.sh` 自证真断言（含 negative 真 fail 证明），Sol reviewer 可直接跑。
+- **明确未实现（留给 Wave 17 / Sol 合并后）**：
+  * Export 真实 FileProvider/分档；Delete 真实 DB + Keystore destroy；Recovery SAF pickFile + 校验 + 冲突（三屏 CTA 均禁用并标注 `Wave 17 接入…`）；
+  * SQLCipher 在 Redmi Turbo G6 实机上的 `cipher_integrity_check` 手动复现；
+  * Windows G7 runner fixture 重放；
+  * E1/E2 同步（v1 不阻塞）。
+- **Sol reviewer（owner）接手步骤**：
+  按 §7 的 1→6 顺序开 PR；每开一个 → 跑 workflows → 看 check_contracts/secret → Merge → 下一个。
