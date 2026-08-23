@@ -6,9 +6,13 @@ on:
       - "packages/**"
       - "adapters/**"
       - "test_contract/runner_dart/**"
+      - "evidence/vault_export/**"
       - "pubspec.yaml"
       - "analysis_options.yaml"
       - "tool/check_dart_core.sh"
+      - "tool/check_contracts.sh"
+      - "tool/validate_export_envelope.py"
+      - "tool/tests/**"
       - "tool/validate_local_dependencies.py"
       - ".github/workflows/dart-core.yml"
   push:
@@ -18,9 +22,13 @@ on:
       - "packages/**"
       - "adapters/**"
       - "test_contract/runner_dart/**"
+      - "evidence/vault_export/**"
       - "pubspec.yaml"
       - "analysis_options.yaml"
       - "tool/check_dart_core.sh"
+      - "tool/check_contracts.sh"
+      - "tool/validate_export_envelope.py"
+      - "tool/tests/**"
       - "tool/validate_local_dependencies.py"
       - ".github/workflows/dart-core.yml"
   workflow_dispatch:
@@ -49,3 +57,6 @@ jobs:
 
       - name: Verify platform-neutral Dart core
         run: bash tool/check_dart_core.sh
+
+      - name: Verify repository contracts (ADR-0011 envelope validator)
+        run: bash tool/check_contracts.sh

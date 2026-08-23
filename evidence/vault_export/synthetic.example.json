@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "exported_at": "2026-08-23T12:00:00Z",
+  "composition_mode": "demo",
+  "events": [
+    {
+      "event_id": "appearance-observed-1",
+      "schema_version": 1,
+      "revision": "rev-1",
+      "stream_id": "primary-user",
+      "occurred_at": "2026-08-23T11:00:00Z",
+      "appended_at": "2026-08-23T11:00:01Z",
+      "payload": {
+        "type": "appearance_observed",
+        "subject": "primary-user",
+        "image_ref": "blob://vault/portrait-demo",
+        "observation_context": "自然光、正面、无滤镜"
+      }
+    },
+    {
+      "event_id": "appearance-claimed-1",
+      "schema_version": 1,
+      "revision": "rev-1",
+      "stream_id": "primary-user",
+      "occurred_at": "2026-08-23T11:00:05Z",
+      "appended_at": "2026-08-23T11:00:06Z",
+      "payload": {
+        "type": "appearance_claimed",
+        "claim_id": "claim-1",
+        "concerns": ["皮肤干燥", "肤色不均"],
+        "sensitivity": "D3"
+      }
+    }
+  ],
+  "blob_manifest": [
+    {
+      "ref": "blob://vault/portrait-demo",
+      "media_type": "image/jpeg",
+      "byte_length": 1024,
+      "sha256_hex": ""
+    }
+  ],
+  "event_count": 2,
+  "blob_count": 1,
+  "passphrase_challenge": null
+}
