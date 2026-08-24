@@ -9,6 +9,7 @@ import 'application_ports.dart';
 abstract final class AppearanceFailureCode {
   static const policyDenied = 'policy_denied';
   static const emptyAnalysis = 'empty_analysis';
+  static const analysisFailed = 'analysis_failed';
 }
 
 final class AppearanceUseCaseFailure implements Exception {
@@ -74,13 +75,21 @@ final class AnalyzeAppearanceUseCase {
       );
     }
 
-    final analysis = await _modelGateway.analyze(
-      AppearanceAnalysisInput(
-        imageRef: command.imageRef,
-        observationContext: command.observationContext,
-        locale: command.locale,
-      ),
-    );
+    late final AppearanceAnalysisResult analysis;
+    try {
+      analysis = await _modelGateway.analyze(
+        AppearanceAnalysisInput(
+          imageRef: command.imageRef,
+          observationContext: command.observationContext,
+          locale: command.locale,
+        ),
+      );
+    } catch (_) {
+      // Model adapters are not allowed to expose paths, URIs, or raw errors.
+      throw const AppearanceUseCaseFailure(
+        AppearanceFailureCode.analysisFailed,
+      );
+    }
     if (analysis.findings.isEmpty || analysis.actions.isEmpty) {
       throw const AppearanceUseCaseFailure(AppearanceFailureCode.emptyAnalysis);
     }
