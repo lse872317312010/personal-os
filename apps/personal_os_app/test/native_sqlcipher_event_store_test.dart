@@ -235,6 +235,52 @@ void main() {
     }
   });
 
+  test('native vault expiry invalidates coordinator and closes capability',
+      () async {
+    final bridge = _FakePlatformBridge();
+    final store = NativeSqlCipherEventStore(channel: channel);
+    final coordinator = NativeSqlCipherSessionCoordinator(
+      bridge: bridge,
+      eventStore: store,
+    );
+    SecurityException? invalidation;
+    coordinator.onSessionInvalidated = (error) => invalidation = error;
+    _setChannelHandler(channel, (call) async {
+      if (call.method == 'appendEvents') {
+        throw PlatformException(
+          code: 'security.unlock_expired',
+          message: 'native details must not cross the boundary',
+        );
+      }
+      return null;
+    });
+
+    final session = await coordinator.open(
+      grant: UnlockGrant.opaque(
+        id: 'ticket-1',
+        expiresAt: DateTime.now().toUtc().add(const Duration(minutes: 1)),
+      ),
+    );
+    await expectLater(
+      store.appendAll(<EventEnvelope>[_event()]),
+      throwsA(isA<PersistenceException>().having(
+        (error) => error.code,
+        'code',
+        PersistenceErrorCode.writeFailed,
+      )),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    expect(invalidation?.code, SecurityErrorCode.unlockExpired);
+    expect(session.isActive, isFalse);
+    expect(bridge.closedSessionId, bridge.openedSessionId);
+    expect(invalidation.toString(),
+        'SecurityException(' + SecurityErrorCode.unlockExpired.wireValue + ')');
+    await expectLater(
+      store.appendAll(<EventEnvelope>[_event(id: 'after-expiry')]),
+      throwsA(isA<PersistenceException>()),
+    );
+  });
   test('coordinator binds and closes the exact native session used by store',
       () async {
     final bridge = _FakePlatformBridge();
