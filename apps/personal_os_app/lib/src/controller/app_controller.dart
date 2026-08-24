@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:personal_os_application/application.dart';
+import 'package:personal_os_blob_engine/blob_engine.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_security_api/security_api.dart';
 import 'package:personal_os_source_api/source_api.dart';
