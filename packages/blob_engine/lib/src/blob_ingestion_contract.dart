@@ -9,6 +9,7 @@ final class BlobIngestionException implements Exception {
   const BlobIngestionException(this.code)
       : assert(
           code == 'consent_required' ||
+              code == 'discard_failed' ||
               code == 'd4_persistence_forbidden' ||
               code == 'invalid_media_type' ||
               code == 'payload_too_large',
@@ -35,8 +36,22 @@ abstract interface class BlobIngestionContract {
   });
 }
 
+/// Optional compensation capability for implementations that support
+/// transactional application workflows.
+///
+/// Kept separate from [BlobIngestionContract] so existing ingestion adapters
+/// remain source-compatible. Implementations that persist addressable blobs
+/// should implement this interface as well.
+abstract interface class BlobIngestionRollback {
+  Future<void> discard({
+    required BlobRef ref,
+    required BlobAccessContext access,
+  });
+}
+
 /// The single external-input entry point for an encrypted [BlobStore].
-final class EncryptedBlobIngestion implements BlobIngestionContract {
+final class EncryptedBlobIngestion
+    implements BlobIngestionContract, BlobIngestionRollback {
   EncryptedBlobIngestion({required BlobStore store, required this.maxBytes})
       : _store = store {
     if (maxBytes <= 0) {
@@ -61,6 +76,20 @@ final class EncryptedBlobIngestion implements BlobIngestionContract {
       sensitivity: sensitivity,
       access: access,
     );
+  }
+
+  @override
+  Future<void> discard({
+    required BlobRef ref,
+    required BlobAccessContext access,
+  }) async {
+    try {
+      await _store.delete(ref, access: access);
+    } catch (_) {
+      // Never expose adapter paths, SQL, key aliases, or raw exceptions at
+      // this boundary. The composing use case retains the original failure.
+      throw const BlobIngestionException('discard_failed');
+    }
   }
 
   Stream<List<int>> _bounded(Stream<List<int>> source) async* {
@@ -98,3 +127,4 @@ bool _isValidMediaType(String mediaType) =>
     mediaType.length <= 127 &&
     RegExp(r'^[A-Za-z0-9!#\$&^_.+\-]+/[A-Za-z0-9!#\$&^_.+\-]+$')
         .hasMatch(mediaType);
+
