@@ -1,8 +1,8 @@
 package com.personalos.app.source
 
 import android.net.Uri
-import java.security.SecureRandom
 import android.util.Base64
+import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -29,7 +29,10 @@ internal class ControlledSourceTokenStore(
         return token
     }
 
-    fun consume(token: String, canRead: (Uri) -> Boolean): ConsumeResult {
+    fun consume(
+        token: String,
+        sink: SourceBlobSink,
+    ): ConsumeResult {
         if (!ControlledSourceMethodChannelContract.isOpaqueToken(token)) {
             return ConsumeResult.Invalid
         }
@@ -37,10 +40,21 @@ internal class ControlledSourceTokenStore(
         if (nowMillis() >= entry.expiresAtMillis) {
             return ConsumeResult.Expired
         }
-        return if (runCatching { canRead(entry.uri) }.getOrDefault(false)) {
-            ConsumeResult.Ready
-        } else {
-            ConsumeResult.ReadFailed
+        return try {
+            when (val outcome = sink.ingest(entry.uri)) {
+                is BlobSinkResult.Stored -> {
+                    if (!ControlledSourceMethodChannelContract.isOpaqueBlobRef(outcome.blobRef)) {
+                        ConsumeResult.WriteFailed
+                    } else {
+                        ConsumeResult.Stored(outcome.blobRef)
+                    }
+                }
+                BlobSinkResult.ReadFailed -> ConsumeResult.ReadFailed
+                BlobSinkResult.WriteFailed -> ConsumeResult.WriteFailed
+                BlobSinkResult.Unavailable -> ConsumeResult.Unavailable
+            }
+        } catch (_: Throwable) {
+            ConsumeResult.WriteFailed
         }
     }
 
@@ -54,11 +68,13 @@ internal class ControlledSourceTokenStore(
     }
 
     sealed interface ConsumeResult {
-        object Ready : ConsumeResult
+        data class Stored(val blobRef: String) : ConsumeResult
         object Invalid : ConsumeResult
         object Expired : ConsumeResult
         object Consumed : ConsumeResult
         object ReadFailed : ConsumeResult
+        object WriteFailed : ConsumeResult
+        object Unavailable : ConsumeResult
     }
 
     companion object {
