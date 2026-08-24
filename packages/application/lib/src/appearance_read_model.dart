@@ -2,6 +2,7 @@ import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_events/events.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 
+import 'appearance_queries.dart';
 /// The part of the appearance vertical slice that can be reconstructed from
 /// profile-scoped events. This is deliberately a read model, not a second
 /// source of truth: the event list remains the authoritative input.
@@ -440,10 +441,10 @@ AppearanceConsentView _consentState(
               consentRevision: consentRevision ?? 1,
             ))
         .withState(
-      nextState: state,
-      nextStateRevision: stateRevision,
-      nextConsentRevision: consentRevision,
-    );
+          nextState: state,
+          nextStateRevision: stateRevision,
+          nextConsentRevision: consentRevision,
+        );
 
 String? _string(Object? value) => value is String ? value : null;
 
@@ -524,3 +525,4 @@ extension<T> on Iterable<T> {
     return null;
   }
 }
+
