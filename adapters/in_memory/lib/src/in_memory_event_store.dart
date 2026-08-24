@@ -5,10 +5,11 @@ import 'package:personal_os_events/events.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 
 /// Why an append transaction was rejected.
-enum AppendFailure { revisionConflict, invalidEvent }
+enum AppendFailure { eventIdConflict, revisionConflict, invalidEvent }
 
 abstract final class InMemoryRejectionReason {
   static const d4PersistenceForbidden = 'd4_persistence_forbidden';
+  static const eventIdConflict = 'event_id_conflict';
 }
 
 /// A durable-order event returned by the candidate store.
@@ -112,6 +113,9 @@ final class InMemoryEventStore implements EventStore {
     }
 
     final stagedEvents = List<StoredEvent>.of(_events);
+    final stagedEventsById = <String, EventEnvelope>{
+      for (final stored in stagedEvents) stored.event.eventId: stored.event,
+    };
     var stagedProjections = Map<String, ObjectProjection>.of(_projections);
     var stagedSeenIds = Set<String>.of(_seenEventIds);
     final stagedOutbox = List<OutboxEntry>.of(_outbox);
@@ -121,7 +125,17 @@ final class InMemoryEventStore implements EventStore {
     final duplicateIds = <String>[];
 
     for (final event in batch) {
-      if (stagedSeenIds.contains(event.eventId)) {
+      final prior = stagedEventsById[event.eventId];
+      if (prior != null) {
+        final priorCanonical = EventEnvelopeJsonCodec.encodeString(prior);
+        final candidateCanonical = EventEnvelopeJsonCodec.encodeString(event);
+        if (priorCanonical != candidateCanonical) {
+          return AppendResult.rejected(
+            failure: AppendFailure.eventIdConflict,
+            failedEventId: event.eventId,
+            reasonCode: InMemoryRejectionReason.eventIdConflict,
+          );
+        }
         duplicateIds.add(event.eventId);
         continue;
       }
@@ -145,6 +159,7 @@ final class InMemoryEventStore implements EventStore {
       stagedEvents.add(
         StoredEvent(sequence: stagedEventSequence++, event: event),
       );
+      stagedEventsById[event.eventId] = event;
       stagedOutbox.add(
         OutboxEntry(
           sequence: stagedOutboxSequence++,
@@ -178,8 +193,9 @@ final class InMemoryEventStore implements EventStore {
   Future<void> appendAll(List<EventEnvelope> events) async {
     final result = appendTransaction(events);
     if (result.committed) return;
-    if (result.failure == AppendFailure.revisionConflict) {
-      throw EventAppendConflict(ReductionReason.revisionConflict);
+    if (result.failure == AppendFailure.revisionConflict ||
+        result.failure == AppendFailure.eventIdConflict) {
+      throw EventAppendConflict(result.reasonCode ?? 'event_append_conflict');
     }
     throw StateError(
       'event_append_rejected:${result.reasonCode ?? 'unknown'}',
