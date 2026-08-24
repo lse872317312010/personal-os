@@ -29,7 +29,8 @@ final class ObservationUseCaseFailure implements Exception {
 }
 
 final class RecordObservationResult {
-  const RecordObservationResult({required this.observationId, required this.eventId});
+  const RecordObservationResult(
+      {required this.observationId, required this.eventId});
 
   final String observationId;
   final String eventId;
@@ -148,4 +149,3 @@ final class RecordObservationUseCase {
     }
   }
 }
-

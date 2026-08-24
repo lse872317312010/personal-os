@@ -127,4 +127,3 @@ bool _isValidMediaType(String mediaType) =>
     mediaType.length <= 127 &&
     RegExp(r'^[A-Za-z0-9!#\$&^_.+\-]+/[A-Za-z0-9!#\$&^_.+\-]+$')
         .hasMatch(mediaType);
-

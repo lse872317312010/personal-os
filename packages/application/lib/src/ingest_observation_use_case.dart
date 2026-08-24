@@ -48,7 +48,8 @@ final class IngestObservationUseCase {
   final BlobIngestionContract _ingestion;
   final RecordObservationUseCase _recordObservation;
 
-  Future<RecordObservationResult> execute(IngestObservationCommand command) async {
+  Future<RecordObservationResult> execute(
+      IngestObservationCommand command) async {
     if (_ingestion is! BlobIngestionRollback) {
       throw const ObservationUseCaseFailure(
         ObservationFailureCode.rollbackUnavailable,
@@ -86,4 +87,3 @@ final class IngestObservationUseCase {
     }
   }
 }
-
