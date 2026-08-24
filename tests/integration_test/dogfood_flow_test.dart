@@ -151,7 +151,7 @@ void main() {
 
 final class _DogfoodHarness {
   final InMemoryEventStore store = InMemoryEventStore();
-  final FakeControlledSourcePort source = FakeControlledSourcePort();
+  final _ControlledSource source = _ControlledSource();
   final _SourceIngestion ingestion = _SourceIngestion();
   bool analysisFailure = false;
 
@@ -201,7 +201,7 @@ final class _DogfoodHarness {
         analyzeAppearance: analysis,
       ),
       profileId: EntityId('primary-user'),
-      actor: const ActorRef(
+      actor: ActorRef(
         actorId: 'primary-user',
         actorType: ActorType.user,
         authoritySource: 'dogfood-test',
@@ -245,6 +245,50 @@ final class _SourceIngestion implements SourceBlobIngestionPort {
     required BlobAccessContext access,
   }) async {
     discarded.add(ref);
+  }
+}
+
+final class _ControlledSource implements ControlledSourcePort {
+  final List<OpaqueSourceToken> issued = <OpaqueSourceToken>[];
+  final Set<String> released = <String>{};
+  ControlledSourceFailureCode? nextFailure;
+
+  @override
+  Future<ControlledSourceCapabilities> capabilities() async =>
+      const ControlledSourceCapabilities(photoPicker: true, camera: false);
+
+  @override
+  Future<OpaqueSourceToken> pickPhoto() async {
+    _throwIfConfigured();
+    final token = OpaqueSourceToken('dogfood_photo_token_01');
+    issued.add(token);
+    return token;
+  }
+
+  @override
+  Future<OpaqueSourceToken> capturePhoto() async {
+    _throwIfConfigured();
+    throw const ControlledSourceException(
+      ControlledSourceFailureCode.unavailable,
+    );
+  }
+
+  @override
+  Future<String> ingestToBlob(OpaqueSourceToken token) async =>
+      'blob://dogfood-encrypted-0001';
+
+  @override
+  Future<void> deleteBlob(String blobRef) async {}
+
+  @override
+  Future<void> release(OpaqueSourceToken token) async {
+    released.add(token.value);
+  }
+
+  void _throwIfConfigured() {
+    final failure = nextFailure;
+    nextFailure = null;
+    if (failure != null) throw ControlledSourceException(failure);
   }
 }
 
