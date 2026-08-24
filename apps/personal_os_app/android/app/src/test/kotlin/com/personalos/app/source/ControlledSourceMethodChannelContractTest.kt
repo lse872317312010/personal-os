@@ -74,4 +74,33 @@ class ControlledSourceMethodChannelContractTest {
             ),
         )
     }
+    @Test
+    fun acceptsOpaqueBlobRefAndRejectsUriOrPath() {
+        assertTrue(
+            ControlledSourceMethodChannelContract.isOpaqueBlobRef(
+                "blob://12345678-1234-1234-1234-123456789012",
+            ),
+        )
+        assertFalse(
+            ControlledSourceMethodChannelContract.isOpaqueBlobRef(
+                "content://media/external/images/media/1",
+            ),
+        )
+        assertFalse(
+            ControlledSourceMethodChannelContract.isOpaqueBlobRef(
+                "/data/user/0/com.personalos.app/blob",
+            ),
+        )
+    }
+
+    @Test
+    fun deleteFailureUsesStableCodeWithoutNativeDetails() {
+        assertEquals(
+            mapOf("errorCode" to ControlledSourceMethodChannelContract.ERROR_DELETE_FAILED),
+            ControlledSourceMethodChannelContract.safeFailure(
+                "SQLiteException: /data/user/0/com.personalos.app/vault.db",
+            ),
+        )
+    }
+
 }
