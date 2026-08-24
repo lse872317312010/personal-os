@@ -53,6 +53,19 @@ final class _CaptureScreenState extends State<CaptureScreen> {
         const SizedBox(height: 16),
         ObservationHistoryCard(
             controller: widget.controller, mode: widget.mode),
+        if (widget.controller.sourceAvailable) ...<Widget>[
+          FilledButton.icon(
+            key: const Key('pick-photo-analyze'),
+            onPressed: busy
+                ? null
+                : () => widget.controller.pickPhotoAndAnalyze(
+                      observationContext: _context.text.trim(),
+                    ),
+            icon: const Icon(Icons.photo_library_outlined),
+            label: const Text('选择照片并分析'),
+          ),
+          const SizedBox(height: 12),
+        ],
         const SizedBox(height: 16),
         TextField(
           key: const Key('blob-reference'),
@@ -115,5 +128,8 @@ String _errorMessage(String code) => switch (code) {
       'consent_required' => '请先勾选本次分析授权。',
       'blob_reference_required' => '资料引用格式无效，请使用安全会话提供的引用。',
       'vault_locked' => '本地保险库已锁定，请重新进入。',
+      'source_unavailable' => '暂时无法选择照片，请稍后重试。',
+      'source_denied' => '照片选择未获允许。',
+      'd4_persistence_forbidden' => '该资料不允许持久化。',
       _ => '暂时无法生成（$code），请重试。',
     };
