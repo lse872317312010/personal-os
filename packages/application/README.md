@@ -20,4 +20,6 @@ the ingested blob. Adapters without a rollback capability are rejected before
 the input stream is consumed.
 The observation event is appended atomically after the Blob reference is
 returned.
+The event payload never contains a filesystem path, provider URI, raw bytes,
+or content hash.
 
