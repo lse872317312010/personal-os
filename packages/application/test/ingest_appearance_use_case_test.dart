@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:personal_os_application/application.dart';
+import 'package:personal_os_blob_engine/blob_engine.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_events/events.dart';
 import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
