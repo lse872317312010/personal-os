@@ -46,6 +46,8 @@ void main() {
       await tester.tap(find.byKey(const Key('analyze-reference')));
       await tester.pumpAndSettle();
 
+      await tester.tap(find.text('分析'));
+      await tester.pumpAndSettle();
       expect(find.textContaining('已记录 1 条观察'), findsOneWidget);
       await tester.tap(find.byKey(const Key('lock-vault')));
       await tester.pumpAndSettle();
