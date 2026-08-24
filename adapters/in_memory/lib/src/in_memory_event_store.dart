@@ -338,6 +338,7 @@ bool _isReducerConflict(String? reason) => switch (reason) {
       ReductionReason.unsupportedEventVersion ||
       ReductionReason.missingSubject ||
       ReductionReason.missingExecutionRecord ||
-      ReductionReason.invalidDeletionTombstone => true,
+      ReductionReason.invalidDeletionTombstone =>
+        true,
       _ => false,
     };

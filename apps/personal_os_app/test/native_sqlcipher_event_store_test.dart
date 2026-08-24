@@ -23,7 +23,8 @@ void main() {
     _setChannelHandler(channel, null);
   });
 
-  test('appendAll is one strict JSON batch and reads complete envelopes', () async {
+  test('appendAll is one strict JSON batch and reads complete envelopes',
+      () async {
     final store = NativeSqlCipherEventStore(channel: channel);
     store.attachNativeSession(PlatformVaultSession(id: 'native-session'));
     final event = _event();
@@ -154,12 +155,14 @@ void main() {
       )),
     );
 
-    _setChannelHandler(channel, (call) async => <Object?>[
-          <String, Object?>{
-            'eventId': 'event-1',
-            'eventJson': 'not-json',
-          },
-        ]);
+    _setChannelHandler(
+        channel,
+        (call) async => <Object?>[
+              <String, Object?>{
+                'eventId': 'event-1',
+                'eventJson': 'not-json',
+              },
+            ]);
     await expectLater(
       store.readBySubject(
         ObjectRef(type: 'profile', id: EntityId('profile-1')),
@@ -279,7 +282,8 @@ EventEnvelope _event({
   Sensitivity sensitivity = Sensitivity.d3,
   String observationId = 'observation-1',
   int? observationRevision,
-}) => EventEnvelope(
+}) =>
+    EventEnvelope(
       eventId: id,
       eventType: EventTypes.observationRecorded,
       eventVersion: 1,
@@ -341,7 +345,8 @@ final class _FakePlatformBridge implements PlatformSecurityBridge {
   @override
   Future<PlatformAuthenticationTicket> authenticate(
     PlatformAuthenticationRequest request,
-  ) async => PlatformAuthenticationTicket(
+  ) async =>
+      PlatformAuthenticationTicket(
         id: 'ticket-1',
         expiresAt: DateTime.now().toUtc().add(const Duration(minutes: 1)),
       );
@@ -350,7 +355,8 @@ final class _FakePlatformBridge implements PlatformSecurityBridge {
   Future<PlatformVaultSession> openVault({
     required String authenticationTicketId,
     required DateTime ticketExpiresAt,
-  }) async => PlatformVaultSession(id: openedSessionId);
+  }) async =>
+      PlatformVaultSession(id: openedSessionId);
 
   @override
   Future<void> closeVault({required PlatformVaultSession session}) async {
@@ -361,46 +367,53 @@ final class _FakePlatformBridge implements PlatformSecurityBridge {
   Future<PlatformKeyReference> createKey({
     required KeyPurpose purpose,
     required String authenticationTicketId,
-  }) => _unsupported();
+  }) =>
+      _unsupported();
 
   @override
   Future<PlatformWrappedKey> wrapKey({
     required PlatformKeyReference key,
     required PlatformKeyReference wrappingKey,
     required String authenticationTicketId,
-  }) => _unsupported();
+  }) =>
+      _unsupported();
 
   @override
   Future<PlatformKeyReference> unwrapKey({
     required PlatformWrappedKey wrappedKey,
     required PlatformKeyReference wrappingKey,
     required String authenticationTicketId,
-  }) => _unsupported();
+  }) =>
+      _unsupported();
 
   @override
   Future<PlatformEpochRotation> rotateAccountEpoch({
     required PlatformKeyReference currentEpoch,
     required String authenticationTicketId,
-  }) => _unsupported();
+  }) =>
+      _unsupported();
 
   @override
   Future<PlatformEpochRotation> revokeDeviceAndRotate({
     required String deviceId,
     required PlatformKeyReference currentEpoch,
     required String authenticationTicketId,
-  }) => _unsupported();
+  }) =>
+      _unsupported();
 
   @override
   Future<void> authorizeNewData({
     required String deviceId,
     required PlatformKeyReference epochKey,
-  }) => _unsupported();
+  }) =>
+      _unsupported();
 
   @override
   Future<void> destroyKey({
     required PlatformKeyReference key,
     required String authenticationTicketId,
-  }) => _unsupported();
+  }) =>
+      _unsupported();
 
   Future<T> _unsupported<T>() => Future<T>.error(
         const PlatformSecurityFailure(PlatformSecurityFailureCode.unavailable),

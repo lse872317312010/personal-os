@@ -60,7 +60,8 @@ void main() {
     expect(find.text('请先勾选本次分析授权。'), findsOneWidget);
   });
 
-  testWidgets('task and review cannot bypass plan and feedback', (tester) async {
+  testWidgets('task and review cannot bypass plan and feedback',
+      (tester) async {
     final composition = AppComposition.inMemoryDemo();
     await tester.pumpWidget(PersonalOsApp(composition: composition));
     await tester.tap(find.byKey(const Key('unlock-vault')));
@@ -70,7 +71,9 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('create-review')), findsOneWidget);
     expect(
-      tester.widget<OutlinedButton>(find.byKey(const Key('create-review'))).onPressed,
+      tester
+          .widget<OutlinedButton>(find.byKey(const Key('create-review')))
+          .onPressed,
       isNull,
     );
     expect(find.textContaining('先完成或跳过'), findsOneWidget);

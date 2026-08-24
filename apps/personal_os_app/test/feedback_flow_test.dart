@@ -140,4 +140,3 @@ Future<AppComposition> _readyComposition(WidgetTester tester) async {
   await tester.pump();
   return composition;
 }
-

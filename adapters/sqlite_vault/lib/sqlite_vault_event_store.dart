@@ -164,7 +164,8 @@ final class SqliteVaultEventStore implements EventStore {
   }
 
   @override
-  Future<List<EventEnvelope>> readBySubject(ObjectRef subject, {int? limit}) async {
+  Future<List<EventEnvelope>> readBySubject(ObjectRef subject,
+      {int? limit}) async {
     if (limit != null && limit <= 0) return const <EventEnvelope>[];
     try {
       final sql = 'SELECT e.*, (SELECT json_group_array(json_object('
@@ -282,8 +283,16 @@ Future<void> _writeProjection(
       'INSERT INTO projections (projection_type, subject_type, subject_id, '
       'revision, last_event_id, state_json, sensitivity, updated_at) '
       'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      <Object?>['core', projection.objectType, projection.id.value,
-        projection.revision.value, projection.lastEventId, state, sensitivity, time],
+      <Object?>[
+        'core',
+        projection.objectType,
+        projection.id.value,
+        projection.revision.value,
+        projection.lastEventId,
+        state,
+        sensitivity,
+        time
+      ],
     );
     if (changed != 1) {
       throw EventAppendConflict(ReductionReason.revisionConflict);
@@ -293,9 +302,17 @@ Future<void> _writeProjection(
       'UPDATE projections SET revision = ?, last_event_id = ?, state_json = ?, '
       'sensitivity = ?, updated_at = ? WHERE projection_type = ? '
       'AND subject_type = ? AND subject_id = ? AND revision = ?',
-      <Object?>[projection.revision.value, projection.lastEventId, state,
-        sensitivity, time, 'core', projection.objectType, projection.id.value,
-        expectedRevision],
+      <Object?>[
+        projection.revision.value,
+        projection.lastEventId,
+        state,
+        sensitivity,
+        time,
+        'core',
+        projection.objectType,
+        projection.id.value,
+        expectedRevision
+      ],
     );
     if (changed != 1) {
       throw EventAppendConflict(ReductionReason.revisionConflict);
@@ -317,20 +334,29 @@ const _selectEventByIdSql = 'SELECT e.*, (SELECT json_group_array(json_object('
     'FROM event_log e WHERE e.event_id = ? LIMIT 1';
 
 List<Object?> _eventParameters(Map<String, Object?> e) => <Object?>[
-  e['event_id'], e['event_type'], e['event_version'], e['occurred_at'],
-  e['recorded_at'], jsonEncode(e['actor']), e['correlation_id'],
-  e['causation_id'], jsonEncode(e['source_refs']), jsonEncode(e['consent_refs']),
-  (e['sensitivity']! as String).toUpperCase(), jsonEncode(e['payload']),
-  jsonEncode(e['integrity']), jsonEncode(e['extensions']),
-];
+      e['event_id'],
+      e['event_type'],
+      e['event_version'],
+      e['occurred_at'],
+      e['recorded_at'],
+      jsonEncode(e['actor']),
+      e['correlation_id'],
+      e['causation_id'],
+      jsonEncode(e['source_refs']),
+      jsonEncode(e['consent_refs']),
+      (e['sensitivity']! as String).toUpperCase(),
+      jsonEncode(e['payload']),
+      jsonEncode(e['integrity']),
+      jsonEncode(e['extensions']),
+    ];
 
 EventEnvelope _decodeRow(SqlRow row) {
-  final rawRefs = jsonDecode((row['subject_refs_json'] as String?) ?? '[]') as List;
+  final rawRefs =
+      jsonDecode((row['subject_refs_json'] as String?) ?? '[]') as List;
   final refs = rawRefs
       .map((value) => Map<String, Object?>.from(value as Map))
       .toList()
-    ..sort((a, b) =>
-        (a['ordinal']! as int).compareTo(b['ordinal']! as int));
+    ..sort((a, b) => (a['ordinal']! as int).compareTo(b['ordinal']! as int));
   for (final ref in refs) {
     ref.remove('ordinal');
     if (ref['revision'] == null) ref.remove('revision');
