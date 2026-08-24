@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:personal_os_device_security/device_security.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_events/events.dart';
+import 'package:personal_os_security_api/security_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 
 /// App-private EventStore adapter for the native SQLCipher session.
