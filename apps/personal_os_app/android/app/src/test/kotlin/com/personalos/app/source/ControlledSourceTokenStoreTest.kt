@@ -100,12 +100,12 @@ class ControlledSourceTokenStoreTest {
         )
     }
 
-    private fun sink(uri: Uri, ingest: (Uri) -> BlobSinkResult): SourceBlobSink =
+    private fun sink(uri: Uri, write: (Uri) -> BlobSinkResult): SourceBlobSink =
         object : SourceBlobSink {
             override fun ingest(value: Uri, opaqueToken: String): BlobSinkResult {
                 assertEquals(uri, value)
                 assertTrue(ControlledSourceMethodChannelContract.isOpaqueToken(opaqueToken))
-                return ingest(value)
+                return write(value)
             }
 
             override fun deleteBlob(blobRef: String): BlobDeleteResult =
