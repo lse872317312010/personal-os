@@ -19,7 +19,7 @@ void main() {
     consentRef: 'consent:appearance-v1',
   );
 
-  IngestAppearanceAnalysisUseCase _useCase(
+  IngestAppearanceAnalysisUseCase _buildUseCase(
     _Ingestion ingestion,
     _Store store,
     _Model model,
@@ -40,7 +40,7 @@ void main() {
         ),
       );
 
-  IngestAppearanceAnalysisCommand _command(Stream<List<int>> bytes) =>
+  IngestAppearanceAnalysisCommand _buildCommand(Stream<List<int>> bytes) =>
       IngestAppearanceAnalysisCommand(
         bytes: bytes,
         mediaType: 'image/jpeg',
@@ -56,8 +56,8 @@ void main() {
     final ingestion = _Ingestion();
     final store = _Store();
     final model = _Model();
-    final result = await _useCase(ingestion, store, model).execute(
-      _command(Stream<List<int>>.value(<int>[1, 2, 3])),
+    final result = await _buildUseCase(ingestion, store, model).execute(
+      _buildCommand(Stream<List<int>>.value(<int>[1, 2, 3])),
     );
 
     expect(result.blobRef, BlobRef('blob://opaque-1'));
@@ -95,8 +95,8 @@ void main() {
       ..failure = const BlobIngestionException('ingestion_failed');
     final store = _Store();
     await expectLater(
-      _useCase(ingestion, store, _Model()).execute(
-        _command(Stream<List<int>>.value(<int>[9])),
+      _buildUseCase(ingestion, store, _Model()).execute(
+        _buildCommand(Stream<List<int>>.value(<int>[9])),
       ),
       throwsA(isA<BlobIngestionException>().having(
         (error) => error.code,
@@ -111,9 +111,9 @@ void main() {
     final ingestion = _Ingestion()..incrementRefs = true;
     final store = _Store();
     final model = _Model();
-    final useCase = _useCase(ingestion, store, model);
-    await useCase.execute(_command(Stream<List<int>>.value(<int>[4])));
-    await useCase.execute(_command(Stream<List<int>>.value(<int>[5])));
+    final useCase = _buildUseCase(ingestion, store, model);
+    await useCase.execute(_buildCommand(Stream<List<int>>.value(<int>[4])));
+    await useCase.execute(_buildCommand(Stream<List<int>>.value(<int>[5])));
 
     expect(ingestion.refs, <BlobRef>[
       BlobRef('blob://opaque-1'),
@@ -136,8 +136,8 @@ void main() {
     final store = _Store();
     final model = _Model()..failure = StateError('adapter-secret /tmp/db');
     await expectLater(
-      _useCase(ingestion, store, model).execute(
-        _command(Stream<List<int>>.value(<int>[7])),
+      _buildUseCase(ingestion, store, model).execute(
+        _buildCommand(Stream<List<int>>.value(<int>[7])),
       ),
       throwsA(isA<AppearanceUseCaseFailure>().having(
         (error) => error.code,
@@ -154,8 +154,8 @@ void main() {
     final store = _Store();
     final model = _Model()..failure = StateError('adapter failure');
     await expectLater(
-      _useCase(ingestion, store, model).execute(
-        _command(Stream<List<int>>.value(<int>[8])),
+      _buildUseCase(ingestion, store, model).execute(
+        _buildCommand(Stream<List<int>>.value(<int>[8])),
       ),
       throwsA(isA<AppearanceUseCaseFailure>().having(
         (error) => error.code,
@@ -185,8 +185,8 @@ Iterable<Object?> _flatten(Object? value) sync* {
 
 final class _Ingestion implements BlobIngestionContract, BlobIngestionRollback {
   BlobRef ref = BlobRef('blob://opaque-1');
-  Object? failure;
-  Object? discardFailure;
+  Exception? failure;
+  Exception? discardFailure;
   bool incrementRefs = false;
   int calls = 0;
   int discardCalls = 0;
@@ -223,7 +223,7 @@ final class _Ingestion implements BlobIngestionContract, BlobIngestionRollback {
 }
 
 final class _Model implements AppearanceAnalysisGateway {
-  Object? failure;
+  Exception? failure;
   final List<AppearanceAnalysisInput> inputs = <AppearanceAnalysisInput>[];
 
   @override
