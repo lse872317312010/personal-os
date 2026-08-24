@@ -100,6 +100,25 @@ void main() {
     expect(store.events, isEmpty);
   });
 
+  test('event-store append failure is stable and publishes no events', () async {
+    final store = _MemoryEventStore()..failAppend = true;
+    final useCase = AnalyzeAppearanceUseCase(
+      eventStore: store,
+      modelGateway: _FakeModelGateway(_completeAnalysis()),
+      policy: const _FixedPolicy(PolicyVerdict.allow()),
+      ids: _SequentialIds(),
+      clock: _FixedClock(),
+    );
+
+    await expectLater(
+      useCase.execute(_command(actor)),
+      throwsA(isA<AppearanceUseCaseFailure>()
+          .having((e) => e.code, 'code', AppearanceFailureCode.analysisFailed)
+          .having((e) => e.toString(), 'safe', isNot(contains('secret')))),
+    );
+    expect(store.events, isEmpty);
+  });
+
   test('history query uses profile subject and limit', () async {
     final store = _MemoryEventStore();
     final handler = AppearanceHistoryQueryHandler(store);
@@ -139,12 +158,14 @@ AppearanceAnalysisResult _completeAnalysis() => AppearanceAnalysisResult(
 final class _MemoryEventStore implements EventStore {
   final events = <EventEnvelope>[];
   int appendCalls = 0;
+  bool failAppend = false;
   ObjectRef? lastReadSubject;
   int? lastReadLimit;
 
   @override
   Future<void> appendAll(List<EventEnvelope> events) async {
     appendCalls++;
+    if (failAppend) throw StateError('secret adapter detail');
     this.events.addAll(events);
   }
 
