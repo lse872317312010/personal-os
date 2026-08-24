@@ -34,10 +34,10 @@ void main() {
 
   test('rejects D4 before creating resources or listening to input', () async {
     var listened = false;
-    final input = Stream<List<int>>.multi((controller) {
+    final input = Stream<List<int>>.multi((controller) async {
       listened = true;
       controller.add(<int>[1]);
-      controller.close();
+      await controller.close();
     });
 
     await expectLater(
@@ -62,9 +62,9 @@ void main() {
       purpose: 'appearance-analysis',
     );
     var listened = false;
-    final input = Stream<List<int>>.multi((controller) {
+    final input = Stream<List<int>>.multi((controller) async {
       listened = true;
-      controller.close();
+      await controller.close();
     });
 
     await expectLater(
