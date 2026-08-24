@@ -18,4 +18,6 @@ encrypted ingestion boundary first, and only the resulting opaque `BlobRef`
 is recorded in the event stream. Failed event appends compensate by discarding
 the ingested blob. Adapters without a rollback capability are rejected before
 the input stream is consumed.
+The observation event is appended atomically after the Blob reference is
+returned.
 
