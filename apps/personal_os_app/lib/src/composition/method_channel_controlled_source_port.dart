@@ -29,6 +29,7 @@ final class MethodChannelControlledSourcePort implements ControlledSourcePort {
     'source.invalid_response': ControlledSourceFailureCode.invalidResponse,
     'source.expired': ControlledSourceFailureCode.sourceExpired,
     'source.consumed': ControlledSourceFailureCode.sourceConsumed,
+    'source.session_invalid': ControlledSourceFailureCode.unavailable,
     'source.read_failed': ControlledSourceFailureCode.unavailable,
     'source.write_failed': ControlledSourceFailureCode.sourceWriteFailed,
   };

@@ -68,6 +68,12 @@ internal class OpaqueVaultSessionRegistry(
         session.database.close()
     }
 
+    fun isActive(id: String): Boolean = try {
+        withActive(id) { true }
+    } catch (_: NativeVaultFailure) {
+        false
+    }
+
     fun closeAll() {
         expiryExecutor.shutdownNow()
         sessions.values.forEach { session ->

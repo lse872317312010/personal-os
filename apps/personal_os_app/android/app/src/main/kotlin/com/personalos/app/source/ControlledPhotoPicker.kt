@@ -15,6 +15,7 @@ internal class ControlledPhotoPicker(
     private val resolver: ContentResolver,
     private val tokenStore: ControlledSourceTokenStore = ControlledSourceTokenStore(),
     private val blobSink: SourceBlobSink = UnavailableSourceBlobSink,
+    private val currentSessionId: () -> String? = { null },
 ) {
     private var pendingPick: MethodChannel.Result? = null
 
@@ -56,7 +57,16 @@ internal class ControlledPhotoPicker(
             )
             return
         }
-        val token = tokenStore.issue(uri)
+        val sessionId = currentSessionId()
+        if (sessionId == null) {
+            result.error(
+                ControlledSourceMethodChannelContract.ERROR_SESSION_INVALID,
+                null,
+                null,
+            )
+            return
+        }
+        val token = tokenStore.issue(uri, sessionId)
         result.success(ControlledSourceMethodChannelContract.safeTokenResult(token))
     }
 
@@ -64,7 +74,18 @@ internal class ControlledPhotoPicker(
         token: String,
         result: MethodChannel.Result,
     ) {
-        when (val outcome = tokenStore.consume(token, blobSink)) {
+        val sessionId = currentSessionId()
+        if (sessionId == null) {
+            // A token without a live vault session can never be safely retried.
+            tokenStore.release(token)
+            result.error(
+                ControlledSourceMethodChannelContract.ERROR_SESSION_INVALID,
+                null,
+                null,
+            )
+            return
+        }
+        when (val outcome = tokenStore.consume(token, sessionId, blobSink)) {
             is ControlledSourceTokenStore.ConsumeResult.Stored ->
                 result.success(
                     ControlledSourceMethodChannelContract.safeBlobRefResult(outcome.blobRef),
@@ -84,6 +105,12 @@ internal class ControlledPhotoPicker(
             ControlledSourceTokenStore.ConsumeResult.Consumed ->
                 result.error(
                     ControlledSourceMethodChannelContract.ERROR_CONSUMED,
+                    null,
+                    null,
+                )
+            ControlledSourceTokenStore.ConsumeResult.SessionMismatch ->
+                result.error(
+                    ControlledSourceMethodChannelContract.ERROR_SESSION_INVALID,
                     null,
                     null,
                 )
@@ -140,6 +167,10 @@ internal class ControlledPhotoPicker(
     fun release(token: String, result: MethodChannel.Result) {
         tokenStore.release(token)
         result.success(null)
+    }
+
+    fun retireTokens() {
+        tokenStore.clear()
     }
 
     fun dispose() {

@@ -95,6 +95,10 @@ internal class ControlledSourceChannel(
         picker.onPicked(uri)
     }
 
+    fun retireTokens() {
+        picker.retireTokens()
+    }
+
     fun dispose() {
         picker.dispose()
     }

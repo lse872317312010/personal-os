@@ -29,6 +29,7 @@ object ControlledSourceMethodChannelContract {
     const val ERROR_INVALID_RESPONSE = "source.invalid_response"
     const val ERROR_EXPIRED = "source.expired"
     const val ERROR_CONSUMED = "source.consumed"
+    const val ERROR_SESSION_INVALID = "source.session_invalid"
     const val ERROR_READ_FAILED = "source.read_failed"
     const val ERROR_WRITE_FAILED = "source.write_failed"
     const val ERROR_DELETE_FAILED = "source.delete_failed"
@@ -61,6 +62,7 @@ object ControlledSourceMethodChannelContract {
             ERROR_INVALID_RESPONSE,
             ERROR_EXPIRED,
             ERROR_CONSUMED,
+            ERROR_SESSION_INVALID,
             ERROR_READ_FAILED,
             ERROR_WRITE_FAILED,
             ERROR_DELETE_FAILED -> code
