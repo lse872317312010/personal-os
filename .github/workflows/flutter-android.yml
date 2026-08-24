@@ -63,7 +63,7 @@ jobs:
         run: |
           mkdir -p release
           cp apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.apk release/personal-os-latest-debug.apk
-          cp apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.apk.provenance.json release/personal-os-latest-debug.provenance.json
+          cp apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.provenance.json release/personal-os-latest-debug.provenance.json
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
