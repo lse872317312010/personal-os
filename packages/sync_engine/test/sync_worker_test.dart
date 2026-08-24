@@ -213,8 +213,7 @@ void main() {
       expect(worker.lastReceivedSequence('device-peer'), -1);
     });
 
-    test(
-        'inbound D4 is rejected by payload decoding before the atomic append',
+    test('inbound D4 is rejected by payload decoding before the atomic append',
         () async {
       final crypto = _FakeCrypto();
       final store = _RecordingStore();
