@@ -14,20 +14,44 @@ class ControlledSourceTokenStoreTest {
             nowMillis = { 10L },
             tokenFactory = { "opaque_token_123456" },
         )
-        val token = store.issue(uri)
+        val token = store.issue(uri, "session-1")
 
         assertTrue(ControlledSourceMethodChannelContract.isOpaqueToken(token))
         assertEquals(
-            ControlledSourceTokenStore.ConsumeResult.Ready,
-            store.consume(token) {
+            ControlledSourceTokenStore.ConsumeResult.Stored("blob://12345678-1234-1234-123456789012"),
+            store.consume(token, "session-1", sink(uri) {
                 reads += 1
-                it == uri
-            },
+                BlobSinkResult.Stored("blob://12345678-1234-1234-123456789012")
+            }),
         )
         assertEquals(1, reads)
         assertEquals(
             ControlledSourceTokenStore.ConsumeResult.Consumed,
-            store.consume(token) { true },
+            store.consume(token, "session-1", sink(uri) {
+                BlobSinkResult.Stored("blob://12345678-1234-1234-123456789012")
+            }),
+        )
+    }
+
+    @Test
+    fun tokenCannotMoveAcrossVaultSessions() {
+        val store = ControlledSourceTokenStore(
+            nowMillis = { 10L },
+            tokenFactory = { "opaque_token_123456" },
+        )
+        val token = store.issue(Uri.parse("content://private/provider/2"), "session-1")
+
+        assertEquals(
+            ControlledSourceTokenStore.ConsumeResult.SessionMismatch,
+            store.consume(token, "session-2", sink(Uri.parse("content://private/provider/2")) {
+                error("must not read a token from another session")
+            }),
+        )
+        assertEquals(
+            ControlledSourceTokenStore.ConsumeResult.Consumed,
+            store.consume(token, "session-1", sink(Uri.parse("content://private/provider/2")) {
+                error("session-mismatched token must be retired")
+            }),
         )
     }
 
@@ -38,33 +62,53 @@ class ControlledSourceTokenStoreTest {
             ttlMillis = 100L,
             tokenFactory = { "opaque_token_123456" },
         )
-        val token = store.issue(Uri.parse("content://private/provider/2"))
+        val token = store.issue(Uri.parse("content://private/provider/3"), "session-1")
 
         assertEquals(
             ControlledSourceTokenStore.ConsumeResult.Expired,
-            store.consume(token) { error("must not read expired source") },
+            store.consume(token, "session-1", sink(Uri.parse("content://private/provider/3")) {
+                error("must not read expired source")
+            }),
         )
         assertEquals(
             ControlledSourceTokenStore.ConsumeResult.Consumed,
-            store.consume(token) { true },
+            store.consume(token, "session-1", sink(Uri.parse("content://private/provider/3")) {
+                error("expired token must be retired")
+            }),
         )
     }
 
     @Test
-    fun readFailureIsStableAndTokenCannotBeRetried() {
+    fun writeFailureIsStableAndTokenCannotBeRetried() {
         val store = ControlledSourceTokenStore(
             nowMillis = { 10L },
             tokenFactory = { "opaque_token_123456" },
         )
-        val token = store.issue(Uri.parse("content://private/provider/3"))
+        val token = store.issue(Uri.parse("content://private/provider/4"), "session-1")
 
         assertEquals(
-            ControlledSourceTokenStore.ConsumeResult.ReadFailed,
-            store.consume(token) { false },
+            ControlledSourceTokenStore.ConsumeResult.WriteFailed,
+            store.consume(token, "session-1", sink(Uri.parse("content://private/provider/4")) {
+                BlobSinkResult.WriteFailed
+            }),
         )
         assertEquals(
             ControlledSourceTokenStore.ConsumeResult.Consumed,
-            store.consume(token) { true },
+            store.consume(token, "session-1", sink(Uri.parse("content://private/provider/4")) {
+                error("failed write must not replay the source")
+            }),
         )
     }
+
+    private fun sink(uri: Uri, ingest: (Uri) -> BlobSinkResult): SourceBlobSink =
+        object : SourceBlobSink {
+            override fun ingest(value: Uri, opaqueToken: String): BlobSinkResult {
+                assertEquals(uri, value)
+                assertTrue(ControlledSourceMethodChannelContract.isOpaqueToken(opaqueToken))
+                return ingest(value)
+            }
+
+            override fun deleteBlob(blobRef: String): BlobDeleteResult =
+                BlobDeleteResult.Deleted
+        }
 }
