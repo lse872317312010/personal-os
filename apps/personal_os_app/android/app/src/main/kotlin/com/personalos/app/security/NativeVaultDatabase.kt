@@ -3,6 +3,7 @@ package com.personalos.app.security
 import android.content.Context
 import android.database.Cursor
 import net.zetetic.database.sqlcipher.SQLiteDatabase
+import org.json.JSONObject
 
 /** The only database API exposed to the native channel facade. */
 internal interface NativeVaultDatabase : AutoCloseable {
@@ -140,7 +141,7 @@ internal class SqlCipherVaultDatabase private constructor(
 
                     val existingEventJson = existingEventJson(event.eventId)
                     if (existingEventJson != null) {
-                        if (existingEventJson != event.eventJson) {
+                        if (!sameEventContentForIdempotency(existingEventJson, event.eventJson)) {
                             throw NativeVaultFailure(
                                 NativeVaultFailureCode.VAULT_EVENT_CONFLICT,
                             )
@@ -367,6 +368,33 @@ internal class SqlCipherVaultDatabase private constructor(
     private fun validateEventJson(eventJson: String) {
         if (eventJson.isBlank() || eventJson.length > MAX_EVENT_JSON_LENGTH) {
             throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+        }
+        try {
+            // Parse at the boundary so malformed JSON can never become an
+            // idempotent retry or be persisted for a later comparison.
+            JSONObject(eventJson)
+        } catch (_: Throwable) {
+            throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+        }
+    }
+
+    /**
+     * The expected projection revision is a retry-time concurrency guard, not
+     * part of the event identity. All other JSON content remains conflict
+     * sensitive. Parsing failures deliberately return false (fail closed).
+     */
+    private fun sameEventContentForIdempotency(
+        existingEventJson: String,
+        incomingEventJson: String,
+    ): Boolean {
+        return try {
+            val existing = JSONObject(existingEventJson)
+            val incoming = JSONObject(incomingEventJson)
+            existing.optJSONObject("payload")?.remove("expected_revision")
+            incoming.optJSONObject("payload")?.remove("expected_revision")
+            existing.similar(incoming)
+        } catch (_: Throwable) {
+            false
         }
     }
 
