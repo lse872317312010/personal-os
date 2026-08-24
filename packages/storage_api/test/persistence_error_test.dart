@@ -4,8 +4,9 @@ import 'package:test/test.dart';
 void main() {
   group('PersistenceException', () {
     test('wire values are stable and unique', () {
-      final values =
-          PersistenceErrorCode.values.map((code) => code.wireValue).toList();
+      final values = PersistenceErrorCode.values
+          .map((code) => code.wireValue)
+          .toList();
 
       expect(values, hasLength(17));
       expect(values.toSet(), hasLength(values.length));
@@ -21,7 +22,10 @@ void main() {
         'code': 'persistence.internal_adapter_failure',
         'safe_message': 'The storage operation failed safely.',
       });
-      expect(error.toEvidence().keys, unorderedEquals(['code', 'safe_message']));
+      expect(
+        error.toEvidence().keys,
+        unorderedEquals(['code', 'safe_message']),
+      );
     });
 
     test('string representation contains only the stable code', () {
