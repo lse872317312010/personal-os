@@ -16,6 +16,7 @@ abstract final class ObservationFailureCode {
   static const invalidContext = 'observation.invalid_context';
   static const d4Forbidden = 'observation.d4_forbidden';
   static const appendFailed = 'observation.append_failed';
+  static const rollbackUnavailable = 'observation.rollback_unavailable';
 }
 
 final class ObservationUseCaseFailure implements Exception {
@@ -28,8 +29,7 @@ final class ObservationUseCaseFailure implements Exception {
 }
 
 final class RecordObservationResult {
-  const RecordObservationResult(
-      {required this.observationId, required this.eventId});
+  const RecordObservationResult({required this.observationId, required this.eventId});
 
   final String observationId;
   final String eventId;
@@ -148,3 +148,4 @@ final class RecordObservationUseCase {
     }
   }
 }
+
