@@ -45,8 +45,7 @@ final class SqliteVaultEventStore implements EventStore {
           );
           if (existing.isNotEmpty) {
             final persisted = _decodeRow(existing.single);
-            if (EventEnvelopeJsonCodec.encodeString(persisted) !=
-                EventEnvelopeJsonCodec.encodeString(event)) {
+            if (!_sameEventContentForIdempotency(persisted, event)) {
               throw EventAppendConflict(PersistenceErrorCode.eventConflict);
             }
             continue;
@@ -165,8 +164,7 @@ final class SqliteVaultEventStore implements EventStore {
   }
 
   @override
-  Future<List<EventEnvelope>> readBySubject(ObjectRef subject,
-      {int? limit}) async {
+  Future<List<EventEnvelope>> readBySubject(ObjectRef subject, {int? limit}) async {
     if (limit != null && limit <= 0) return const <EventEnvelope>[];
     try {
       final sql = 'SELECT e.*, (SELECT json_group_array(json_object('
@@ -211,13 +209,44 @@ final class SqliteVaultEventStore implements EventStore {
       final prior = byId[event.eventId];
       if (prior == null) {
         byId[event.eventId] = event;
-      } else if (EventEnvelopeJsonCodec.encodeString(prior) !=
-          EventEnvelopeJsonCodec.encodeString(event)) {
+      } else if (!_sameEventContentForIdempotency(prior, event)) {
         throw EventAppendConflict(PersistenceErrorCode.eventConflict);
       }
     }
     return List<EventEnvelope>.unmodifiable(byId.values);
   }
+}
+
+bool _sameEventContentForIdempotency(
+  EventEnvelope left,
+  EventEnvelope right,
+) =>
+    EventEnvelopeJsonCodec.encodeString(_idempotencyEvent(left)) ==
+    EventEnvelopeJsonCodec.encodeString(_idempotencyEvent(right));
+
+/// The expected projection revision is an optimistic-concurrency guard, not
+/// part of the event's identity. A retry may carry a newly computed guard
+/// while still representing the same append.
+EventEnvelope _idempotencyEvent(EventEnvelope event) {
+  final payload = Map<String, Object?>.of(event.payload)
+    ..remove('expected_revision');
+  return EventEnvelope(
+    eventId: event.eventId,
+    eventType: event.eventType,
+    eventVersion: event.eventVersion,
+    occurredAt: event.occurredAt,
+    recordedAt: event.recordedAt,
+    actor: event.actor,
+    subjectRefs: event.subjectRefs,
+    correlationId: event.correlationId,
+    causationId: event.causationId,
+    sourceRefs: event.sourceRefs,
+    consentRefs: event.consentRefs,
+    sensitivity: event.sensitivity,
+    payload: payload,
+    integrity: event.integrity,
+    extensions: event.extensions,
+  );
 }
 
 Set<ObjectRef> _projectionSubjects(EventEnvelope event) {
@@ -253,16 +282,8 @@ Future<void> _writeProjection(
       'INSERT INTO projections (projection_type, subject_type, subject_id, '
       'revision, last_event_id, state_json, sensitivity, updated_at) '
       'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      <Object?>[
-        'core',
-        projection.objectType,
-        projection.id.value,
-        projection.revision.value,
-        projection.lastEventId,
-        state,
-        sensitivity,
-        time
-      ],
+      <Object?>['core', projection.objectType, projection.id.value,
+        projection.revision.value, projection.lastEventId, state, sensitivity, time],
     );
     if (changed != 1) {
       throw EventAppendConflict(ReductionReason.revisionConflict);
@@ -272,17 +293,9 @@ Future<void> _writeProjection(
       'UPDATE projections SET revision = ?, last_event_id = ?, state_json = ?, '
       'sensitivity = ?, updated_at = ? WHERE projection_type = ? '
       'AND subject_type = ? AND subject_id = ? AND revision = ?',
-      <Object?>[
-        projection.revision.value,
-        projection.lastEventId,
-        state,
-        sensitivity,
-        time,
-        'core',
-        projection.objectType,
-        projection.id.value,
-        expectedRevision
-      ],
+      <Object?>[projection.revision.value, projection.lastEventId, state,
+        sensitivity, time, 'core', projection.objectType, projection.id.value,
+        expectedRevision],
     );
     if (changed != 1) {
       throw EventAppendConflict(ReductionReason.revisionConflict);
@@ -304,29 +317,20 @@ const _selectEventByIdSql = 'SELECT e.*, (SELECT json_group_array(json_object('
     'FROM event_log e WHERE e.event_id = ? LIMIT 1';
 
 List<Object?> _eventParameters(Map<String, Object?> e) => <Object?>[
-      e['event_id'],
-      e['event_type'],
-      e['event_version'],
-      e['occurred_at'],
-      e['recorded_at'],
-      jsonEncode(e['actor']),
-      e['correlation_id'],
-      e['causation_id'],
-      jsonEncode(e['source_refs']),
-      jsonEncode(e['consent_refs']),
-      (e['sensitivity']! as String).toUpperCase(),
-      jsonEncode(e['payload']),
-      jsonEncode(e['integrity']),
-      jsonEncode(e['extensions']),
-    ];
+  e['event_id'], e['event_type'], e['event_version'], e['occurred_at'],
+  e['recorded_at'], jsonEncode(e['actor']), e['correlation_id'],
+  e['causation_id'], jsonEncode(e['source_refs']), jsonEncode(e['consent_refs']),
+  (e['sensitivity']! as String).toUpperCase(), jsonEncode(e['payload']),
+  jsonEncode(e['integrity']), jsonEncode(e['extensions']),
+];
 
 EventEnvelope _decodeRow(SqlRow row) {
-  final rawRefs =
-      jsonDecode((row['subject_refs_json'] as String?) ?? '[]') as List;
+  final rawRefs = jsonDecode((row['subject_refs_json'] as String?) ?? '[]') as List;
   final refs = rawRefs
       .map((value) => Map<String, Object?>.from(value as Map))
       .toList()
-    ..sort((a, b) => (a['ordinal']! as int).compareTo(b['ordinal']! as int));
+    ..sort((a, b) =>
+        (a['ordinal']! as int).compareTo(b['ordinal']! as int));
   for (final ref in refs) {
     ref.remove('ordinal');
     if (ref['revision'] == null) ref.remove('revision');
