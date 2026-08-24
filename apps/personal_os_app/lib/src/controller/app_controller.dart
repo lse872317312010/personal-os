@@ -45,6 +45,9 @@ final class AppController extends ChangeNotifier {
         _vaultSession = vaultSession,
         _secureVault = secureVault,
         _sessionCoordinator = sessionCoordinator {
+    if (_sessionCoordinator != null) {
+      _sessionCoordinator!.onSessionInvalidated = _handleSessionInvalidated;
+    }
     if (actor.actorType != ActorType.user) {
       throw ArgumentError.value(actor.actorType, 'actor', 'must be user');
     }
@@ -248,7 +251,11 @@ final class AppController extends ChangeNotifier {
     _consentRevision = consent?.consentRevision ?? 0;
   }
 
-  void lockVault() {
+  void _handleSessionInvalidated(SecurityException error) {
+    lockVault(errorCode: error.code.wireValue);
+  }
+
+  void lockVault({String? errorCode}) {
     _lifecycleEpoch++;
     final opaqueSession = _opaqueVaultSession;
     _opaqueVaultSession = null;
@@ -273,7 +280,7 @@ final class AppController extends ChangeNotifier {
     _bootstrapped = false;
     _bootstrapping = false;
     _submission = SubmissionStatus.idle;
-    _errorCode = null;
+    _errorCode = errorCode;
     _feedbackSubmission = SubmissionStatus.idle;
     _feedbackCode = null;
     notifyListeners();
