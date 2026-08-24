@@ -62,12 +62,19 @@ final class AnalyzeAppearanceUseCase {
 
   Future<AppearanceLoopResult> execute(AnalyzeAppearanceCommand command) async {
     const sensitivity = Sensitivity.d3;
-    final verdict = await _policy.authorizeAnalysis(
-      actor: command.actor,
-      profileId: command.profileId,
-      consentRefs: command.consentRefs,
-      sensitivity: sensitivity,
-    );
+    late final PolicyVerdict verdict;
+    try {
+      verdict = await _policy.authorizeAnalysis(
+        actor: command.actor,
+        profileId: command.profileId,
+        consentRefs: command.consentRefs,
+        sensitivity: sensitivity,
+      );
+    } catch (_) {
+      throw const AppearanceUseCaseFailure(
+        AppearanceFailureCode.policyDenied,
+      );
+    }
     if (!verdict.allowed) {
       throw AppearanceUseCaseFailure(
         AppearanceFailureCode.policyDenied,
@@ -174,7 +181,16 @@ final class AnalyzeAppearanceUseCase {
       ));
     }
 
-    await _eventStore.appendAll(events);
+    try {
+      // The complete analysis loop is one atomic event-store transaction. A
+      // store failure must publish no partial analysis events and must not
+      // cross this boundary with adapter diagnostics.
+      await _eventStore.appendAll(events);
+    } catch (_) {
+      throw const AppearanceUseCaseFailure(
+        AppearanceFailureCode.analysisFailed,
+      );
+    }
     return AppearanceLoopResult(
       claimIds: List<String>.unmodifiable(claimIds),
       goalId: goalId,
