@@ -143,7 +143,9 @@ internal class KeystoreTicketCodec(
             val insideSecureHardware = if (android.os.Build.VERSION.SDK_INT >=
                 android.os.Build.VERSION_CODES.S
             ) {
-                val securityLevel = keyInfo.getSecurityLevel()
+                val securityLevel = KeyInfo::class.java
+                    .getMethod("getSecurityLevel")
+                    .invoke(keyInfo) as Int
                 securityLevel == KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT ||
                     securityLevel == KeyProperties.SECURITY_LEVEL_STRONGBOX ||
                     securityLevel == KeyProperties.SECURITY_LEVEL_UNKNOWN_SECURE
