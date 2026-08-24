@@ -167,4 +167,3 @@ final class _SequentialIds implements IdGenerator {
   @override
   String nextId(String namespace) => '$namespace-${++_next}';
 }
-

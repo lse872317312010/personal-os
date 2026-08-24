@@ -7,4 +7,3 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(PersonalOsApp(composition: AppComposition.forCurrentPlatform()));
 }
-
