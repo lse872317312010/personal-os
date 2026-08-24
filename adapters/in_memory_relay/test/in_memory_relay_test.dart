@@ -285,11 +285,11 @@ void main() {
     expect(pubspec, isNot(contains('personal_os_domain')));
     expect(implementation, isNot(contains('EventEnvelope')));
     for (final forbidden in [
-      'event_' 'type', // ignore: no_adjacent_strings_in_list
-      'object_' 'id', // ignore: no_adjacent_strings_in_list
+      ['event', 'type'].join('_'),
+      ['object', 'id'].join('_'),
       'sensitivity',
       'consent',
-      'appearance_' 'analysis', // ignore: no_adjacent_strings_in_list
+      ['appearance', 'analysis'].join('_'),
     ]) {
       expect(implementation.toLowerCase(), isNot(contains(forbidden)));
     }
