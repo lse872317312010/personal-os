@@ -141,7 +141,7 @@ final class _Clock implements Clock {
 
 final class _Store implements EventStore {
   final List<List<EventEnvelope>> batches = <List<EventEnvelope>>[];
-  Exception? failure;
+  Error? failure;
 
   @override
   Future<void> appendAll(List<EventEnvelope> events) async {
