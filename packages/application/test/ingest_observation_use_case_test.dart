@@ -188,7 +188,7 @@ final class _Ingestion implements BlobIngestionContract, BlobIngestionRollback {
   int discardCalls = 0;
   BlobRef ref = BlobRef('blob://opaque-1');
   Exception? failure;
-  Exception? discardFailure;
+  Error? discardFailure;
 
   @override
   Future<BlobRef> ingest({
@@ -248,7 +248,7 @@ final class _Clock implements Clock {
 
 final class _Store implements EventStore {
   final List<EventEnvelope> events = <EventEnvelope>[];
-  Exception? failure;
+  Error? failure;
 
   @override
   Future<void> appendAll(List<EventEnvelope> incoming) async {
