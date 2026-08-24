@@ -159,11 +159,13 @@ final class EncryptedBlobEngine implements BlobStore {
         key: record.metadata.key,
         ciphertext: record.ciphertext,
       );
-      yield* _rangeAndZeroize(
+      await for (final chunk in _rangeAndZeroize(
         plaintext,
         range,
         expectedLength: record.metadata.plaintextLength,
-      );
+      )) {
+        yield chunk;
+      }
     } on BlobEngineException {
       _safeLog?.call(BlobEngineEvent.openFailed);
       rethrow;
