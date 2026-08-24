@@ -25,6 +25,17 @@ final class ActorRef {
     }
   }
 
+  factory ActorRef.fromJson(Map<String, Object?> json) => ActorRef(
+        actorId: json['actor_id']! as String,
+        actorType: ActorType.values.byName(json['actor_type']! as String),
+        authoritySource: json['authority_source']! as String,
+        sessionOrRunId: json['session_or_run_id'] as String?,
+        onBehalfOf: json['on_behalf_of'] as String?,
+        capabilityRefs:
+            (json['capability_refs'] as List<Object?>? ?? const <Object?>[])
+                .cast<String>(),
+      );
+
   final String actorId;
   final ActorType actorType;
   final String authoritySource;
@@ -40,17 +51,6 @@ final class ActorRef {
         if (onBehalfOf != null) 'on_behalf_of': onBehalfOf,
         'capability_refs': capabilityRefs,
       };
-
-  factory ActorRef.fromJson(Map<String, Object?> json) => ActorRef(
-        actorId: json['actor_id']! as String,
-        actorType: ActorType.values.byName(json['actor_type']! as String),
-        authoritySource: json['authority_source']! as String,
-        sessionOrRunId: json['session_or_run_id'] as String?,
-        onBehalfOf: json['on_behalf_of'] as String?,
-        capabilityRefs:
-            (json['capability_refs'] as List<Object?>? ?? const <Object?>[])
-                .cast<String>(),
-      );
 }
 
 Sensitivity maximumSensitivity(Iterable<Sensitivity> values) {
