@@ -132,6 +132,12 @@ internal class ControlledPhotoPicker(
                     null,
                     null,
                 )
+            ControlledSourceTokenStore.ConsumeResult.CleanupFailed ->
+                result.error(
+                    ControlledSourceMethodChannelContract.ERROR_DELETE_FAILED,
+                    null,
+                    null,
+                )
         }
     }
 
@@ -165,8 +171,15 @@ internal class ControlledPhotoPicker(
     }
 
     fun release(token: String, result: MethodChannel.Result) {
-        tokenStore.release(token)
-        result.success(null)
+        if (tokenStore.release(token)) {
+            result.success(null)
+        } else {
+            result.error(
+                ControlledSourceMethodChannelContract.ERROR_DELETE_FAILED,
+                null,
+                null,
+            )
+        }
     }
 
     fun retireTokens() {
