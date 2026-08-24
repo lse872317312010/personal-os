@@ -326,6 +326,23 @@ internal class NativeVaultChannel(
         }
     }
 
+    /**
+     * Native-only bridge for a source adapter. The source adapter resolves its
+     * provider token and stream on the native side; this method is never
+     * reachable through a MethodChannel call.
+     */
+    internal fun writeBlobFromNativeSource(
+        sessionId: String,
+        source: NativeBlobSource,
+    ): String {
+        if (disposed.get()) {
+            throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
+        }
+        return sessions.withActive(sessionId) { database ->
+            database.writeBlob(source)
+        }
+    }
+
     private fun appendEvents(call: MethodCall, result: MethodChannel.Result) {
         val sessionId = requiredStringArgument(call, "sessionId")
         val arguments = call.arguments as? Map<*, *>

@@ -2,12 +2,18 @@ package com.personalos.app.security
 
 import android.content.Context
 import android.database.Cursor
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.util.UUID
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 import org.json.JSONObject
 
 /** The only database API exposed to the native channel facade. */
 internal interface NativeVaultDatabase : AutoCloseable {
     fun appendEvents(events: List<NativeEventRecord>)
+
+    /** Writes from a native-owned stream and returns only an opaque blob reference. */
+    fun writeBlob(source: NativeBlobSource): String
 
     fun readEventsByProfile(profileId: String, limit: Int): List<Map<String, Any?>>
 
@@ -47,7 +53,11 @@ internal class SqlCipherVaultDatabase private constructor(
         private const val MAX_EVENT_JSON_LENGTH = 1_048_576
         private const val DEFAULT_READ_LIMIT = 100
         private const val MAX_READ_LIMIT = 1_000
-        private const val SCHEMA_VERSION = 2
+        private const val SCHEMA_VERSION = 3
+        private const val PREVIOUS_SCHEMA_VERSION = 2
+        private const val MAX_BLOB_TOKEN_LENGTH = 512
+        private const val MAX_BLOB_BYTES = 50 * 1024 * 1024
+        private const val BLOB_READ_BUFFER_SIZE = 32 * 1024
 
         fun open(context: Context, databaseKey: ByteArray): NativeVaultDatabase {
             var database: SQLiteDatabase? = null
@@ -195,6 +205,113 @@ internal class SqlCipherVaultDatabase private constructor(
             throw failure
         } catch (_: Throwable) {
             throw NativeVaultFailure(NativeVaultFailureCode.TRANSACTION_FAILED)
+        }
+    }
+
+    override fun writeBlob(source: NativeBlobSource): String = synchronized(lock) {
+        ensureOpen()
+        val token = source.opaqueToken
+        validateBlobToken(token)
+        var transactionOpen = false
+        try {
+            database.beginTransaction()
+            transactionOpen = true
+
+            // Check before opening the stream: retrying the same source token is
+            // a no-op and cannot cause a second encrypted row to be written.
+            existingBlobReference(token)?.let { existing ->
+                database.setTransactionSuccessful()
+                return@synchronized existing
+            }
+
+            val bytes = source.openStream().use { stream ->
+                readBlobBytes(stream)
+            }
+            if (bytes.isEmpty()) {
+                throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+            }
+            val blobReference = "blob://" + UUID.randomUUID()
+            database.insertOrThrow(
+                "vault_blobs",
+                null,
+                android.content.ContentValues().apply {
+                    put("blob_ref", blobReference)
+                    put("source_token", token)
+                    put("content", bytes)
+                    put("created_at", System.currentTimeMillis())
+                },
+            )
+            // Closing the source before commit makes release failure fail closed.
+            source.close()
+            database.setTransactionSuccessful()
+            return@synchronized blobReference
+        } catch (failure: NativeVaultFailure) {
+            throw failure
+        } catch (_: Throwable) {
+            throw NativeVaultFailure(NativeVaultFailureCode.TRANSACTION_FAILED)
+        } finally {
+            if (transactionOpen) {
+                try {
+                    database.endTransaction()
+                } catch (_: Throwable) {
+                    // The outer failure mapping remains stable and does not expose
+                    // provider details.
+                }
+            }
+            try {
+                source.close()
+            } catch (_: Throwable) {
+                // The transaction has already rolled back or committed. No details
+                // cross the native boundary.
+            }
+        }
+    }
+
+    private fun readBlobBytes(stream: InputStream): ByteArray {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(BLOB_READ_BUFFER_SIZE)
+        var total = 0
+        while (true) {
+            val count = stream.read(buffer)
+            if (count == -1) break
+            if (count <= 0) {
+                throw NativeVaultFailure(NativeVaultFailureCode.TRANSACTION_FAILED)
+            }
+            total += count
+            if (total > MAX_BLOB_BYTES) {
+                throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+            }
+            output.write(buffer, 0, count)
+        }
+        return output.toByteArray()
+    }
+
+    private fun validateBlobToken(token: String) {
+        if (token.isBlank() ||
+            token.length > MAX_BLOB_TOKEN_LENGTH ||
+            token != token.trim() ||
+            !token.matches(Regex("[A-Za-z0-9._-]+"))
+        ) {
+            throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+        }
+    }
+
+    private fun existingBlobReference(token: String): String? {
+        var cursor: Cursor? = null
+        return try {
+            cursor = database.query(
+                "vault_blobs",
+                arrayOf("blob_ref"),
+                "source_token = ?",
+                arrayOf(token),
+                null,
+                null,
+                null,
+                "1",
+            )
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        } finally {
+            cursor?.close()
         }
     }
 
@@ -481,6 +598,16 @@ internal class SqlCipherVaultDatabase private constructor(
                 "CREATE INDEX vault_event_subject_lookup_idx " +
                     "ON vault_event_subjects(subject_type, subject_id, event_id)",
             )
+            createBlobSchema()
+            database.execSQL("PRAGMA user_version = $SCHEMA_VERSION")
+            return
+        }
+
+        if (version == PREVIOUS_SCHEMA_VERSION && hasCurrentEventColumns() &&
+            hasCurrentSubjectTable() && indexExists("vault_events_profile_order_idx") &&
+            indexExists("vault_event_subject_lookup_idx")
+        ) {
+            createBlobSchema()
             database.execSQL("PRAGMA user_version = $SCHEMA_VERSION")
             return
         }
@@ -489,12 +616,31 @@ internal class SqlCipherVaultDatabase private constructor(
         // losslessly produce a strict EventEnvelope JSON. No implicit migration
         // or data guessing is permitted.
         if (version != SCHEMA_VERSION || !hasCurrentEventColumns() ||
-            !hasCurrentSubjectTable() || !indexExists("vault_event_subject_lookup_idx")) {
+            !hasCurrentSubjectTable() || !hasCurrentBlobTable() ||
+            !indexExists("vault_event_subject_lookup_idx") ||
+            !indexExists("vault_blobs_source_token_idx")) {
             throw NativeVaultFailure(NativeVaultFailureCode.SCHEMA_INVALID)
         }
         if (!indexExists("vault_events_profile_order_idx")) {
             throw NativeVaultFailure(NativeVaultFailureCode.SCHEMA_INVALID)
         }
+    }
+
+    private fun createBlobSchema() {
+        database.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS vault_blobs (
+              blob_ref TEXT NOT NULL UNIQUE,
+              source_token TEXT NOT NULL UNIQUE,
+              content BLOB NOT NULL CHECK(length(content) > 0),
+              created_at INTEGER NOT NULL
+            )
+            """.trimIndent(),
+        )
+        database.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS vault_blobs_source_token_idx " +
+                "ON vault_blobs(source_token)",
+        )
     }
 
     private fun readUserVersion(): Int {
@@ -517,6 +663,21 @@ internal class SqlCipherVaultDatabase private constructor(
     private fun tableExists(name: String): Boolean = objectExists("table", name)
 
     private fun indexExists(name: String): Boolean = objectExists("index", name)
+
+    private fun hasCurrentBlobTable(): Boolean {
+        val columns = LinkedHashSet<String>()
+        var cursor: Cursor? = null
+        try {
+            cursor = database.rawQuery("PRAGMA table_info(vault_blobs)", null)
+            val nameIndex = cursor.getColumnIndexOrThrow("name")
+            while (cursor.moveToNext()) columns += cursor.getString(nameIndex)
+        } catch (_: Throwable) {
+            throw NativeVaultFailure(NativeVaultFailureCode.SCHEMA_INVALID)
+        } finally {
+            cursor?.close()
+        }
+        return columns == setOf("blob_ref", "source_token", "content", "created_at")
+    }
 
     private fun objectExists(type: String, name: String): Boolean {
         var cursor: Cursor? = null
