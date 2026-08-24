@@ -55,7 +55,7 @@ void main() {
       );
 
       await expectLater(
-        ingestion.ingest(
+        () => ingestion.ingest(
           bytes: input,
           mediaType: request.mediaType,
           sensitivity: request.sensitivity,
