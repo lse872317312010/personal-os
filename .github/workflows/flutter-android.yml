@@ -53,7 +53,7 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Install Android API 37
+      - name: Install Android API 36
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -67,7 +67,7 @@ jobs:
           set +o pipefail
           yes | "$sdkmanager_path" --licenses >/dev/null
           set -o pipefail
-          "$sdkmanager_path" --channel=1 "platforms;android-37"
+          "$sdkmanager_path" "platforms;android-36"
 
       - name: Verify repository contracts
         run: bash tool/check_contracts.sh
