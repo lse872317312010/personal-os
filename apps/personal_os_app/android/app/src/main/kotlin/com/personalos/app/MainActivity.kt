@@ -1,6 +1,5 @@
 package com.personalos.app
 
-import android.os.Bundle
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,16 +16,12 @@ class MainActivity : FlutterFragmentActivity() {
     private var vaultHandler: NativeVaultChannel? = null
     private var sourceChannel: MethodChannel? = null
     private var sourceHandler: ControlledSourceChannel? = null
-    private lateinit var photoPickerLauncher: ActivityResultLauncher<PickVisualMediaRequest>
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        photoPickerLauncher = registerForActivityResult(
+    private val photoPickerLauncher: ActivityResultLauncher<PickVisualMediaRequest> by lazy {
+        registerForActivityResult(
             ActivityResultContracts.PickVisualMedia(),
         ) { uri ->
-            sourceHandler?.let { handler ->
-                handler.onPicked(uri)
-            }
+            sourceHandler?.onPicked(uri)
         }
     }
 
