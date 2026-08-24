@@ -17,7 +17,7 @@ python3 tool/tests/test_check_composition_root.py
 python3 tool/check_composition_root.py
 python3 tool/tests/test_check_persistence_boundary.py
 python3 tool/check_persistence_boundary.py
-python3 -m unittest discover -s tool/tests -p 'test_*.py'
+python3 -m unittest tool/tests/test_validate_sync_envelope.py
 python3 tool/validate_sync_envelope.py evidence/sync_envelope/synthetic.example.json
 
 echo 'repository contracts: PASS (sync signature verification remains unverified)'
