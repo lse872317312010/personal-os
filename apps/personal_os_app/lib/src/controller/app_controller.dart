@@ -87,6 +87,7 @@ final class AppController extends ChangeNotifier {
   List<ObservationMetadata> _observations = const <ObservationMetadata>[];
   OpaqueVaultSession? _opaqueVaultSession;
   bool _bootstrapped = false;
+  bool _bootstrapping = false;
   int _consentStateRevision = 0;
   int _consentRevision = 0;
   int _lifecycleEpoch = 0;
@@ -178,7 +179,10 @@ final class AppController extends ChangeNotifier {
   /// denied by default.
   Future<void> bootstrap() async {
     final query = _sessionQuery;
-    if (_bootstrapped || query == null) return;
+    if (_bootstrapped || _bootstrapping || query == null || !_vaultUnlocked) {
+      return;
+    }
+    _bootstrapping = true;
     final epoch = _lifecycleEpoch;
     try {
       final view = await query.execute(
@@ -188,9 +192,15 @@ final class AppController extends ChangeNotifier {
       _applySession(view);
       _bootstrapped = true;
     } on Object {
-      _errorCode = 'persistence.read_failed';
+      if (epoch == _lifecycleEpoch && _vaultUnlocked) {
+        _errorCode = 'persistence.read_failed';
+      }
+    } finally {
+      _bootstrapping = false;
     }
-    notifyListeners();
+    if (epoch == _lifecycleEpoch && _vaultUnlocked) {
+      notifyListeners();
+    }
   }
 
   void _applySession(AppearanceSessionView view) {
@@ -225,8 +235,9 @@ final class AppController extends ChangeNotifier {
         goalId: view.goal!.id,
         planId: view.plan!.id,
         taskIds: view.tasks.map((task) => task.id).toList(growable: false),
-        eventIds:
-            view.events.map((event) => event.eventId).toList(growable: false),
+        eventIds: view.events
+            .map((event) => event.eventId)
+            .toList(growable: false),
       );
     }
     final review = view.review;
@@ -261,6 +272,7 @@ final class AppController extends ChangeNotifier {
     _consentStateRevision = 0;
     _consentRevision = 0;
     _bootstrapped = false;
+    _bootstrapping = false;
     _submission = SubmissionStatus.idle;
     _errorCode = null;
     _feedbackSubmission = SubmissionStatus.idle;
@@ -285,13 +297,13 @@ final class AppController extends ChangeNotifier {
     }
   }
 
-  void setConsent(bool granted) {
+  Future<void> setConsent(bool granted) {
     if (_consentLifecycle != null) {
-      unawaited(_setPersistedConsent(granted));
-      return;
+      return _setPersistedConsent(granted);
     }
     _consentGranted = granted;
     notifyListeners();
+    return Future<void>.value();
   }
 
   Future<void> _setPersistedConsent(bool granted) async {
@@ -299,8 +311,7 @@ final class AppController extends ChangeNotifier {
     final epoch = _lifecycleEpoch;
     try {
       if (granted) {
-        final consentRevision =
-            _consentRevision == 0 ? 1 : _consentRevision + 1;
+        final consentRevision = _consentRevision == 0 ? 1 : _consentRevision + 1;
         final result = await _consentLifecycle!.grant(
           GrantConsentCommand(
             profileId: _profileId,
@@ -510,8 +521,8 @@ final class AppController extends ChangeNotifier {
           profileId: _profileId,
           actor: _actor,
           correlationId: _correlation('create-review'),
-          sourceRefs:
-              taskIds.map((id) => ObjectRef(type: 'task', id: EntityId(id))),
+          sourceRefs: taskIds
+              .map((id) => ObjectRef(type: 'task', id: EntityId(id))),
           sensitivity: Sensitivity.d3,
           consentRefs: _appearanceConsentRefs,
         ),
@@ -544,8 +555,7 @@ final class AppController extends ChangeNotifier {
         ),
       );
       if (epoch != _lifecycleEpoch || !_vaultUnlocked) return 'stale';
-      _reviewState =
-          decision == ReviewDecision.accept ? 'accepted' : 'rejected';
+      _reviewState = decision == ReviewDecision.accept ? 'accepted' : 'rejected';
       return decision == ReviewDecision.accept
           ? 'review_accepted'
           : 'review_rejected';
@@ -604,3 +614,4 @@ final class AppController extends ChangeNotifier {
     notifyListeners();
   }
 }
+
