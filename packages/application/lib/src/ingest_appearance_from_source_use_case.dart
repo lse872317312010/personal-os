@@ -54,6 +54,17 @@ final class IngestAppearanceFromSourceUseCase {
   Future<IngestAppearanceAnalysisResult> execute(
     IngestAppearanceFromSourceCommand command,
   ) async {
+    // Reject policy-sensitive requests before the native source can be read.
+    if (command.consentRef == null) {
+      throw const ObservationUseCaseFailure(
+        ObservationFailureCode.consentRequired,
+      );
+    }
+    if (command.sensitivity == Sensitivity.d4) {
+      throw const ObservationUseCaseFailure(
+        ObservationFailureCode.d4Forbidden,
+      );
+    }
     final blobRef = await _ingestion.ingestSource(
       source: command.source,
       mediaType: command.mediaType,
