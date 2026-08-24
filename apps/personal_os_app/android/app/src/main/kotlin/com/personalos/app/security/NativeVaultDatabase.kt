@@ -282,6 +282,7 @@ internal class SqlCipherVaultDatabase private constructor(
                 "blob_ref = ?",
                 arrayOf(blobRef),
             )
+            Unit
         } catch (_: Throwable) {
             throw NativeVaultFailure(NativeVaultFailureCode.TRANSACTION_FAILED)
         }
