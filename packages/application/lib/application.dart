@@ -11,5 +11,7 @@ export 'src/deletion_commands.dart';
 export 'src/deletion_use_case.dart';
 export 'src/feedback_commands.dart';
 export 'src/feedback_use_case.dart';
+export 'src/ingest_observation_use_case.dart';
 export 'src/observation_commands.dart';
 export 'src/observation_use_case.dart';
+
