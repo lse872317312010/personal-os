@@ -6,9 +6,9 @@
 
 ## 当前阶段
 
-项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，当前基点是 **M2-B1/B2 · Android Secure Local MVP 实现基线**：Android Keystore 认证 primitive、native SQLCipher database/event JSON storage、secure Dart event-store/session coordinator、受控 Photo Picker→native blob→opaque `BlobRef`→analysis path 和 observation history UI 已接入，但当前环境未编译、未完成运行时验证，也不是可交付的 dogfood 版本。Redmi Turbo、GitHub Actions、SQLCipher production behavior、冷启动恢复和真实 AI 分析均仍需 exact-commit 证据。
+项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，当前基点是 **M2-B1/B2 · Android Secure Local MVP 实现基线**：Android Keystore 认证 primitive、native SQLCipher database/event JSON storage、secure Dart event-store/session coordinator、受控 Photo Picker 与 Camera→native blob→opaque `BlobRef`→analysis path 和 observation history UI 已接入；Camera capture 在拍摄时显式请求权限，使用 app-private cache 的 FileProvider，生成 opaque source token 交给 native blob sink，并在取消、失败、释放、过期或写入后清理失败时执行清理/回滚，但当前环境未编译、未完成运行时验证，也不是可交付的 dogfood 版本。Redmi Turbo、GitHub Actions、SQLCipher production behavior、冷启动恢复和真实 AI 分析均仍需 exact-commit 证据。
 
-当前唯一开发基点为 `main`（待 PR #38 合并后的 exact commit）。任何并行 Agent 都必须从当前基点创建独立分支，不能继续使用旧 Wave 分支，也不能把 SQLCipher、Keystore、冷启动恢复、GitHub Actions 或 Redmi 真机能力标记为已验证，除非提交了绑定候选 commit 的证据。
+当前唯一开发基点为 `main`（exact commit：`6d23063c5059174240338a6be11d37949fefbab0`）。任何并行 Agent 都必须从当前基点创建独立分支，不能继续使用旧 Wave 分支，也不能把 Android 编译/运行时、SQLCipher、Keystore、冷启动恢复、GitHub Actions、Redmi 真机或生产行为标记为已验证，除非提交了绑定候选 commit 的证据。
 
 ## 首批领域
 
@@ -132,7 +132,7 @@ Runtime 编排、恢复契约 CI 与 Redmi Turbo 证据 runbook 见 [Coding Wave
 native Keystore 认证 primitive、native SQLCipher database/event JSON storage、
 secure Dart event-store/session coordinator、observation history UI、Blob/Sync/Recovery
 契约加固、B2 controlled source/ingestion path、Android fail-closed 原生骨架和证据门禁。
-Android 默认 Composition 已是 secure vault，并接入受控 Photo Picker；synthetic/in-memory
-仅通过显式 demo/test factory 使用。当前未取得编译、GitHub Actions、SQLCipher
-production、冷启动持久化、Photo Picker/native blob 或 Redmi 真机证据，且模型仍是
+Android 默认 Composition 已是 secure vault，并接入受控 Photo Picker 与 Camera；Camera 在拍摄时显式请求权限，照片暂存于 app-private cache 的 FileProvider 路径，native 仅传递 opaque token 并写入 native blob sink，清理失败会触发稳定错误并对已写入 blob 回滚；synthetic/in-memory
+仅通过显式 demo/test factory 使用。当前未取得 Android 编译/运行时、GitHub Actions、SQLCipher
+production、冷启动持久化、Photo Picker/Camera/native blob 或 Redmi 真机证据，且模型仍是
 synthetic fixture，不能视为 `DOGFOOD_READY`。
