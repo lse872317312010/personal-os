@@ -86,11 +86,11 @@ void main() {
 
       expect(
         () => EventEnvelopeJsonCodec.decode({...json, 'schema_version': 2}),
-        throwsA(_reason(EventCodecReason.unsupportedSchemaVersion)),
+        _reason(EventCodecReason.unsupportedSchemaVersion),
       );
       expect(
         () => EventEnvelopeJsonCodec.decode({...json, 'event_version': 2}),
-        throwsA(_reason(EventCodecReason.unsupportedEventVersion)),
+        _reason(EventCodecReason.unsupportedEventVersion),
       );
     });
 
@@ -98,7 +98,7 @@ void main() {
       final json = EventEnvelopeJsonCodec.encode(_event());
       expect(
         () => EventEnvelopeJsonCodec.decode({...json, 'sensitivity': 'd5'}),
-        throwsA(_reason(EventCodecReason.unknownSensitivity)),
+        _reason(EventCodecReason.unknownSensitivity),
       );
       expect(
         () => EventEnvelopeJsonCodec.decode({
@@ -108,7 +108,7 @@ void main() {
             'actor_type': 'future_superuser',
           },
         }),
-        throwsA(_reason(EventCodecReason.unknownActorType)),
+        _reason(EventCodecReason.unknownActorType),
       );
     });
 
@@ -132,7 +132,7 @@ void main() {
 
       expect(
         () => EventEnvelopeJsonCodec.decode({...encoded, 'future_hint': true}),
-        throwsA(_reason(EventCodecReason.unknownField)),
+        _reason(EventCodecReason.unknownField),
       );
     });
 
@@ -143,7 +143,7 @@ void main() {
           ...json,
           'occurred_at': '2026-08-17T10:00:00+08:00',
         }),
-        throwsA(_reason(EventCodecReason.invalidTimestamp)),
+        _reason(EventCodecReason.invalidTimestamp),
       );
     });
   });
@@ -217,11 +217,11 @@ void main() {
       };
       expect(
         () => ObjectProjectionJsonCodec.decode({...base, 'schema_version': 2}),
-        throwsA(_reason(EventCodecReason.unsupportedSchemaVersion)),
+        _reason(EventCodecReason.unsupportedSchemaVersion),
       );
       expect(
         () => ObjectProjectionJsonCodec.decode({...base, 'surprise': true}),
-        throwsA(_reason(EventCodecReason.unknownField)),
+        _reason(EventCodecReason.unknownField),
       );
     });
   });
