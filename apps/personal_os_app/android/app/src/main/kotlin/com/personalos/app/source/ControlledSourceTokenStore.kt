@@ -51,7 +51,10 @@ internal class ControlledSourceTokenStore(
         return try {
             val outcome = sink.ingest(entry.uri, token)
             if (!cleanup(entry)) {
-                ConsumeResult.CleanupFailed
+                when (outcome) {
+                    is BlobSinkResult.Stored -> rollbackStoredBlob(outcome.blobRef, sink)
+                    else -> ConsumeResult.CleanupFailed
+                }
             } else {
                 when (outcome) {
                     is BlobSinkResult.Stored -> {
@@ -84,6 +87,17 @@ internal class ControlledSourceTokenStore(
         entry.cleanup?.invoke() ?: true
     } catch (_: Throwable) {
         false
+    }
+
+    private fun rollbackStoredBlob(blobRef: String, sink: SourceBlobSink): ConsumeResult {
+        if (!ControlledSourceMethodChannelContract.isOpaqueBlobRef(blobRef)) {
+            return ConsumeResult.WriteFailed
+        }
+        return when (sink.deleteBlob(blobRef)) {
+            BlobDeleteResult.Deleted -> ConsumeResult.CleanupFailed
+            BlobDeleteResult.Unavailable -> ConsumeResult.Unavailable
+            BlobDeleteResult.Invalid, BlobDeleteResult.Failed -> ConsumeResult.WriteFailed
+        }
     }
 
     sealed interface ConsumeResult {
