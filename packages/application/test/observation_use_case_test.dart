@@ -11,7 +11,8 @@ void main() {
     authoritySource: 'local-session',
   );
 
-  RecordObservationUseCase _buildUseCase(_Store store) => RecordObservationUseCase(
+  RecordObservationUseCase _buildUseCase(_Store store) =>
+      RecordObservationUseCase(
         eventStore: store,
         ids: _Ids(),
         clock: _Clock(),
@@ -97,7 +98,8 @@ void main() {
   test('rejects non-opaque references', () async {
     final store = _Store();
     await expectLater(
-      _buildUseCase(store).execute(_buildCommand(blobRef: BlobRef('/tmp/photo.jpg'))),
+      _buildUseCase(store)
+          .execute(_buildCommand(blobRef: BlobRef('/tmp/photo.jpg'))),
       throwsA(isA<ObservationUseCaseFailure>().having(
         (error) => error.code,
         'code',
@@ -120,7 +122,6 @@ void main() {
     );
     expect(store.batches, isEmpty);
   });
-
 }
 
 final class _Ids implements IdGenerator {
