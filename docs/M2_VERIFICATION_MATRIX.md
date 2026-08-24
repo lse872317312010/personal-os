@@ -17,10 +17,10 @@
 
 ## 2026-08-24 状态证据
 
-- 观测到的 main exact commit：`6d23063c5059174240338a6be11d37949fefbab0`。
+- 观测到的 main exact commit：`3cdfa0038afffed20540f42b03aa2484b4379b98`。
 - `.github/workflows/flutter-android.yml` 已定义 repository contracts、Dart core、Flutter analyze/test、debug APK 和 rolling Release 流程；这证明 workflow 配置存在，不证明某次构建成功。
 - 本次对 main exact commit 的 Actions 查询没有返回成功 run；对 PR #65 head 查询到的 Flutter Android run 状态为 `in_progress`，没有成功结论。
-- PR #65 的 GitHub 合并记录显示已合并，但其权限隔离、两阶段 publish job、SHA-256 sidecar 校验内容尚未出现在本次读取到的 main workflow 文件中。该差异需要在下一次 main ref 更新后复核。
+- PR #65 的权限隔离、两阶段 publish job、SHA-256 sidecar 校验内容现已出现在 main workflow；本次仍未取得 main exact commit 的成功 Actions run，因此不能把 APK/Release 资产写成已验证。
 - 因此 APK、provenance、rolling Release、SQLCipher production、冷启动恢复、Photo Picker/native blob runtime 和 Redmi dogfood 均保持未验证状态。
 - 分支治理证据见 [远程分支与仓库真相审计](BRANCH_AUDIT_2026-08-24.md)。
 
