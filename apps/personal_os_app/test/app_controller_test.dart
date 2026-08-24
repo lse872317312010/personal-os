@@ -325,6 +325,8 @@ AppController _controller(
       ids: ids,
       clock: const _Clock(),
     ),
+    vaultSession: vaultSession,
+    sessionCoordinator: sessionCoordinator,
     actor: ActorRef(
       actorId: 'me',
       actorType: ActorType.user,
