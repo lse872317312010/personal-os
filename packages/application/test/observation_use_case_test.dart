@@ -11,6 +11,30 @@ void main() {
     authoritySource: 'local-session',
   );
 
+  RecordObservationUseCase _useCase(_Store store) => RecordObservationUseCase(
+        eventStore: store,
+        ids: _Ids(),
+        clock: _Clock(),
+      );
+
+  final _consent = ObjectRef(type: 'consent', id: EntityId('consent-1'));
+
+  RecordObservationCommand _command({
+    BlobRef? blobRef,
+    bool includeConsent = true,
+    Sensitivity sensitivity = Sensitivity.d3,
+  }) =>
+      RecordObservationCommand(
+        profileId: EntityId('profile-1'),
+        blobRef: blobRef ?? BlobRef('blob://vault/photo-1'),
+        mediaType: 'image/jpeg',
+        observationContext: 'profile appearance capture',
+        consentRef: includeConsent ? _consent : null,
+        actor: actor,
+        correlationId: 'corr-observation',
+        sensitivity: sensitivity,
+      );
+
   test('records one profile-scoped observation with safe payload', () async {
     final store = _Store();
     final result = await _useCase(store).execute(_command());
@@ -97,29 +121,6 @@ void main() {
     expect(store.batches, isEmpty);
   });
 
-  RecordObservationUseCase _useCase(_Store store) => RecordObservationUseCase(
-        eventStore: store,
-        ids: _Ids(),
-        clock: _Clock(),
-      );
-
-  final _consent = ObjectRef(type: 'consent', id: EntityId('consent-1'));
-
-  RecordObservationCommand _command({
-    BlobRef? blobRef,
-    bool includeConsent = true,
-    Sensitivity sensitivity = Sensitivity.d3,
-  }) =>
-      RecordObservationCommand(
-        profileId: EntityId('profile-1'),
-        blobRef: blobRef ?? BlobRef('blob://vault/photo-1'),
-        mediaType: 'image/jpeg',
-        observationContext: 'profile appearance capture',
-        consentRef: includeConsent ? _consent : null,
-        actor: actor,
-        correlationId: 'corr-observation',
-        sensitivity: sensitivity,
-      );
 }
 
 final class _Ids implements IdGenerator {
