@@ -52,7 +52,7 @@ final class AppController extends ChangeNotifier {
         _sourcePort = sourcePort,
         _ingestAppearanceFromSource = ingestAppearanceFromSource {
     if (_sessionCoordinator != null) {
-      _sessionCoordinator!.onSessionInvalidated = _handleSessionInvalidated;
+      _sessionCoordinator.onSessionInvalidated = _handleSessionInvalidated;
     }
     if (actor.actorType != ActorType.user) {
       throw ArgumentError.value(actor.actorType, 'actor', 'must be user');
