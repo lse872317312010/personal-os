@@ -11,6 +11,7 @@ final class BlobIngestionException implements Exception {
           code == 'consent_required' ||
               code == 'discard_failed' ||
               code == 'd4_persistence_forbidden' ||
+              code == 'ingestion_failed' ||
               code == 'invalid_media_type' ||
               code == 'payload_too_large',
           'unstable blob ingestion error code',
@@ -70,12 +71,33 @@ final class EncryptedBlobIngestion
     required BlobAccessContext access,
   }) {
     _validateBeforeListening(mediaType, sensitivity, access);
-    return _store.put(
-      bytes: _bounded(bytes),
+    return _putSafely(
+      bytes: bytes,
       mediaType: mediaType,
       sensitivity: sensitivity,
       access: access,
     );
+  }
+
+  Future<BlobRef> _putSafely({
+    required Stream<List<int>> bytes,
+    required String mediaType,
+    required Sensitivity sensitivity,
+    required BlobAccessContext access,
+  }) async {
+    try {
+      return await _store.put(
+        bytes: _bounded(bytes),
+        mediaType: mediaType,
+        sensitivity: sensitivity,
+        access: access,
+      );
+    } on BlobIngestionException {
+      rethrow;
+    } on Object {
+      // Do not let payload, adapter, SQL, path, or URI details cross ingress.
+      throw const BlobIngestionException('ingestion_failed');
+    }
   }
 
   @override
