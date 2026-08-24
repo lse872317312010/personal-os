@@ -5,7 +5,8 @@ import 'package:personal_os_app/src/app.dart';
 import 'package:personal_os_app/src/composition/app_composition.dart';
 
 void main() {
-  testWidgets('vault gate protects the shell and can be relocked', (tester) async {
+  testWidgets('vault gate protects the shell and can be relocked',
+      (tester) async {
     await tester.pumpWidget(
       PersonalOsApp(composition: AppComposition.inMemoryDemo()),
     );

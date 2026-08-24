@@ -5,8 +5,7 @@ final class SqliteVaultSchema {
   const SqliteVaultSchema._();
 
   static const int version = 1;
-  static const String migrationAsset =
-      'migrations/0001_vault_schema.sql';
+  static const String migrationAsset = 'migrations/0001_vault_schema.sql';
 
   static const Set<String> persistedSensitivities = <String>{
     'D0',
@@ -117,7 +116,8 @@ final class VaultPersistenceValidator {
         if (SqliteVaultSchema.forbiddenSecretFields.contains(normalized)) {
           throw const VaultSchemaViolation();
         }
-        if ((normalized == 'sensitivity' || normalized == 'maximumsensitivity') &&
+        if ((normalized == 'sensitivity' ||
+                normalized == 'maximumsensitivity') &&
             entry.value.toString().toUpperCase() == 'D4') {
           throw const VaultSchemaViolation.d4();
         }

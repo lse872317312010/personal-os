@@ -6,7 +6,8 @@ import 'package:test/test.dart';
 void main() {
   final now = DateTime.utc(2026, 8, 20, 12);
 
-  test('vault fails closed, unlocks with opaque grant, and locks again', () async {
+  test('vault fails closed, unlocks with opaque grant, and locks again',
+      () async {
     final session = DefaultVaultSession(
       _FakeUnlockPort(now.add(const Duration(minutes: 1))),
       clock: () => now,
@@ -67,7 +68,8 @@ void main() {
     }
   });
 
-  test('secure vault port returns only an opaque lifecycle capability', () async {
+  test('secure vault port returns only an opaque lifecycle capability',
+      () async {
     final grant = UnlockGrant.opaque(
       id: 'grant-1',
       expiresAt: now.add(const Duration(minutes: 1)),
@@ -99,7 +101,8 @@ void main() {
     expect(port.openCount, 0);
   });
 
-  test('fake provider wraps and unwraps without returning plaintext bytes', () async {
+  test('fake provider wraps and unwraps without returning plaintext bytes',
+      () async {
     final grant = UnlockGrant.opaque(
       id: 'grant-1',
       expiresAt: now.add(const Duration(minutes: 1)),
@@ -109,7 +112,8 @@ void main() {
       purpose: KeyPurpose.deviceWrapping,
       grant: grant,
     );
-    final blob = await provider.createKey(purpose: KeyPurpose.blob, grant: grant);
+    final blob =
+        await provider.createKey(purpose: KeyPurpose.blob, grant: grant);
     final envelope = await provider.wrapKey(
       key: blob,
       wrappingKey: wrapping,
@@ -157,8 +161,8 @@ void main() {
   });
 }
 
-Matcher _hasCode(SecurityErrorCode code) => isA<SecurityException>()
-    .having((error) => error.code, 'code', code);
+Matcher _hasCode(SecurityErrorCode code) =>
+    isA<SecurityException>().having((error) => error.code, 'code', code);
 
 final class _FakeUnlockPort implements SecureUnlockPort {
   _FakeUnlockPort(this.expiresAt);

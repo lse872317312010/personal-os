@@ -69,7 +69,8 @@ void main() {
     expect(fixture.runtime.state, RuntimeState.locked);
   });
 
-  test('background and foreground suspend and restore volatile services', () async {
+  test('background and foreground suspend and restore volatile services',
+      () async {
     final fixture = Fixture();
     await fixture.runtime.unlock();
     fixture.calls.clear();
@@ -99,7 +100,8 @@ void main() {
     expect(fixture.calls.where((call) => call == 'vault.lock'), hasLength(1));
   });
 
-  test('foreground failure locks all capabilities and redacts exception', () async {
+  test('foreground failure locks all capabilities and redacts exception',
+      () async {
     final fixture = Fixture();
     await fixture.runtime.unlock();
     await fixture.runtime.enterBackground();
@@ -122,7 +124,8 @@ void main() {
     expect(fixture.calls.last, 'vault.lock');
   });
 
-  test('lock continues cleanup after failures and reports stable code', () async {
+  test('lock continues cleanup after failures and reports stable code',
+      () async {
     final fixture = Fixture();
     await fixture.runtime.unlock();
     fixture.calls.clear();
@@ -162,7 +165,8 @@ void main() {
     expect(fixture.runtime.state, RuntimeState.closed);
   });
 
-  test('concurrent lifecycle calls are serialized and remain idempotent', () async {
+  test('concurrent lifecycle calls are serialized and remain idempotent',
+      () async {
     final fixture = Fixture();
     final unlocks = await Future.wait([
       fixture.runtime.unlock(),

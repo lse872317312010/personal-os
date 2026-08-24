@@ -62,7 +62,8 @@ final class DeviceSequenceRange {
 
   SequenceGap? gapAfter(int previouslyReceived) {
     if (previouslyReceived < -1) {
-      throw RangeError.range(previouslyReceived, -1, null, 'previouslyReceived');
+      throw RangeError.range(
+          previouslyReceived, -1, null, 'previouslyReceived');
     }
     final expected = previouslyReceived + 1;
     return first > expected
@@ -104,9 +105,11 @@ final class EncryptedSyncEnvelope {
       senderDeviceId,
       recipientEpoch,
     ]) {
-      if (value.trim().isEmpty) throw ArgumentError('metadata must not be empty');
+      if (value.trim().isEmpty)
+        throw ArgumentError('metadata must not be empty');
     }
-    if (_ciphertext.isEmpty) throw ArgumentError('ciphertext must not be empty');
+    if (_ciphertext.isEmpty)
+      throw ArgumentError('ciphertext must not be empty');
     if (_signature.isEmpty) throw ArgumentError('signature must not be empty');
   }
 
@@ -147,8 +150,7 @@ final class SealedSyncPayload {
     required this.recipientEpoch,
     required Uint8List ciphertext,
     required Uint8List signature,
-  })
-      : _ciphertext = Uint8List.fromList(ciphertext),
+  })  : _ciphertext = Uint8List.fromList(ciphertext),
         _signature = Uint8List.fromList(signature) {
     if (recipientEpoch.trim().isEmpty) {
       throw ArgumentError('recipientEpoch must not be empty');
@@ -168,8 +170,7 @@ final class SyncPushReceipt {
   SyncPushReceipt({
     required List<String> acceptedEnvelopeIds,
     required this.cursor,
-  })
-      : acceptedEnvelopeIds = List.unmodifiable(acceptedEnvelopeIds) {
+  }) : acceptedEnvelopeIds = List.unmodifiable(acceptedEnvelopeIds) {
     if (this.acceptedEnvelopeIds.toSet().length !=
         this.acceptedEnvelopeIds.length) {
       throw ArgumentError('accepted envelope ids must be unique');

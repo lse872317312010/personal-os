@@ -10,7 +10,8 @@ import 'package:test/test.dart';
 
 void main() {
   group('push', () {
-    test('strictly encodes a non-D4 batch and seals authenticated metadata', () async {
+    test('strictly encodes a non-D4 batch and seals authenticated metadata',
+        () async {
       final relay = _FakeTransport();
       final crypto = _FakeCrypto();
       final worker = _worker(relay: relay, crypto: crypto);
@@ -31,7 +32,8 @@ void main() {
       expect(crypto.sealInputReference, everyElement(0));
     });
 
-    test('rejects mismatched acknowledgement and maps transport failures', () async {
+    test('rejects mismatched acknowledgement and maps transport failures',
+        () async {
       final relay = _FakeTransport()..acknowledgedIds = ['some-other-id'];
       final worker = _worker(relay: relay);
       final mismatch = await worker.pushBatch(
@@ -76,7 +78,8 @@ void main() {
   });
 
   group('pull', () {
-    test('opens, strictly decodes, and atomically appends a valid batch', () async {
+    test('opens, strictly decodes, and atomically appends a valid batch',
+        () async {
       final crypto = _FakeCrypto();
       final store = _RecordingStore();
       final relay = _FakeTransport()
@@ -107,17 +110,22 @@ void main() {
       final crypto = _FakeCrypto();
       final store = _RecordingStore();
       final relay = _FakeTransport()
-        ..page = _page([_inbound(crypto, 'old', 0, [_event('event-1')])]);
+        ..page = _page([
+          _inbound(crypto, 'old', 0, [_event('event-1')])
+        ]);
       final worker = _worker(relay: relay, crypto: crypto, store: store);
       await worker.pullPage(cursor: OpaqueSyncCursor.initial());
-      final result =
-          (await worker.pullPage(cursor: OpaqueSyncCursor.initial())).items.single;
+      final result = (await worker.pullPage(cursor: OpaqueSyncCursor.initial()))
+          .items
+          .single;
       expect(result.disposition, SyncDisposition.duplicate);
       expect(crypto.openCalls, 1);
       expect(store.transactions, hasLength(1));
     });
 
-    test('gap, overlap, unknown sender, epoch, and protocol reject before write', () async {
+    test(
+        'gap, overlap, unknown sender, epoch, and protocol reject before write',
+        () async {
       Future<String?> reasonFor(
         EncryptedSyncEnvelope envelope, {
         Map<String, int> lastReceived = const {},
@@ -132,7 +140,7 @@ void main() {
 
       final crypto = _FakeCrypto();
       expect(
-        await reasonFor(_inbound(crypto, 'gap', 2, [_event('e') ])),
+        await reasonFor(_inbound(crypto, 'gap', 2, [_event('e')])),
         SyncFailureReason.sequenceGap,
       );
       expect(
@@ -143,20 +151,24 @@ void main() {
         SyncFailureReason.sequenceOverlap,
       );
       expect(
-        await reasonFor(_copy(_inbound(crypto, 'sender', 0, [_event('e')]), sender: 'stranger')),
+        await reasonFor(_copy(_inbound(crypto, 'sender', 0, [_event('e')]),
+            sender: 'stranger')),
         SyncFailureReason.unknownSender,
       );
       expect(
-        await reasonFor(_copy(_inbound(crypto, 'epoch', 0, [_event('e')]), epoch: 'old')),
+        await reasonFor(
+            _copy(_inbound(crypto, 'epoch', 0, [_event('e')]), epoch: 'old')),
         SyncFailureReason.epochMismatch,
       );
       expect(
-        await reasonFor(_copy(_inbound(crypto, 'version', 0, [_event('e')]), version: 2)),
+        await reasonFor(
+            _copy(_inbound(crypto, 'version', 0, [_event('e')]), version: 2)),
         SyncFailureReason.unsupportedProtocolVersion,
       );
     });
 
-    test('malformed or unknown payload version never partially writes', () async {
+    test('malformed or unknown payload version never partially writes',
+        () async {
       for (final plaintext in [
         Uint8List.fromList(utf8.encode('{bad json')),
         Uint8List.fromList(utf8.encode('{"payload_version":2,"events":[]}')),
@@ -164,18 +176,22 @@ void main() {
         final crypto = _FakeCrypto()..forcedOpen = plaintext;
         final store = _RecordingStore();
         final relay = _FakeTransport()
-          ..page = _page([_inbound(crypto, 'bad', 0, [_event('unused')])]);
+          ..page = _page([
+            _inbound(crypto, 'bad', 0, [_event('unused')])
+          ]);
         final worker = _worker(relay: relay, crypto: crypto, store: store);
-        final result = (await worker.pullPage(cursor: OpaqueSyncCursor.initial()))
-            .items
-            .single;
+        final result =
+            (await worker.pullPage(cursor: OpaqueSyncCursor.initial()))
+                .items
+                .single;
         expect(result.reasonCode, SyncFailureReason.payloadDecodeFailed);
         expect(store.transactions, isEmpty);
         expect(worker.lastReceivedSequence('device-peer'), -1);
       }
     });
 
-    test('whole decoded batch is passed to one appendAll transaction', () async {
+    test('whole decoded batch is passed to one appendAll transaction',
+        () async {
       final crypto = _FakeCrypto();
       final store = _RecordingStore()..fail = true;
       final relay = _FakeTransport()
@@ -202,7 +218,8 @@ void main() {
       final store = _RecordingStore();
       final relay = _FakeTransport()
         ..page = _page([
-          _inbound(crypto, 'd4', 0, [_event('secret', sensitivity: Sensitivity.d4)]),
+          _inbound(
+              crypto, 'd4', 0, [_event('secret', sensitivity: Sensitivity.d4)]),
         ]);
       final worker = _worker(relay: relay, crypto: crypto, store: store);
       final result = (await worker.pullPage(cursor: OpaqueSyncCursor.initial()))
@@ -214,7 +231,8 @@ void main() {
       expect(worker.lastReceivedSequence('device-peer'), -1);
     });
 
-    test('a rejected envelope rolls back earlier prepared envelopes and cursor', () async {
+    test('a rejected envelope rolls back earlier prepared envelopes and cursor',
+        () async {
       final crypto = _FakeCrypto();
       final store = _RecordingStore();
       final first = _inbound(crypto, 'first', 0, [_event('event-1')]);
@@ -236,12 +254,15 @@ void main() {
       final crypto = _FakeCrypto();
       final store = _RecordingStore();
       final firstRelay = _FakeTransport()
-        ..page = _page([_inbound(crypto, 'accepted', 0, [_event('event-1')])]);
+        ..page = _page([
+          _inbound(crypto, 'accepted', 0, [_event('event-1')])
+        ]);
       final worker = _worker(relay: firstRelay, crypto: crypto, store: store);
       await worker.pullPage(cursor: OpaqueSyncCursor.initial());
 
-      firstRelay.page =
-          _page([_inbound(crypto, 'different-id', 0, [_event('event-1')])]);
+      firstRelay.page = _page([
+        _inbound(crypto, 'different-id', 0, [_event('event-1')])
+      ]);
       final result = await worker.pullPage(cursor: OpaqueSyncCursor.initial());
 
       expect(result.items.single.reasonCode, SyncFailureReason.sequenceOverlap);
@@ -257,7 +278,8 @@ void main() {
         limit: 0,
       );
 
-      expect(result.items.single.reasonCode, SyncFailureReason.invalidPageLimit);
+      expect(
+          result.items.single.reasonCode, SyncFailureReason.invalidPageLimit);
       expect(relay.pullCalls, 0);
     });
 
@@ -282,7 +304,8 @@ void main() {
       expect(result.cursor, OpaqueSyncCursor.initial());
     });
 
-    test('rejects duplicate envelope IDs within one page before decrypting', () async {
+    test('rejects duplicate envelope IDs within one page before decrypting',
+        () async {
       final crypto = _FakeCrypto();
       final store = _RecordingStore();
       final envelope = _inbound(crypto, 'same', 0, [_event('event-1')]);
@@ -300,7 +323,9 @@ void main() {
       final crypto = _FakeCrypto();
       final store = _RecordingStore();
       final relay = _FakeTransport()
-        ..page = _page([_inbound(crypto, 'stable-id', 0, [_event('event-1')])]);
+        ..page = _page([
+          _inbound(crypto, 'stable-id', 0, [_event('event-1')])
+        ]);
       final worker = _worker(relay: relay, crypto: crypto, store: store);
       await worker.pullPage(cursor: OpaqueSyncCursor.initial());
 
@@ -418,17 +443,26 @@ final class _FakeTransport implements SyncPort {
   int pullCalls = 0;
 
   @override
-  Future<SyncPage> pull({required String deviceId, required OpaqueSyncCursor cursor, int limit = 100}) async {
+  Future<SyncPage> pull(
+      {required String deviceId,
+      required OpaqueSyncCursor cursor,
+      int limit = 100}) async {
     pullCalls++;
     if (throwOnPull) throw StateError('offline');
     return page;
   }
 
   @override
-  Future<SyncPushReceipt> push({required String deviceId, required List<EncryptedSyncEnvelope> envelopes, required OpaqueSyncCursor cursor}) async {
+  Future<SyncPushReceipt> push(
+      {required String deviceId,
+      required List<EncryptedSyncEnvelope> envelopes,
+      required OpaqueSyncCursor cursor}) async {
     if (throwOnPush) throw StateError('offline');
     pushed.addAll(envelopes);
-    return SyncPushReceipt(acceptedEnvelopeIds: acknowledgedIds ?? envelopes.map((e) => e.envelopeId).toList(), cursor: OpaqueSyncCursor('push-next'));
+    return SyncPushReceipt(
+        acceptedEnvelopeIds:
+            acknowledgedIds ?? envelopes.map((e) => e.envelopeId).toList(),
+        cursor: OpaqueSyncCursor('push-next'));
   }
 }
 
@@ -444,16 +478,24 @@ final class _FakeCrypto implements SyncCryptographyPort {
   final Map<String, Uint8List> payloads = {};
 
   @override
-  Future<SealedSyncPayload> seal({required Uint8List trustedPlaintext, required String recipientEpoch, required Uint8List authenticatedMetadata}) async {
+  Future<SealedSyncPayload> seal(
+      {required Uint8List trustedPlaintext,
+      required String recipientEpoch,
+      required Uint8List authenticatedMetadata}) async {
     sealCalls++;
     sealInputReference = trustedPlaintext;
     lastPlaintext = Uint8List.fromList(trustedPlaintext);
     lastMetadata = Uint8List.fromList(authenticatedMetadata);
-    return SealedSyncPayload(recipientEpoch: recipientEpoch, ciphertext: Uint8List.fromList([9]), signature: Uint8List.fromList([8]));
+    return SealedSyncPayload(
+        recipientEpoch: recipientEpoch,
+        ciphertext: Uint8List.fromList([9]),
+        signature: Uint8List.fromList([8]));
   }
 
   @override
-  Future<Uint8List> open({required SealedSyncPayload payload, required Uint8List authenticatedMetadata}) async {
+  Future<Uint8List> open(
+      {required SealedSyncPayload payload,
+      required Uint8List authenticatedMetadata}) async {
     openCalls++;
     if (forcedOpen case final value?) {
       openOutputReference = Uint8List.fromList(value);
@@ -479,5 +521,7 @@ final class _RecordingStore implements EventStore {
   Future<EventEnvelope?> readById(String eventId) async => null;
 
   @override
-  Future<List<EventEnvelope>> readBySubject(ObjectRef subject, {int? limit}) async => const [];
+  Future<List<EventEnvelope>> readBySubject(ObjectRef subject,
+          {int? limit}) async =>
+      const [];
 }

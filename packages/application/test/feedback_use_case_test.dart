@@ -24,7 +24,8 @@ void main() {
     );
   });
 
-  test('complete task atomically records execution before referenced completion',
+  test(
+      'complete task atomically records execution before referenced completion',
       () async {
     final result = await useCase.completeTask(CompleteTaskCommand(
       taskId: EntityId('T1'),
@@ -43,7 +44,8 @@ void main() {
     final execution = store.batches.single.first;
     final completion = store.batches.single.last;
     expect(completion.causationId, execution.eventId);
-    expect(completion.payload['execution_ref'], 'execution:${result.executionId}');
+    expect(
+        completion.payload['execution_ref'], 'execution:${result.executionId}');
     expect(completion.sourceRefs.single.id.value, result.executionId);
     expect(completion.payload['expected_revision'], 2);
     expect(
@@ -52,7 +54,8 @@ void main() {
     );
   });
 
-  test('blank execution summary has stable failure and writes nothing', () async {
+  test('blank execution summary has stable failure and writes nothing',
+      () async {
     await expectLater(
       useCase.completeTask(CompleteTaskCommand(
         taskId: EntityId('T1'),
@@ -135,7 +138,8 @@ void main() {
     expect(store.batches.last.last.payload['expected_revision'], 2);
   });
 
-  test('reject path is explicit and atomically follows user_reviewed', () async {
+  test('reject path is explicit and atomically follows user_reviewed',
+      () async {
     await useCase.decideReview(DecideReviewCommand(
       reviewId: EntityId('R1'),
       expectedReviewRevision: 1,
@@ -151,7 +155,8 @@ void main() {
     ]);
   });
 
-  test('non-user cannot accept or reject a review and writes nothing', () async {
+  test('non-user cannot accept or reject a review and writes nothing',
+      () async {
     final agent = ActorRef(
       actorId: 'agent:reviewer',
       actorType: ActorType.agent,
@@ -249,7 +254,8 @@ final class _MemoryStore implements EventStore {
   Future<EventEnvelope?> readById(String eventId) async => null;
 
   @override
-  Future<List<EventEnvelope>> readBySubject(ObjectRef subject, {int? limit}) async =>
+  Future<List<EventEnvelope>> readBySubject(ObjectRef subject,
+          {int? limit}) async =>
       const <EventEnvelope>[];
 }
 

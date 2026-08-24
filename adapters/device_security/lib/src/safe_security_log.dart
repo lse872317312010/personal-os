@@ -17,7 +17,8 @@ enum SecurityOperation {
 enum SecurityOperationOutcome { succeeded, failed }
 
 final class SafeSecurityEvent {
-  const SafeSecurityEvent({required this.operation, required this.outcome, this.errorCode});
+  const SafeSecurityEvent(
+      {required this.operation, required this.outcome, this.errorCode});
 
   final SecurityOperation operation;
   final SecurityOperationOutcome outcome;

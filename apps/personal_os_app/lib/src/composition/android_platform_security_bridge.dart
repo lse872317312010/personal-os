@@ -184,7 +184,8 @@ final class AndroidPlatformSecurityBridge implements PlatformSecurityBridge {
     );
   }
 
-  Future<Object?> _invoke(String method, [Map<String, Object?>? arguments]) async {
+  Future<Object?> _invoke(String method,
+      [Map<String, Object?>? arguments]) async {
     try {
       return await _channel.invokeMethod<Object?>(method, arguments);
     } on PlatformException catch (error) {

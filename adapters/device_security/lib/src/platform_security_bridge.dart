@@ -7,7 +7,14 @@ import 'package:personal_os_security_api/security_api.dart';
 /// A value is evidence supplied by the bridge, not an attestation made by this
 /// Dart package. In particular, [strongBox] must not be inferred from Android
 /// device model or OS version.
-enum HardwareProtectionLevel { unavailable, software, trustedEnvironment, strongBox, secureEnclave, tpm }
+enum HardwareProtectionLevel {
+  unavailable,
+  software,
+  trustedEnvironment,
+  strongBox,
+  secureEnclave,
+  tpm
+}
 
 final class DeviceSecurityCapabilities {
   const DeviceSecurityCapabilities({
@@ -28,7 +35,8 @@ final class DeviceSecurityCapabilities {
         HardwareProtectionLevel.trustedEnvironment ||
         HardwareProtectionLevel.strongBox ||
         HardwareProtectionLevel.secureEnclave ||
-        HardwareProtectionLevel.tpm => true,
+        HardwareProtectionLevel.tpm =>
+          true,
         _ => false,
       };
 }
@@ -73,7 +81,8 @@ final class PlatformKeyReference {
     required this.purpose,
     required this.version,
   }) : id = _nonBlank(id, 'id') {
-    if (version < 1) throw ArgumentError.value(version, 'version', 'must be >= 1');
+    if (version < 1)
+      throw ArgumentError.value(version, 'version', 'must be >= 1');
   }
 
   final String id;
@@ -89,7 +98,8 @@ final class PlatformWrappedKey {
     required Uint8List ciphertext,
   })  : keyId = _nonBlank(keyId, 'keyId'),
         _ciphertext = Uint8List.fromList(ciphertext) {
-    if (version < 1) throw ArgumentError.value(version, 'version', 'must be >= 1');
+    if (version < 1)
+      throw ArgumentError.value(version, 'version', 'must be >= 1');
     if (ciphertext.isEmpty) {
       throw ArgumentError('ciphertext must not be empty');
     }
@@ -200,6 +210,7 @@ abstract interface class PlatformSecurityBridge {
 }
 
 String _nonBlank(String value, String label) {
-  if (value.trim().isEmpty) throw ArgumentError.value(value, label, 'must not be blank');
+  if (value.trim().isEmpty)
+    throw ArgumentError.value(value, label, 'must not be blank');
   return value;
 }

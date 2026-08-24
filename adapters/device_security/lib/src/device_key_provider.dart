@@ -12,14 +12,20 @@ final class DeviceKeyProviderAdapter implements KeyProvider {
   final SafeSecurityLogSink _log;
 
   @override
-  Future<KeyHandle> createKey({required KeyPurpose purpose, required UnlockGrant grant}) =>
-      _run(SecurityOperation.createKey, () async => _toHandle(await _bridge.createKey(
-            purpose: purpose,
-            authenticationTicketId: grant.id,
-          )));
+  Future<KeyHandle> createKey(
+          {required KeyPurpose purpose, required UnlockGrant grant}) =>
+      _run(
+          SecurityOperation.createKey,
+          () async => _toHandle(await _bridge.createKey(
+                purpose: purpose,
+                authenticationTicketId: grant.id,
+              )));
 
   @override
-  Future<WrappedKey> wrapKey({required KeyHandle key, required KeyHandle wrappingKey, required UnlockGrant grant}) =>
+  Future<WrappedKey> wrapKey(
+          {required KeyHandle key,
+          required KeyHandle wrappingKey,
+          required UnlockGrant grant}) =>
       _run(SecurityOperation.wrapKey, () async {
         final wrapped = await _bridge.wrapKey(
           key: _toReference(key),
@@ -35,51 +41,72 @@ final class DeviceKeyProviderAdapter implements KeyProvider {
       });
 
   @override
-  Future<KeyHandle> unwrapKey({required WrappedKey wrappedKey, required KeyHandle wrappingKey, required UnlockGrant grant}) =>
-      _run(SecurityOperation.unwrapKey, () async => _toHandle(await _bridge.unwrapKey(
-            wrappedKey: PlatformWrappedKey(
-              keyId: wrappedKey.keyId,
-              purpose: wrappedKey.keyPurpose,
-              version: wrappedKey.keyVersion,
-              ciphertext: wrappedKey.ciphertext,
-            ),
-            wrappingKey: _toReference(wrappingKey),
-            authenticationTicketId: grant.id,
-          )));
+  Future<KeyHandle> unwrapKey(
+          {required WrappedKey wrappedKey,
+          required KeyHandle wrappingKey,
+          required UnlockGrant grant}) =>
+      _run(
+          SecurityOperation.unwrapKey,
+          () async => _toHandle(await _bridge.unwrapKey(
+                wrappedKey: PlatformWrappedKey(
+                  keyId: wrappedKey.keyId,
+                  purpose: wrappedKey.keyPurpose,
+                  version: wrappedKey.keyVersion,
+                  ciphertext: wrappedKey.ciphertext,
+                ),
+                wrappingKey: _toReference(wrappingKey),
+                authenticationTicketId: grant.id,
+              )));
 
   @override
-  Future<EpochRotation> rotateAccountEpoch({required KeyHandle currentEpoch, required UnlockGrant grant}) =>
-      _run(SecurityOperation.rotateEpoch, () async => _toRotation(await _bridge.rotateAccountEpoch(
-            currentEpoch: _toReference(currentEpoch),
-            authenticationTicketId: grant.id,
-          )));
+  Future<EpochRotation> rotateAccountEpoch(
+          {required KeyHandle currentEpoch, required UnlockGrant grant}) =>
+      _run(
+          SecurityOperation.rotateEpoch,
+          () async => _toRotation(await _bridge.rotateAccountEpoch(
+                currentEpoch: _toReference(currentEpoch),
+                authenticationTicketId: grant.id,
+              )));
 
   @override
-  Future<EpochRotation> revokeDevice({required String deviceId, required KeyHandle currentEpoch, required UnlockGrant grant}) =>
-      _run(SecurityOperation.revokeDevice, () async => _toRotation(await _bridge.revokeDeviceAndRotate(
-            deviceId: deviceId,
-            currentEpoch: _toReference(currentEpoch),
-            authenticationTicketId: grant.id,
-          )));
+  Future<EpochRotation> revokeDevice(
+          {required String deviceId,
+          required KeyHandle currentEpoch,
+          required UnlockGrant grant}) =>
+      _run(
+          SecurityOperation.revokeDevice,
+          () async => _toRotation(await _bridge.revokeDeviceAndRotate(
+                deviceId: deviceId,
+                currentEpoch: _toReference(currentEpoch),
+                authenticationTicketId: grant.id,
+              )));
 
   @override
-  Future<void> authorizeNewData({required String deviceId, required KeyHandle epochKey}) =>
-      _run(SecurityOperation.authorizeNewData, () => _bridge.authorizeNewData(
-            deviceId: deviceId,
-            epochKey: _toReference(epochKey),
-          ));
+  Future<void> authorizeNewData(
+          {required String deviceId, required KeyHandle epochKey}) =>
+      _run(
+          SecurityOperation.authorizeNewData,
+          () => _bridge.authorizeNewData(
+                deviceId: deviceId,
+                epochKey: _toReference(epochKey),
+              ));
 
   @override
-  Future<void> destroyKey({required KeyHandle key, required UnlockGrant grant}) =>
-      _run(SecurityOperation.destroyKey, () => _bridge.destroyKey(
-            key: _toReference(key),
-            authenticationTicketId: grant.id,
-          ));
+  Future<void> destroyKey(
+          {required KeyHandle key, required UnlockGrant grant}) =>
+      _run(
+          SecurityOperation.destroyKey,
+          () => _bridge.destroyKey(
+                key: _toReference(key),
+                authenticationTicketId: grant.id,
+              ));
 
-  Future<T> _run<T>(SecurityOperation operation, Future<T> Function() action) async {
+  Future<T> _run<T>(
+      SecurityOperation operation, Future<T> Function() action) async {
     try {
       final result = await action();
-      _log.record(SafeSecurityEvent(operation: operation, outcome: SecurityOperationOutcome.succeeded));
+      _log.record(SafeSecurityEvent(
+          operation: operation, outcome: SecurityOperationOutcome.succeeded));
       return result;
     } on PlatformSecurityFailure catch (error) {
       final mapped = mapPlatformSecurityFailure(error);

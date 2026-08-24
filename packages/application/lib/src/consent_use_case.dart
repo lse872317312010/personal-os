@@ -48,8 +48,8 @@ final class ConsentLifecycleUseCase {
 
   Future<ConsentLifecycleResult> grant(GrantConsentCommand command) async {
     _validateActor(command.actor);
-    _validateCommon(command.consentId, command.consentRevision,
-        command.correlationId);
+    _validateCommon(
+        command.consentId, command.consentRevision, command.correlationId);
     if (command.expectedConsentStateRevision < 0) {
       throw const ConsentUseCaseFailure(
         ConsentFailureCode.invalidExpectedRevision,
@@ -84,8 +84,8 @@ final class ConsentLifecycleUseCase {
 
   Future<ConsentLifecycleResult> revoke(RevokeConsentCommand command) async {
     _validateActor(command.actor);
-    _validateCommon(command.consentId, command.consentRevision,
-        command.correlationId);
+    _validateCommon(
+        command.consentId, command.consentRevision, command.correlationId);
     if (command.expectedConsentStateRevision < 0) {
       throw const ConsentUseCaseFailure(
         ConsentFailureCode.invalidExpectedRevision,
@@ -127,7 +127,8 @@ final class ConsentLifecycleUseCase {
   Map<String, Object?> _grantPayload(
     GrantConsentCommand command,
     DateTime now,
-  ) => <String, Object?>{
+  ) =>
+      <String, Object?>{
         'expected_revision': 0,
         'consent_id': command.consentId,
         'consent_revision': command.consentRevision,

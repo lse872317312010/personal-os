@@ -34,7 +34,8 @@ void main() {
       EventTypes.consentRequested,
       EventTypes.consentGranted,
     ]);
-    expect(store.events.every((event) => event.subjectRefs.length == 2), isTrue);
+    expect(
+        store.events.every((event) => event.subjectRefs.length == 2), isTrue);
     expect(store.events.last.causationId, store.events.first.eventId);
   });
 
@@ -110,7 +111,8 @@ final class _Store implements EventStore {
   Future<EventEnvelope?> readById(String eventId) async => null;
 
   @override
-  Future<List<EventEnvelope>> readBySubject(ObjectRef subject, {int? limit}) async =>
+  Future<List<EventEnvelope>> readBySubject(ObjectRef subject,
+          {int? limit}) async =>
       const <EventEnvelope>[];
 }
 

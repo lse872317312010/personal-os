@@ -38,7 +38,8 @@ final class EventBackedConsentRevisionRepository
         // A matching event supersedes fallback state. A malformed grant is
         // untrusted and therefore denied rather than silently falling back.
         grant = _grantFromEvent(event);
-      } else if (event.eventType == EventTypes.consentRevoked && grant != null) {
+      } else if (event.eventType == EventTypes.consentRevoked &&
+          grant != null) {
         grant = _withStatus(grant, ConsentStatus.revoked);
       }
     }

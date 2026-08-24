@@ -201,6 +201,7 @@ final class RecoveryLogEvent {
 
   final String sessionId;
   final String packageId;
+
   /// Null until authenticated inner payload is available.
   final int? generation;
   final RecoverySessionState state;

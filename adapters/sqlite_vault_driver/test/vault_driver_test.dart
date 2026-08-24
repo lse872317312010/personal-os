@@ -42,7 +42,8 @@ void main() {
     expect(fixture.keys.leases.single.isDestroyed, isTrue);
   });
 
-  test('a queued unlock cannot enter while the first unlock is opening', () async {
+  test('a queued unlock cannot enter while the first unlock is opening',
+      () async {
     final fixture = Fixture(schemaVersion: 2);
     final acquireStarted = Completer<void>();
     final releaseAcquire = Completer<void>();
@@ -70,8 +71,10 @@ void main() {
     expect(fixture.keys.leases, hasLength(1));
   });
 
-  test('failed unlock is redacted, closes, destroys key, and relocks', () async {
-    final fixture = Fixture(schemaVersion: 0)..connection.tx.failMigration = true;
+  test('failed unlock is redacted, closes, destroys key, and relocks',
+      () async {
+    final fixture = Fixture(schemaVersion: 0)
+      ..connection.tx.failMigration = true;
 
     await expectLater(
       fixture.driver.unlock(),
@@ -86,8 +89,10 @@ void main() {
     expect(fixture.driver.state, VaultLifecycleState.locked);
   });
 
-  test('failed lifecycle operation does not poison the serialized lane', () async {
-    final fixture = Fixture(schemaVersion: 0)..connection.tx.failMigration = true;
+  test('failed lifecycle operation does not poison the serialized lane',
+      () async {
+    final fixture = Fixture(schemaVersion: 0)
+      ..connection.tx.failMigration = true;
 
     await expectLater(
       fixture.driver.unlock(),
@@ -229,7 +234,8 @@ void main() {
     await fixture.driver.close();
 
     expect(fixture.driver.state, VaultLifecycleState.closed);
-    await expectLater(fixture.driver.unlock(), throwsA(isA<VaultDriverFailure>()));
+    await expectLater(
+        fixture.driver.unlock(), throwsA(isA<VaultDriverFailure>()));
     await expectLater(
       fixture.driver.rekey(),
       throwsA(isA<VaultDriverFailure>().having(
@@ -256,7 +262,8 @@ void main() {
     );
   });
 
-  test('migration cannot jump from a schema version before the chain', () async {
+  test('migration cannot jump from a schema version before the chain',
+      () async {
     final keys = FakeKeys();
     final connection = FakeConnection(0);
     final driver = VaultDriver(
@@ -321,7 +328,8 @@ final class FakeKeys implements VaultKeyProvider {
 
   @override
   Future<VaultKeyLease> acquire(VaultKeyPurpose purpose) async {
-    if (failAcquire) throw StateError('key alias and raw secret must not escape');
+    if (failAcquire)
+      throw StateError('key alias and raw secret must not escape');
     await beforeAcquire?.call();
     final lease = FakeLease();
     leases.add(lease);
@@ -352,7 +360,8 @@ final class FakeConnection implements VaultConnection {
   bool failClose = false;
 
   @override
-  Future<T> transaction<T>(Future<T> Function(VaultTransaction tx) action) async {
+  Future<T> transaction<T>(
+      Future<T> Function(VaultTransaction tx) action) async {
     transactionCount++;
     return action(tx);
   }

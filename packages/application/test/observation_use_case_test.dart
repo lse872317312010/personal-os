@@ -16,7 +16,8 @@ void main() {
     final result = await _useCase(store).execute(_command());
 
     expect(result.observationId, 'observation-1');
-    expect(store.batches.single.single.eventType, EventTypes.observationRecorded);
+    expect(
+        store.batches.single.single.eventType, EventTypes.observationRecorded);
     final event = store.batches.single.single;
     expect(event.sensitivity, Sensitivity.d3);
     expect(event.subjectRefs.map((ref) => ref.type), <String>[
@@ -88,8 +89,10 @@ void main() {
     await expectLater(
       _useCase(store).execute(_command()),
       throwsA(isA<ObservationUseCaseFailure>()
-          .having((error) => error.code, 'code', ObservationFailureCode.appendFailed)
-          .having((error) => error.toString(), 'safe error', contains('append_failed'))),
+          .having((error) => error.code, 'code',
+              ObservationFailureCode.appendFailed)
+          .having((error) => error.toString(), 'safe error',
+              contains('append_failed'))),
     );
     expect(store.batches, isEmpty);
   });
@@ -106,7 +109,8 @@ void main() {
     BlobRef? blobRef,
     bool includeConsent = true,
     Sensitivity sensitivity = Sensitivity.d3,
-  }) => RecordObservationCommand(
+  }) =>
+      RecordObservationCommand(
         profileId: EntityId('profile-1'),
         blobRef: blobRef ?? BlobRef('blob://vault/photo-1'),
         mediaType: 'image/jpeg',
@@ -144,7 +148,8 @@ final class _Store implements EventStore {
   }
 
   @override
-  Future<List<EventEnvelope>> readBySubject(ObjectRef subject, {int? limit}) async =>
+  Future<List<EventEnvelope>> readBySubject(ObjectRef subject,
+          {int? limit}) async =>
       const <EventEnvelope>[];
 
   @override

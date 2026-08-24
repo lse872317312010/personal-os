@@ -103,7 +103,8 @@ void main() {
 
     expect(repository.readable(ref), <int>[11, 21, 31]);
     expect(repository.readable(ref), isNot(callerChunk));
-    expect(callerChunk, <int>[10, 20, 30], reason: 'caller memory is not owned');
+    expect(callerChunk, <int>[10, 20, 30],
+        reason: 'caller memory is not owned');
     expect(cryptography.seenPlaintext.single, isNot(same(callerChunk)));
     expect(cryptography.seenPlaintext.single, everyElement(0));
     expect(repository.lastMetadata!.plaintextLength, 3);
@@ -166,7 +167,8 @@ void main() {
     repository.readChunkSize = 2;
 
     final bytes = await engine
-        .openRead(ref, access: access, range: BlobByteRange(start: 2, endExclusive: 5))
+        .openRead(ref,
+            access: access, range: BlobByteRange(start: 2, endExclusive: 5))
         .expand((chunk) => chunk)
         .toList();
     expect(bytes, <int>[2, 3, 4]);
@@ -281,7 +283,8 @@ final class _FakeCryptography implements BlobCryptographyPort {
   int beginSealCalls = 0;
   bool failSeal = false;
   bool destroyFailure = false;
-  KeyHandle key = KeyHandle(id: 'blob-key', purpose: KeyPurpose.blob, version: 1);
+  KeyHandle key =
+      KeyHandle(id: 'blob-key', purpose: KeyPurpose.blob, version: 1);
   final List<Uint8List> seenPlaintext = <Uint8List>[];
   final List<KeyHandle> destroyed = <KeyHandle>[];
   List<String>? operations;
@@ -344,7 +347,8 @@ final class _FakeRepository implements CiphertextBlobRepository {
   List<int>? readable(BlobRef ref) => _stored[ref]?.ciphertext;
 
   @override
-  Future<CiphertextBlobWrite> beginWrite({required BlobAccessContext access}) async {
+  Future<CiphertextBlobWrite> beginWrite(
+      {required BlobAccessContext access}) async {
     beginWriteCalls++;
     final write = _FakeWrite(this, BlobRef('opaque-${_nextRef++}'));
     lastWrite = write;
@@ -352,7 +356,8 @@ final class _FakeRepository implements CiphertextBlobRepository {
   }
 
   @override
-  Future<CiphertextBlobRead?> open(BlobRef ref, {required BlobAccessContext access}) async {
+  Future<CiphertextBlobRead?> open(BlobRef ref,
+      {required BlobAccessContext access}) async {
     if (openFailure) throw StateError('ref-path-content-hash');
     final stored = _stored[ref];
     if (stored == null) return null;
@@ -382,7 +387,8 @@ final class _FakeRepository implements CiphertextBlobRepository {
   }
 
   @override
-  Future<bool> deleteCiphertext(BlobRef ref, {required BlobAccessContext access}) async {
+  Future<bool> deleteCiphertext(BlobRef ref,
+      {required BlobAccessContext access}) async {
     operations.add('delete-ciphertext');
     if (deleteFailuresRemaining-- > 0) throw StateError('secret cleanup path');
     return _stored.remove(ref) != null;

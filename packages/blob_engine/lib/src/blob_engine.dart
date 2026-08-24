@@ -30,10 +30,10 @@ final class BlobEngineException implements Exception {
               code == 'delete_failed' ||
               code == 'ciphertext_cleanup_failed' ||
               code == 'blob_not_found' ||
-          code == 'invalid_blob_key' ||
-          code == 'invalid_blob_metadata' ||
-          code == 'plaintext_length_mismatch' ||
-          code == 'consent_mismatch',
+              code == 'invalid_blob_key' ||
+              code == 'invalid_blob_metadata' ||
+              code == 'plaintext_length_mismatch' ||
+              code == 'consent_mismatch',
           'unstable blob error code',
         );
 

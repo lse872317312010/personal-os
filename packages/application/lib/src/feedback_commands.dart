@@ -13,6 +13,7 @@ final class CompleteTaskCommand {
   }) : consentRefs = List<ObjectRef>.unmodifiable(consentRefs);
 
   final EntityId taskId;
+
   /// Optional profile linkage for event-stream reconstruction.
   ///
   /// Omitting it preserves the legacy task-only event shape.

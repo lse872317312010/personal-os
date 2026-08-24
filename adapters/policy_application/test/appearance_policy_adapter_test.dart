@@ -80,7 +80,10 @@ void main() {
         grant(purposes: {'another_purpose'}),
         PolicyReason.consentPurposeMismatch,
       ),
-      (grant(resources: {'another_resource'}), PolicyReason.consentResourceMismatch),
+      (
+        grant(resources: {'another_resource'}),
+        PolicyReason.consentResourceMismatch
+      ),
       (grant(actions: {'another_action'}), PolicyReason.consentActionMismatch),
       (
         grant(maximumSensitivity: Sensitivity.d2),
@@ -109,7 +112,10 @@ void main() {
     for (final refs in <List<ObjectRef>>[
       [ObjectRef(type: 'consent', id: EntityId('consent-1'))],
       [ref, ref],
-      [ObjectRef(type: 'claim', id: EntityId('consent-1'), revision: Revision(7))],
+      [
+        ObjectRef(
+            type: 'claim', id: EntityId('consent-1'), revision: Revision(7))
+      ],
     ]) {
       final result = await adapter.authorizeAnalysis(
         actor: actor,

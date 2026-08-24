@@ -312,12 +312,13 @@ EventEnvelope _observationEvent({
         ObjectRef(type: 'observation', id: EntityId(observationId)),
         ObjectRef(type: 'profile', id: EntityId(profileId)),
       ],
-      payload: payload ?? <String, Object?>{
-        'observation_id': observationId,
-        'blob_ref': 'blob://vault/photo-1',
-        'media_type': 'image/jpeg',
-        'observation_context': 'context',
-      },
+      payload: payload ??
+          <String, Object?>{
+            'observation_id': observationId,
+            'blob_ref': 'blob://vault/photo-1',
+            'media_type': 'image/jpeg',
+            'observation_context': 'context',
+          },
       sensitivity: sensitivity,
     );
 
@@ -362,5 +363,6 @@ final class _Store implements EventStore {
   Future<List<EventEnvelope>> readBySubject(
     ObjectRef subject, {
     int? limit,
-  }) async => events.take(limit ?? events.length).toList(growable: false);
+  }) async =>
+      events.take(limit ?? events.length).toList(growable: false);
 }

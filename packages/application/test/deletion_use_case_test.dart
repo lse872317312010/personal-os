@@ -35,7 +35,8 @@ void main() {
     expect(event.payload['tombstone_id'], result.tombstoneRef);
   });
 
-  test('completion is a separate atomic batch with safe logical refs', () async {
+  test('completion is a separate atomic batch with safe logical refs',
+      () async {
     final store = _Store();
     final result = await _useCase(store).complete(
       CompleteDeletionCommand(
@@ -176,7 +177,8 @@ final class _Store implements EventStore {
   Future<EventEnvelope?> readById(String eventId) async => null;
 
   @override
-  Future<List<EventEnvelope>> readBySubject(ObjectRef subject, {int? limit}) async =>
+  Future<List<EventEnvelope>> readBySubject(ObjectRef subject,
+          {int? limit}) async =>
       const <EventEnvelope>[];
 }
 

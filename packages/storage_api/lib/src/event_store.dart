@@ -112,14 +112,16 @@ const _safeMessages = <String, String>{
   PersistenceErrorCode.transactionFailed:
       'The local storage operation was rolled back.',
   PersistenceErrorCode.readFailed: 'The local state could not be read safely.',
-  PersistenceErrorCode.writeFailed: 'The local state could not be written safely.',
+  PersistenceErrorCode.writeFailed:
+      'The local state could not be written safely.',
   PersistenceErrorCode.vaultLocked: 'The local vault is locked.',
   PersistenceErrorCode.authenticationRequired: 'Authentication is required.',
   PersistenceErrorCode.authenticationFailed: 'Authentication failed.',
   PersistenceErrorCode.keyUnavailable: 'The local security key is unavailable.',
   PersistenceErrorCode.keyRevoked: 'The local security key is revoked.',
   PersistenceErrorCode.corrupted: 'The local state could not be trusted.',
-  PersistenceErrorCode.unsupported: 'This local storage operation is unsupported.',
+  PersistenceErrorCode.unsupported:
+      'This local storage operation is unsupported.',
   PersistenceErrorCode.notFound: 'The requested local state was not found.',
   PersistenceErrorCode.unavailable: 'Local storage is temporarily unavailable.',
 };

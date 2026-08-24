@@ -17,10 +17,30 @@ void main() {
     final store = _RecordingStore();
     final ingestion = EncryptedBlobIngestion(store: store, maxBytes: 4);
 
-    for (final request in <({String? consent, Sensitivity sensitivity, String mediaType, String code})>[
-      (consent: null, sensitivity: Sensitivity.d3, mediaType: 'image/jpeg', code: 'consent_required'),
-      (consent: access.consentRef, sensitivity: Sensitivity.d4, mediaType: 'image/jpeg', code: 'd4_persistence_forbidden'),
-      (consent: access.consentRef, sensitivity: Sensitivity.d3, mediaType: 'secret/path', code: 'invalid_media_type'),
+    for (final request in <({
+      String? consent,
+      Sensitivity sensitivity,
+      String mediaType,
+      String code
+    })>[
+      (
+        consent: null,
+        sensitivity: Sensitivity.d3,
+        mediaType: 'image/jpeg',
+        code: 'consent_required'
+      ),
+      (
+        consent: access.consentRef,
+        sensitivity: Sensitivity.d4,
+        mediaType: 'image/jpeg',
+        code: 'd4_persistence_forbidden'
+      ),
+      (
+        consent: access.consentRef,
+        sensitivity: Sensitivity.d3,
+        mediaType: 'secret/path',
+        code: 'invalid_media_type'
+      ),
     ]) {
       var listened = false;
       final input = Stream<List<int>>.multi((controller) {
@@ -106,14 +126,17 @@ final class _RecordingStore implements BlobStore {
   }
 
   @override
-  Stream<List<int>> openRead(BlobRef ref, {required BlobAccessContext access, BlobByteRange? range}) =>
+  Stream<List<int>> openRead(BlobRef ref,
+          {required BlobAccessContext access, BlobByteRange? range}) =>
       const Stream<List<int>>.empty();
 
   @override
-  Future<BlobMetadata> metadata(BlobRef ref, {required BlobAccessContext access}) =>
+  Future<BlobMetadata> metadata(BlobRef ref,
+          {required BlobAccessContext access}) =>
       throw UnimplementedError();
 
   @override
-  Future<BlobDeleteResult> delete(BlobRef ref, {required BlobAccessContext access}) =>
+  Future<BlobDeleteResult> delete(BlobRef ref,
+          {required BlobAccessContext access}) =>
       throw UnimplementedError();
 }

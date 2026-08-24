@@ -5,7 +5,8 @@ import '../controller/app_controller.dart';
 import 'observation_history_card.dart';
 
 final class CaptureScreen extends StatefulWidget {
-  const CaptureScreen({required this.controller, required this.mode, super.key});
+  const CaptureScreen(
+      {required this.controller, required this.mode, super.key});
 
   final AppController controller;
   final AppExperienceMode mode;
@@ -37,7 +38,9 @@ final class _CaptureScreenState extends State<CaptureScreen> {
           child: ListTile(
             leading: Icon(Icons.science_outlined),
             title: Text(
-              widget.mode == AppExperienceMode.syntheticDemo ? '内置合成示例' : '安全保险库资料',
+              widget.mode == AppExperienceMode.syntheticDemo
+                  ? '内置合成示例'
+                  : '安全保险库资料',
             ),
             subtitle: Text(
               widget.mode == AppExperienceMode.syntheticDemo
@@ -48,7 +51,8 @@ final class _CaptureScreenState extends State<CaptureScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        ObservationHistoryCard(controller: widget.controller, mode: widget.mode),
+        ObservationHistoryCard(
+            controller: widget.controller, mode: widget.mode),
         const SizedBox(height: 16),
         TextField(
           key: const Key('blob-reference'),

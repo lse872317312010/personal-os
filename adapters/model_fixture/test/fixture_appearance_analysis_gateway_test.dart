@@ -28,12 +28,14 @@ void main() {
     expect(result.actions.single.rationale, contains('不代表真人分析'));
   });
 
-  test('trace reference is stable and does not expose the blob reference', () async {
+  test('trace reference is stable and does not expose the blob reference',
+      () async {
     const gateway = FixtureAppearanceAnalysisGateway();
 
     final first = await gateway.analyze(input());
     final second = await gateway.analyze(input());
-    final different = await gateway.analyze(input(imageRef: 'blob://vault/photo-2'));
+    final different =
+        await gateway.analyze(input(imageRef: 'blob://vault/photo-2'));
 
     expect(first.modelTraceRef, second.modelTraceRef);
     expect(first.modelTraceRef, startsWith('fixture://appearance/fnv1a32-'));
@@ -41,7 +43,8 @@ void main() {
     expect(different.modelTraceRef, isNot(first.modelTraceRef));
   });
 
-  test('rejects anything other than a non-empty blob double-slash ref', () async {
+  test('rejects anything other than a non-empty blob double-slash ref',
+      () async {
     const gateway = FixtureAppearanceAnalysisGateway();
 
     for (final invalid in <String>[

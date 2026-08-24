@@ -4,7 +4,8 @@ import '../composition/app_composition.dart';
 import '../controller/app_controller.dart';
 
 final class VaultLockScreen extends StatelessWidget {
-  const VaultLockScreen({required this.controller, required this.mode, super.key});
+  const VaultLockScreen(
+      {required this.controller, required this.mode, super.key});
 
   final AppController controller;
   final AppExperienceMode mode;
@@ -37,7 +38,9 @@ final class VaultLockScreen extends StatelessWidget {
                       onPressed: controller.unlockVault,
                       icon: const Icon(Icons.lock_open),
                       label: Text(
-                        mode == AppExperienceMode.syntheticDemo ? '进入合成体验' : '解锁安全保险库',
+                        mode == AppExperienceMode.syntheticDemo
+                            ? '进入合成体验'
+                            : '解锁安全保险库',
                       ),
                     ),
                   ],

@@ -440,10 +440,10 @@ AppearanceConsentView _consentState(
               consentRevision: consentRevision ?? 1,
             ))
         .withState(
-          nextState: state,
-          nextStateRevision: stateRevision,
-          nextConsentRevision: consentRevision,
-        );
+      nextState: state,
+      nextStateRevision: stateRevision,
+      nextConsentRevision: consentRevision,
+    );
 
 String? _string(Object? value) => value is String ? value : null;
 

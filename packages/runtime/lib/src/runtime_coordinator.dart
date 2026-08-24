@@ -91,7 +91,8 @@ final class RuntimeCoordinator {
   Future<void> enterBackground() => _serialize(_enterBackground);
 
   Future<void> _enterBackground() async {
-    if (_state == RuntimeState.background || _state == RuntimeState.locked) return;
+    if (_state == RuntimeState.background || _state == RuntimeState.locked)
+      return;
     _requireState(RuntimeState.foreground);
     try {
       await _sync.stop();
@@ -108,7 +109,8 @@ final class RuntimeCoordinator {
   Future<void> enterForeground() => _serialize(_enterForeground);
 
   Future<void> _enterForeground() async {
-    if (_state == RuntimeState.foreground || _state == RuntimeState.locked) return;
+    if (_state == RuntimeState.foreground || _state == RuntimeState.locked)
+      return;
     _requireState(RuntimeState.background);
     try {
       await _model.enable();
@@ -129,7 +131,8 @@ final class RuntimeCoordinator {
     if (_state == RuntimeState.closed) {
       throw const RuntimeFailure('invalid_runtime_transition');
     }
-    if (_state != RuntimeState.foreground && _state != RuntimeState.background) {
+    if (_state != RuntimeState.foreground &&
+        _state != RuntimeState.background) {
       throw const RuntimeFailure('invalid_runtime_transition');
     }
     _state = RuntimeState.locking;
@@ -147,7 +150,8 @@ final class RuntimeCoordinator {
 
   Future<void> _close() async {
     if (_state == RuntimeState.closed) return;
-    if (_state == RuntimeState.foreground || _state == RuntimeState.background) {
+    if (_state == RuntimeState.foreground ||
+        _state == RuntimeState.background) {
       try {
         await lock();
       } on RuntimeFailure {

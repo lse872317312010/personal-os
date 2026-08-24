@@ -100,7 +100,8 @@ final class NativeSqlCipherEventStore implements EventStore {
     );
     final decoded = rows.map(_decodeRow).toList(growable: false);
     final filtered = decoded
-        .where((event) => event.subjectRefs.any((ref) => _sameRef(ref, subject)))
+        .where(
+            (event) => event.subjectRefs.any((ref) => _sameRef(ref, subject)))
         .toList(growable: false);
     return limit == null || filtered.length <= limit
         ? filtered
@@ -174,8 +175,7 @@ final class NativeSqlCipherEventStore implements EventStore {
   Map<String, Object?> _asStringObjectMap(Object? value) {
     if (value is! Map) throw const PersistenceException.schemaViolation();
     return <String, Object?>{
-      for (final entry in value.entries)
-        entry.key.toString(): entry.value,
+      for (final entry in value.entries) entry.key.toString(): entry.value,
     };
   }
 
@@ -207,8 +207,7 @@ ObjectRef _profileSubject(EventEnvelope event) {
 }
 
 bool _sameRef(ObjectRef left, ObjectRef right) =>
-    left.type == right.type &&
-    left.id.value == right.id.value;
+    left.type == right.type && left.id.value == right.id.value;
 
 PersistenceException _codecPersistenceException(EventCodecException error) =>
     error.reasonCode == EventCodecReason.d4PersistenceForbidden

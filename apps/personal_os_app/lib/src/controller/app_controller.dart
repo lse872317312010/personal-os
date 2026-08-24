@@ -225,9 +225,8 @@ final class AppController extends ChangeNotifier {
         goalId: view.goal!.id,
         planId: view.plan!.id,
         taskIds: view.tasks.map((task) => task.id).toList(growable: false),
-        eventIds: view.events
-            .map((event) => event.eventId)
-            .toList(growable: false),
+        eventIds:
+            view.events.map((event) => event.eventId).toList(growable: false),
       );
     }
     final review = view.review;
@@ -300,7 +299,8 @@ final class AppController extends ChangeNotifier {
     final epoch = _lifecycleEpoch;
     try {
       if (granted) {
-        final consentRevision = _consentRevision == 0 ? 1 : _consentRevision + 1;
+        final consentRevision =
+            _consentRevision == 0 ? 1 : _consentRevision + 1;
         final result = await _consentLifecycle!.grant(
           GrantConsentCommand(
             profileId: _profileId,
@@ -510,8 +510,8 @@ final class AppController extends ChangeNotifier {
           profileId: _profileId,
           actor: _actor,
           correlationId: _correlation('create-review'),
-          sourceRefs: taskIds
-              .map((id) => ObjectRef(type: 'task', id: EntityId(id))),
+          sourceRefs:
+              taskIds.map((id) => ObjectRef(type: 'task', id: EntityId(id))),
           sensitivity: Sensitivity.d3,
           consentRefs: _appearanceConsentRefs,
         ),
@@ -544,7 +544,8 @@ final class AppController extends ChangeNotifier {
         ),
       );
       if (epoch != _lifecycleEpoch || !_vaultUnlocked) return 'stale';
-      _reviewState = decision == ReviewDecision.accept ? 'accepted' : 'rejected';
+      _reviewState =
+          decision == ReviewDecision.accept ? 'accepted' : 'rejected';
       return decision == ReviewDecision.accept
           ? 'review_accepted'
           : 'review_rejected';

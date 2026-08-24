@@ -276,7 +276,8 @@ void main() {
     expect(relay.storedEnvelopeCount, 0);
   });
 
-  test('package boundary has no event/domain dependency or business schema', () {
+  test('package boundary has no event/domain dependency or business schema',
+      () {
     final pubspec = File('pubspec.yaml').readAsStringSync();
     final implementation = File(
       'lib/src/in_memory_relay.dart',

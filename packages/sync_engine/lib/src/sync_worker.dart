@@ -98,7 +98,9 @@ final class SyncWorker {
         _cryptography = cryptography,
         _eventStore = eventStore,
         _lastReceived = Map.of(lastReceivedSequenceBySender) {
-    if (deviceId.isEmpty || accountPseudonym.isEmpty || recipientEpoch.isEmpty) {
+    if (deviceId.isEmpty ||
+        accountPseudonym.isEmpty ||
+        recipientEpoch.isEmpty) {
       throw ArgumentError('sync identity values must not be empty');
     }
   }
@@ -126,7 +128,8 @@ final class SyncWorker {
     required DeviceSequenceRange sequence,
     required OpaqueSyncCursor cursor,
   }) async {
-    if (events.isEmpty) return SyncResult.rejected(SyncFailureReason.emptyBatch);
+    if (events.isEmpty)
+      return SyncResult.rejected(SyncFailureReason.emptyBatch);
     if (envelopeId.trim().isEmpty) {
       return SyncResult.rejected(SyncFailureReason.invalidEnvelope);
     }
@@ -238,10 +241,12 @@ final class SyncWorker {
     for (final envelope in page.envelopes) {
       if (!pageEnvelopeIds.add(envelope.envelopeId)) {
         return SyncPullResult(
-          items: [SyncResult.rejected(
-            SyncFailureReason.replayConflict,
-            envelopeId: envelope.envelopeId,
-          )],
+          items: [
+            SyncResult.rejected(
+              SyncFailureReason.replayConflict,
+              envelopeId: envelope.envelopeId,
+            )
+          ],
           cursor: cursor,
           hasMore: false,
         );

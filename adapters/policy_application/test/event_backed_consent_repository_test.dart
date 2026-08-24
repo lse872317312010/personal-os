@@ -121,9 +121,10 @@ final class _Fallback implements ConsentRevisionRepository {
   Future<ConsentGrant?> findRevision({
     required String consentId,
     required int revision,
-  }) async => value?.consentId == consentId && value?.revision == revision
-      ? value
-      : null;
+  }) async =>
+      value?.consentId == consentId && value?.revision == revision
+          ? value
+          : null;
 }
 
 final class _Store implements EventStore {
@@ -141,5 +142,6 @@ final class _Store implements EventStore {
   Future<List<EventEnvelope>> readBySubject(
     ObjectRef subject, {
     int? limit,
-  }) async => events.take(limit ?? events.length).toList(growable: false);
+  }) async =>
+      events.take(limit ?? events.length).toList(growable: false);
 }
