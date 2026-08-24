@@ -78,7 +78,8 @@ void main() {
     final store = _Store();
     final ingestion = _Ingestion()..failure = const _SafeIngestionFailure();
     await expectLater(
-      _buildUseCase(ingestion, store).execute(_buildCommand(_listeningStream())),
+      _buildUseCase(ingestion, store)
+          .execute(_buildCommand(_listeningStream())),
       throwsA(isA<_SafeIngestionFailure>()),
     );
     expect(ingestion.calls, 1);
@@ -134,7 +135,8 @@ void main() {
     final ingestion = _Ingestion()..ref = BlobRef('/tmp/leaked-path');
     final store = _Store();
     await expectLater(
-      _buildUseCase(ingestion, store).execute(_buildCommand(Stream<List<int>>.empty())),
+      _buildUseCase(ingestion, store)
+          .execute(_buildCommand(Stream<List<int>>.empty())),
       throwsA(isA<ObservationUseCaseFailure>()),
     );
     expect(ingestion.calls, 1);
@@ -145,7 +147,8 @@ void main() {
     final ingestion = _Ingestion();
     final store = _Store()..failure = StateError('adapter details');
     await expectLater(
-      _buildUseCase(ingestion, store).execute(_buildCommand(Stream<List<int>>.empty())),
+      _buildUseCase(ingestion, store)
+          .execute(_buildCommand(Stream<List<int>>.empty())),
       throwsA(isA<ObservationUseCaseFailure>().having(
         (error) => error.code,
         'code',
@@ -160,7 +163,8 @@ void main() {
     final ingestion = _Ingestion()..discardFailure = StateError('sql path');
     final store = _Store()..failure = StateError('raw append details');
     await expectLater(
-      _buildUseCase(ingestion, store).execute(_buildCommand(Stream<List<int>>.empty())),
+      _buildUseCase(ingestion, store)
+          .execute(_buildCommand(Stream<List<int>>.empty())),
       throwsA(isA<ObservationUseCaseFailure>()
           .having((error) => error.code, 'code',
               ObservationFailureCode.appendFailed)
@@ -172,11 +176,12 @@ void main() {
     expect(ingestion.discardCalls, 1);
     expect(store.events, isEmpty);
   });
-
 }
 
 Stream<List<int>> _listeningStream() =>
-    Stream<List<int>>.fromIterable(<List<int>>[<int>[1]]);
+    Stream<List<int>>.fromIterable(<List<int>>[
+      <int>[1]
+    ]);
 
 final class _Ingestion implements BlobIngestionContract, BlobIngestionRollback {
   int calls = 0;
