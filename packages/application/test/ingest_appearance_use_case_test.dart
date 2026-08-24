@@ -165,7 +165,6 @@ void main() {
     );
     expect(ingestion.discardCalls, 1);
   });
-
 }
 
 Iterable<Object?> _flatten(Object? value) sync* {
