@@ -55,6 +55,23 @@ void main() {
       expect(db.projections['goal:goal-1']?['revision'], 1);
     });
 
+    test('retry with a different expected revision remains idempotent',
+        () async {
+      final db = FakeSqlExecutor();
+      final store = SqliteVaultEventStore(db);
+
+      await store.appendAll(<EventEnvelope>[_goal('e1')]);
+      await store.appendAll(<EventEnvelope>[
+        _goal('e1', payload: const <String, Object?>{
+          'expected_revision': 999,
+        }),
+      ]);
+
+      expect(db.events, hasLength(1));
+      expect(db.outbox, hasLength(1));
+      expect(db.projections['goal:goal-1']?['revision'], 1);
+    });
+
     test('same ID with different canonical content is rejected', () async {
       final db = FakeSqlExecutor();
       final store = SqliteVaultEventStore(db);
@@ -148,10 +165,10 @@ void main() {
       expect(db.transactionCount, 0);
     });
 
-    test('writes stages in event, subject, projection, outbox order', () async {
+    test('writes stages in event, subject, projection, outbox order',
+        () async {
       final db = FakeSqlExecutor();
-      await SqliteVaultEventStore(db)
-          .appendAll(<EventEnvelope>[_goal('order')]);
+      await SqliteVaultEventStore(db).appendAll(<EventEnvelope>[_goal('order')]);
 
       expect(db.writeStages, <String>[
         'event_log',
@@ -240,8 +257,7 @@ final class FakeSqlExecutor implements SqlExecutor {
   Future<List<SqlRow>> query(
     String sql, [
     List<Object?> parameters = const [],
-  ]) async =>
-      _query(events, subjects, projections, sql, parameters);
+  ]) async => _query(events, subjects, projections, sql, parameters);
 
   @override
   Future<T> transaction<T>(Future<T> Function(SqlTransaction tx) action) async {
@@ -294,8 +310,7 @@ final class _FakeTransaction implements SqlTransaction {
   Future<List<SqlRow>> query(
     String sql, [
     List<Object?> parameters = const [],
-  ]) async =>
-      _query(
+  ]) async => _query(
         events,
         subjects,
         projections,
