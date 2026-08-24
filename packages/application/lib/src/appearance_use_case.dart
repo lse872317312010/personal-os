@@ -174,7 +174,14 @@ final class AnalyzeAppearanceUseCase {
       ));
     }
 
-    await _eventStore.appendAll(events);
+    try {
+      // Keep the complete analysis loop atomic and redact adapter diagnostics.
+      await _eventStore.appendAll(events);
+    } catch (_) {
+      throw const AppearanceUseCaseFailure(
+        AppearanceFailureCode.analysisFailed,
+      );
+    }
     return AppearanceLoopResult(
       claimIds: List<String>.unmodifiable(claimIds),
       goalId: goalId,
