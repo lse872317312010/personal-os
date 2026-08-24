@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:personal_os_app/src/composition/app_composition.dart';
 import 'package:personal_os_app/src/controller/theme_controller.dart';
 import 'package:personal_os_app/src/screens/theme_settings_sheet.dart';
 
