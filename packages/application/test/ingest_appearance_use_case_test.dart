@@ -185,7 +185,7 @@ Iterable<Object?> _flatten(Object? value) sync* {
 final class _Ingestion implements BlobIngestionContract, BlobIngestionRollback {
   BlobRef ref = BlobRef('blob://opaque-1');
   Exception? failure;
-  Exception? discardFailure;
+  Error? discardFailure;
   bool incrementRefs = false;
   int calls = 0;
   int discardCalls = 0;
@@ -222,7 +222,7 @@ final class _Ingestion implements BlobIngestionContract, BlobIngestionRollback {
 }
 
 final class _Model implements AppearanceAnalysisGateway {
-  Exception? failure;
+  Error? failure;
   final List<AppearanceAnalysisInput> inputs = <AppearanceAnalysisInput>[];
 
   @override
