@@ -192,12 +192,14 @@ void main() {
       purpose: access.purpose,
       consentRef: 'consent:other-v1',
     );
+    final openCallsBefore = cryptography.openCalls;
 
     await expectLater(
       engine.openRead(ref, access: otherConsent).drain<void>(),
       throwsA(_safeException('consent_mismatch')),
     );
-    expect(cryptography.seenPlaintext, isEmpty);
+    expect(cryptography.openCalls, openCallsBefore);
+    expect(cryptography.seenPlaintext.single, everyElement(0));
   });
 
   test('delete destroys key before ciphertext and is idempotent', () async {
@@ -281,6 +283,7 @@ enum _PutFailure { crypto, write, commit }
 
 final class _FakeCryptography implements BlobCryptographyPort {
   int beginSealCalls = 0;
+  int openCalls = 0;
   bool failSeal = false;
   bool destroyFailure = false;
   KeyHandle key =
@@ -307,6 +310,7 @@ final class _FakeCryptography implements BlobCryptographyPort {
     required KeyHandle key,
     required Stream<Uint8List> ciphertext,
   }) async* {
+    openCalls++;
     await for (final chunk in ciphertext) {
       yield Uint8List.fromList(chunk.map((byte) => byte - 1).toList());
     }
