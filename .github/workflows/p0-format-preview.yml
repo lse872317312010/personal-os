@@ -1,0 +1,34 @@
+name: P0 formatter preview
+
+on:
+  push:
+    branches:
+      - codex/p0-fix-android-build-blockers
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: 3.3.4
+      - name: Show Dart formatter diff
+        shell: bash
+        run: |
+          set -u
+          files=(
+            packages/application/test/ingest_appearance_from_source_use_case_test.dart
+            packages/application/test/ingest_appearance_use_case_test.dart
+            packages/application/test/ingest_observation_use_case_test.dart
+            packages/application/test/observation_use_case_test.dart
+          )
+          for file in "${files[@]}"; do
+            echo "===== $file ====="
+            dart format "$file"
+            git diff --no-ext-diff -- "$file" || true
+            git checkout -- "$file"
+          done
