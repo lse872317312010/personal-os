@@ -9,6 +9,7 @@ void main() {
   late _FakeBridge bridge;
   late _RecordingLog log;
   late DeviceSecureUnlockAdapter unlock;
+  late DeviceSecureVaultPort vault;
   late DeviceKeyProviderAdapter keys;
   late UnlockGrant grant;
 
@@ -16,6 +17,7 @@ void main() {
     bridge = _FakeBridge(now: now);
     log = _RecordingLog();
     unlock = DeviceSecureUnlockAdapter(bridge, log: log);
+    vault = DeviceSecureVaultPort(bridge, log: log, clock: () => now);
     keys = DeviceKeyProviderAdapter(bridge, log: log);
     grant = UnlockGrant.opaque(
       id: 'ticket-sensitive-value',
@@ -192,6 +194,9 @@ void main() {
           SecurityErrorCode.rotationConflict,
       PlatformSecurityFailureCode.deviceRevoked:
           SecurityErrorCode.deviceRevoked,
+      PlatformSecurityFailureCode.vaultLocked: SecurityErrorCode.vaultLocked,
+      PlatformSecurityFailureCode.vaultSessionInvalid:
+          SecurityErrorCode.vaultLocked,
       PlatformSecurityFailureCode.unavailable:
           SecurityErrorCode.providerUnavailable,
     };
@@ -200,7 +205,7 @@ void main() {
       final mapped =
           mapPlatformSecurityFailure(PlatformSecurityFailure(entry.key));
       expect(mapped.code, entry.value);
-      expect(mapped.safeMessage, isNull);
+      expect(mapped.safeMessage, isNotEmpty);
       expect(mapped.toString(), isNot(contains('PlatformSecurityFailure')));
     }
   });
@@ -223,6 +228,73 @@ void main() {
     expect(caught.toString(), isNot(contains('SECRET')));
     expect(log.events.single.errorCode, 'security.unlock_unavailable');
     expect(log.events.toString(), isNot(contains('biometric diagnostics')));
+  });
+
+  test('expired grant is rejected before opening the platform vault', () async {
+    final expired = UnlockGrant.opaque(
+      id: 'expired-ticket',
+      expiresAt: now.subtract(const Duration(seconds: 1)),
+    );
+
+    await expectLater(
+      vault.open(grant: expired),
+      throwsA(_hasCode(SecurityErrorCode.unlockExpired)),
+    );
+    expect(bridge.openCalls, 0);
+    expect(log.events.single.errorCode, 'security.unlock_expired');
+  });
+
+  test('platform open failure maps without leaking native text', () async {
+    bridge.failure = const PlatformSecurityFailure(
+      PlatformSecurityFailureCode.unavailable,
+    );
+    bridge.unexpectedFailure = StateError('SECRET database path and key alias');
+
+    Object? caught;
+    try {
+      await vault.open(grant: grant);
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught, _hasCode(SecurityErrorCode.providerUnavailable));
+    expect(caught.toString(), isNot(contains('SECRET')));
+    expect(log.events.single.errorCode, 'security.provider_unavailable');
+  });
+
+  test('opened session is opaque and close invalidates it', () async {
+    final session = await vault.open(grant: grant);
+
+    expect(session, isA<OpaqueVaultSession>());
+    expect(session.isActive, isTrue);
+    expect(session.toString(), isNot(contains('native-vault')));
+
+    await vault.close(session);
+
+    expect(session.isActive, isFalse);
+    await expectLater(
+      vault.close(session),
+      throwsA(_hasCode(SecurityErrorCode.vaultLocked)),
+    );
+    expect(bridge.closeCalls, 1);
+  });
+
+  test('close failure still invalidates the opaque session and hides text',
+      () async {
+    final session = await vault.open(grant: grant);
+    bridge.unexpectedFailure = StateError('SECRET native handle diagnostics');
+
+    Object? caught;
+    try {
+      await vault.close(session);
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught, _hasCode(SecurityErrorCode.providerUnavailable));
+    expect(caught.toString(), isNot(contains('SECRET')));
+    expect(session.isActive, isFalse);
+    expect(log.events.last.errorCode, 'security.provider_unavailable');
   });
 
   test('unexpected native key exception fails closed without text leakage',
@@ -267,7 +339,7 @@ final class _FakeBridge implements PlatformSecurityBridge {
     atomicDeviceRevocation: true,
   );
   PlatformSecurityFailure? failure;
-  Error? unexpectedFailure;
+  Object? unexpectedFailure;
   PlatformAuthenticationRequest? lastAuthentication;
   String? lastTicketId;
   PlatformWrappedKey? lastWrappedKey;
@@ -275,10 +347,18 @@ final class _FakeBridge implements PlatformSecurityBridge {
   Uint8List wrappedCiphertext = Uint8List.fromList([8, 9, 10]);
   int rotateCalls = 0;
   int revokeCalls = 0;
+  int openCalls = 0;
+  int closeCalls = 0;
 
   void _check() {
     final unexpected = unexpectedFailure;
-    if (unexpected != null) throw unexpected;
+    if (unexpected is Exception) {
+      throw unexpected;
+    }
+    if (unexpected is Error) {
+      throw unexpected;
+    }
+    if (unexpected != null) throw StateError('unexpected native failure');
     final value = failure;
     if (value != null) throw value;
   }
@@ -299,6 +379,23 @@ final class _FakeBridge implements PlatformSecurityBridge {
       id: 'native-ticket',
       expiresAt: now.add(const Duration(seconds: 30)),
     );
+  }
+
+  @override
+  Future<PlatformVaultSession> openVault({
+    required String authenticationTicketId,
+    required DateTime ticketExpiresAt,
+  }) async {
+    _check();
+    openCalls++;
+    lastTicketId = authenticationTicketId;
+    return PlatformVaultSession(id: 'native-vault');
+  }
+
+  @override
+  Future<void> closeVault({required PlatformVaultSession session}) async {
+    _check();
+    closeCalls++;
   }
 
   @override

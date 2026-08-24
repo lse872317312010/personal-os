@@ -43,17 +43,16 @@ void main() {
         status: status,
       );
 
-  Future<PolicyVerdict> authorize(ConsentGrant? stored) async {
-    return AppearancePolicyAdapter(
-      consents: _Repository(stored),
-      clock: _FixedClock(now),
-    ).authorizeAnalysis(
-      actor: actor,
-      profileId: profileId,
-      consentRefs: [ref],
-      sensitivity: Sensitivity.d3,
-    );
-  }
+  Future<PolicyVerdict> authorize(ConsentGrant? stored) =>
+      AppearancePolicyAdapter(
+        consents: _Repository(stored),
+        clock: _FixedClock(now),
+      ).authorizeAnalysis(
+        actor: actor,
+        profileId: profileId,
+        consentRefs: [ref],
+        sensitivity: Sensitivity.d3,
+      );
 
   test('denies missing consent', () async {
     final result = await authorize(null);

@@ -3,6 +3,7 @@
   "recordKind": "synthetic",
   "targetClass": "redmi_turbo",
   "buildProfile": "debug",
+  "candidateCommit": "0000000000000000000000000000000000000000",
   "startedAtUtc": "2026-08-20T00:00:00Z",
   "completedAtUtc": "2026-08-20T00:09:00Z",
   "overall": "blocked",

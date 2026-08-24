@@ -5,11 +5,15 @@ import 'package:personal_os_events/events.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 
 /// Why an append transaction was rejected.
-enum AppendFailure { eventIdConflict, revisionConflict, invalidEvent }
+enum AppendFailure {
+  revisionConflict,
+  eventConflict,
+  invalidEvent,
+  transactionFailed,
+}
 
 abstract final class InMemoryRejectionReason {
   static const d4PersistenceForbidden = 'd4_persistence_forbidden';
-  static const eventIdConflict = 'event_id_conflict';
 }
 
 /// A durable-order event returned by the candidate store.
@@ -101,113 +105,139 @@ final class InMemoryEventStore implements EventStore {
 
   /// Synchronous test/spike API exposing detailed transaction diagnostics.
   AppendResult appendTransaction(Iterable<EventEnvelope> events) {
-    final batch = List<EventEnvelope>.of(events);
-    for (final event in batch) {
-      if (event.sensitivity == Sensitivity.d4) {
-        return AppendResult.rejected(
-          failure: AppendFailure.invalidEvent,
-          failedEventId: event.eventId,
-          reasonCode: InMemoryRejectionReason.d4PersistenceForbidden,
-        );
-      }
-    }
-
-    final stagedEvents = List<StoredEvent>.of(_events);
-    final stagedEventsById = <String, EventEnvelope>{
-      for (final stored in stagedEvents) stored.event.eventId: stored.event,
-    };
-    var stagedProjections = Map<String, ObjectProjection>.of(_projections);
-    var stagedSeenIds = Set<String>.of(_seenEventIds);
-    final stagedOutbox = List<OutboxEntry>.of(_outbox);
-    var stagedEventSequence = _nextEventSequence;
-    var stagedOutboxSequence = _nextOutboxSequence;
-    final appendedIds = <String>[];
-    final duplicateIds = <String>[];
-
-    for (final event in batch) {
-      final prior = stagedEventsById[event.eventId];
-      if (prior != null) {
-        final priorCanonical = EventEnvelopeJsonCodec.encodeString(prior);
-        final candidateCanonical = EventEnvelopeJsonCodec.encodeString(event);
-        if (priorCanonical != candidateCanonical) {
+    try {
+      final batch = List<EventEnvelope>.of(events);
+      for (final event in batch) {
+        if (event.sensitivity == Sensitivity.d4) {
           return AppendResult.rejected(
-            failure: AppendFailure.eventIdConflict,
+            failure: AppendFailure.invalidEvent,
             failedEventId: event.eventId,
-            reasonCode: InMemoryRejectionReason.eventIdConflict,
+            reasonCode: InMemoryRejectionReason.d4PersistenceForbidden,
           );
         }
-        duplicateIds.add(event.eventId);
-        continue;
       }
 
-      final reduction = reduceCore(
-        projections: stagedProjections,
-        seenEventIds: stagedSeenIds,
-        event: event,
-      );
-      if (reduction.disposition != ReductionDisposition.applied) {
-        final reason = reduction.reasonCode ?? 'event_not_applied';
-        return AppendResult.rejected(
-          failure: reason == ReductionReason.revisionConflict
-              ? AppendFailure.revisionConflict
-              : AppendFailure.invalidEvent,
-          failedEventId: event.eventId,
-          reasonCode: reason,
-        );
-      }
+      final stagedEvents = List<StoredEvent>.of(_events);
+      var stagedProjections = Map<String, ObjectProjection>.of(_projections);
+      var stagedSeenIds = Set<String>.of(_seenEventIds);
+      final stagedOutbox = List<OutboxEntry>.of(_outbox);
+      var stagedEventSequence = _nextEventSequence;
+      var stagedOutboxSequence = _nextOutboxSequence;
+      final appendedIds = <String>[];
+      final duplicateIds = <String>[];
 
-      stagedEvents.add(
-        StoredEvent(sequence: stagedEventSequence++, event: event),
-      );
-      stagedEventsById[event.eventId] = event;
-      stagedOutbox.add(
-        OutboxEntry(
-          sequence: stagedOutboxSequence++,
-          eventId: event.eventId,
+      for (final event in batch) {
+        if (stagedSeenIds.contains(event.eventId)) {
+          final prior = stagedEvents
+              .firstWhere((stored) => stored.event.eventId == event.eventId)
+              .event;
+          if (!_sameEventContent(prior, event)) {
+            return AppendResult.rejected(
+              failure: AppendFailure.eventConflict,
+              failedEventId: event.eventId,
+              reasonCode: PersistenceErrorCode.eventConflict,
+            );
+          }
+          duplicateIds.add(event.eventId);
+          continue;
+        }
+
+        final reduction = reduceCore(
+          projections: stagedProjections,
+          seenEventIds: stagedSeenIds,
           event: event,
-          acknowledged: false,
-        ),
-      );
-      stagedProjections = Map<String, ObjectProjection>.of(
-        reduction.projections,
-      );
-      stagedSeenIds = Set<String>.of(reduction.seenEventIds);
-      appendedIds.add(event.eventId);
-    }
+        );
+        if (reduction.disposition != ReductionDisposition.applied) {
+          final reason =
+              reduction.reasonCode ?? PersistenceErrorCode.eventConflict;
+          return AppendResult.rejected(
+            failure: reason == ReductionReason.revisionConflict
+                ? AppendFailure.revisionConflict
+                : AppendFailure.invalidEvent,
+            failedEventId: event.eventId,
+            reasonCode: reason,
+          );
+        }
 
-    _events = stagedEvents;
-    _projections = stagedProjections;
-    _seenEventIds = stagedSeenIds;
-    _outbox = stagedOutbox;
-    _nextEventSequence = stagedEventSequence;
-    _nextOutboxSequence = stagedOutboxSequence;
-    return AppendResult.committed(
-      appendedEventIds: appendedIds,
-      duplicateEventIds: duplicateIds,
-    );
+        stagedEvents.add(
+          StoredEvent(sequence: stagedEventSequence++, event: event),
+        );
+        stagedOutbox.add(
+          OutboxEntry(
+            sequence: stagedOutboxSequence++,
+            eventId: event.eventId,
+            event: event,
+            acknowledged: false,
+          ),
+        );
+        stagedProjections = Map<String, ObjectProjection>.of(
+          reduction.projections,
+        );
+        stagedSeenIds = Set<String>.of(reduction.seenEventIds);
+        appendedIds.add(event.eventId);
+      }
+
+      _events = stagedEvents;
+      _projections = stagedProjections;
+      _seenEventIds = stagedSeenIds;
+      _outbox = stagedOutbox;
+      _nextEventSequence = stagedEventSequence;
+      _nextOutboxSequence = stagedOutboxSequence;
+      return AppendResult.committed(
+        appendedEventIds: appendedIds,
+        duplicateEventIds: duplicateIds,
+      );
+    } on EventCodecException {
+      return AppendResult.rejected(
+        failure: AppendFailure.invalidEvent,
+        failedEventId: '',
+        reasonCode: PersistenceErrorCode.invalidEvent,
+      );
+    } on Object {
+      return AppendResult.rejected(
+        failure: AppendFailure.transactionFailed,
+        failedEventId: '',
+        reasonCode: PersistenceErrorCode.transactionFailed,
+      );
+    }
   }
 
-  /// Formal application-layer port. Revision conflicts have a stable reason;
-  /// all other reducer failures are invalid input rather than concurrency.
+  /// Formal application-layer port. Reducer rejections cross the boundary as
+  /// stable append conflicts; policy-sensitive D4 rejection remains distinct.
   @override
   Future<void> appendAll(List<EventEnvelope> events) async {
     final result = appendTransaction(events);
     if (result.committed) return;
-    if (result.failure == AppendFailure.revisionConflict ||
-        result.failure == AppendFailure.eventIdConflict) {
-      throw EventAppendConflict(result.reasonCode ?? 'event_append_conflict');
+    if (result.failure == AppendFailure.revisionConflict) {
+      throw EventAppendConflict(ReductionReason.revisionConflict);
     }
-    throw StateError(
-      'event_append_rejected:${result.reasonCode ?? 'unknown'}',
-    );
+    if (result.failure == AppendFailure.eventConflict) {
+      throw EventAppendConflict(
+        result.reasonCode ?? PersistenceErrorCode.eventConflict,
+      );
+    }
+    if (result.reasonCode == InMemoryRejectionReason.d4PersistenceForbidden) {
+      throw const PersistenceException.d4PersistenceForbidden();
+    }
+    if (result.failure == AppendFailure.transactionFailed) {
+      throw const PersistenceException.transactionFailed();
+    }
+    if (_isReducerConflict(result.reasonCode)) {
+      throw EventAppendConflict(result.reasonCode!);
+    }
+    throw const PersistenceException.invalidEvent();
   }
 
   @override
   Future<EventEnvelope?> readById(String eventId) async {
-    for (final stored in _events) {
-      if (stored.event.eventId == eventId) return stored.event;
+    try {
+      for (final stored in _events) {
+        if (stored.event.eventId == eventId) return stored.event;
+      }
+      return null;
+    } on Object {
+      throw const PersistenceException.readFailed();
     }
-    return null;
   }
 
   @override
@@ -215,20 +245,26 @@ final class InMemoryEventStore implements EventStore {
     ObjectRef subject, {
     int? limit,
   }) async {
-    if (limit != null && limit < 0) {
-      throw ArgumentError.value(limit, 'limit', 'must be >= 0');
+    try {
+      if (limit != null && limit < 0) {
+        throw const PersistenceException.readFailed();
+      }
+      final matches = _events
+          .where(
+            (stored) => stored.event.subjectRefs.any(
+              (candidate) =>
+                  candidate.type == subject.type && candidate.id == subject.id,
+            ),
+          )
+          .map((stored) => stored.event);
+      return List<EventEnvelope>.unmodifiable(
+        limit == null ? matches : matches.take(limit),
+      );
+    } on PersistenceException {
+      rethrow;
+    } on Object {
+      throw const PersistenceException.readFailed();
     }
-    final matches = _events
-        .where(
-          (stored) => stored.event.subjectRefs.any(
-            (candidate) =>
-                candidate.type == subject.type && candidate.id == subject.id,
-          ),
-        )
-        .map((stored) => stored.event);
-    return List<EventEnvelope>.unmodifiable(
-      limit == null ? matches : matches.take(limit),
-    );
   }
 
   /// Stable audit order, independent of wall-clock ties or clock skew.
@@ -265,3 +301,44 @@ final class InMemoryEventStore implements EventStore {
     return true;
   }
 }
+
+bool _sameEventContent(EventEnvelope left, EventEnvelope right) =>
+    EventEnvelopeJsonCodec.encodeString(_idempotencyEvent(left)) ==
+    EventEnvelopeJsonCodec.encodeString(_idempotencyEvent(right));
+
+/// The expected projection revision is an optimistic-concurrency guard, not
+/// part of the event's identity. A retry may carry a newly computed guard
+/// while still representing the exact same append. All other envelope and
+/// payload fields remain part of the conflict check.
+EventEnvelope _idempotencyEvent(EventEnvelope event) {
+  final payload = Map<String, Object?>.of(event.payload)
+    ..remove('expected_revision');
+  return EventEnvelope(
+    eventId: event.eventId,
+    eventType: event.eventType,
+    eventVersion: event.eventVersion,
+    occurredAt: event.occurredAt,
+    recordedAt: event.recordedAt,
+    actor: event.actor,
+    subjectRefs: event.subjectRefs,
+    correlationId: event.correlationId,
+    causationId: event.causationId,
+    sourceRefs: event.sourceRefs,
+    consentRefs: event.consentRefs,
+    sensitivity: event.sensitivity,
+    payload: payload,
+    integrity: event.integrity,
+    extensions: event.extensions,
+  );
+}
+
+bool _isReducerConflict(String? reason) => switch (reason) {
+      ReductionReason.illegalStateTransition ||
+      ReductionReason.unsupportedEventType ||
+      ReductionReason.unsupportedEventVersion ||
+      ReductionReason.missingSubject ||
+      ReductionReason.missingExecutionRecord ||
+      ReductionReason.invalidDeletionTombstone =>
+        true,
+      _ => false,
+    };

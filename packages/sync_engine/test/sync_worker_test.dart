@@ -113,18 +113,14 @@ void main() {
         ..page = _page([
           _inbound(crypto, 'old', 0, [_event('event-1')])
         ]);
-      final worker = _worker(
-        relay: relay,
-        crypto: crypto,
-        store: store,
-        lastReceived: {'device-peer': 0},
-      );
+      final worker = _worker(relay: relay, crypto: crypto, store: store);
+      await worker.pullPage(cursor: OpaqueSyncCursor.initial());
       final result = (await worker.pullPage(cursor: OpaqueSyncCursor.initial()))
           .items
           .single;
       expect(result.disposition, SyncDisposition.duplicate);
-      expect(crypto.openCalls, 0);
-      expect(store.transactions, isEmpty);
+      expect(crypto.openCalls, 1);
+      expect(store.transactions, hasLength(1));
     });
 
     test(
@@ -215,6 +211,132 @@ void main() {
       expect(result.reasonCode, SyncFailureReason.appendFailed);
       expect(store.transactions, isEmpty);
       expect(worker.lastReceivedSequence('device-peer'), -1);
+    });
+
+    test('inbound D4 is rejected before the atomic append', () async {
+      final crypto = _FakeCrypto();
+      final store = _RecordingStore();
+      final relay = _FakeTransport()
+        ..page = _page([
+          _inbound(
+              crypto, 'd4', 0, [_event('secret', sensitivity: Sensitivity.d4)]),
+        ]);
+      final worker = _worker(relay: relay, crypto: crypto, store: store);
+      final result = (await worker.pullPage(cursor: OpaqueSyncCursor.initial()))
+          .items
+          .single;
+
+      expect(result.reasonCode, SyncFailureReason.d4SyncForbidden);
+      expect(store.transactions, isEmpty);
+      expect(worker.lastReceivedSequence('device-peer'), -1);
+    });
+
+    test('a rejected envelope rolls back earlier prepared envelopes and cursor',
+        () async {
+      final crypto = _FakeCrypto();
+      final store = _RecordingStore();
+      final first = _inbound(crypto, 'first', 0, [_event('event-1')]);
+      final second = _inbound(crypto, 'second', 1, [_event('event-2')]);
+      crypto.payloads['second'] = Uint8List.fromList(utf8.encode('{bad json'));
+      final relay = _FakeTransport()..page = _page([first, second]);
+      final cursor = OpaqueSyncCursor.initial();
+      final worker = _worker(relay: relay, crypto: crypto, store: store);
+      final result = await worker.pullPage(cursor: cursor);
+
+      expect(result.cursor, cursor);
+      expect(result.items[0].reasonCode, SyncFailureReason.batchNotCommitted);
+      expect(result.items[1].reasonCode, SyncFailureReason.payloadDecodeFailed);
+      expect(store.transactions, isEmpty);
+      expect(worker.lastReceivedSequence('device-peer'), -1);
+    });
+
+    test('a new envelope cannot reuse an already accepted sequence', () async {
+      final crypto = _FakeCrypto();
+      final store = _RecordingStore();
+      final firstRelay = _FakeTransport()
+        ..page = _page([
+          _inbound(crypto, 'accepted', 0, [_event('event-1')])
+        ]);
+      final worker = _worker(relay: firstRelay, crypto: crypto, store: store);
+      await worker.pullPage(cursor: OpaqueSyncCursor.initial());
+
+      firstRelay.page = _page([
+        _inbound(crypto, 'different-id', 0, [_event('event-1')])
+      ]);
+      final result = await worker.pullPage(cursor: OpaqueSyncCursor.initial());
+
+      expect(result.items.single.reasonCode, SyncFailureReason.sequenceOverlap);
+      expect(store.transactions, hasLength(1));
+    });
+
+    test('rejects invalid page limits before transport access', () async {
+      final relay = _FakeTransport();
+      final worker = _worker(relay: relay);
+
+      final result = await worker.pullPage(
+        cursor: OpaqueSyncCursor.initial(),
+        limit: 0,
+      );
+
+      expect(
+          result.items.single.reasonCode, SyncFailureReason.invalidPageLimit);
+      expect(relay.pullCalls, 0);
+    });
+
+    test('rejects a relay page that exceeds the requested limit', () async {
+      final crypto = _FakeCrypto();
+      final relay = _FakeTransport()
+        ..page = _page([
+          _inbound(crypto, 'one', 0, [_event('event-1')]),
+          _inbound(crypto, 'two', 1, [_event('event-2')]),
+        ]);
+      final worker = _worker(relay: relay, crypto: crypto);
+
+      final result = await worker.pullPage(
+        cursor: OpaqueSyncCursor.initial(),
+        limit: 1,
+      );
+
+      expect(
+        result.items.single.reasonCode,
+        SyncFailureReason.pageResponseInvalid,
+      );
+      expect(result.cursor, OpaqueSyncCursor.initial());
+    });
+
+    test('rejects duplicate envelope IDs within one page before decrypting',
+        () async {
+      final crypto = _FakeCrypto();
+      final store = _RecordingStore();
+      final envelope = _inbound(crypto, 'same', 0, [_event('event-1')]);
+      final relay = _FakeTransport()..page = _page([envelope, envelope]);
+      final worker = _worker(relay: relay, crypto: crypto, store: store);
+
+      final result = await worker.pullPage(cursor: OpaqueSyncCursor.initial());
+
+      expect(result.items.single.reasonCode, SyncFailureReason.replayConflict);
+      expect(crypto.openCalls, 0);
+      expect(store.transactions, isEmpty);
+    });
+
+    test('rejects reuse of an accepted envelope ID with a new range', () async {
+      final crypto = _FakeCrypto();
+      final store = _RecordingStore();
+      final relay = _FakeTransport()
+        ..page = _page([
+          _inbound(crypto, 'stable-id', 0, [_event('event-1')])
+        ]);
+      final worker = _worker(relay: relay, crypto: crypto, store: store);
+      await worker.pullPage(cursor: OpaqueSyncCursor.initial());
+
+      relay.page = _page([
+        _inbound(crypto, 'stable-id', 1, [_event('event-2')]),
+      ]);
+      final result = await worker.pullPage(cursor: OpaqueSyncCursor('next'));
+
+      expect(result.items.single.reasonCode, SyncFailureReason.replayConflict);
+      expect(crypto.openCalls, 1);
+      expect(store.transactions, hasLength(1));
     });
   });
 }
@@ -318,12 +440,14 @@ final class _FakeTransport implements SyncPort {
   List<String>? acknowledgedIds;
   bool throwOnPush = false;
   bool throwOnPull = false;
+  int pullCalls = 0;
 
   @override
   Future<SyncPage> pull(
       {required String deviceId,
       required OpaqueSyncCursor cursor,
       int limit = 100}) async {
+    pullCalls++;
     if (throwOnPull) throw StateError('offline');
     return page;
   }

@@ -66,6 +66,34 @@ void main() {
     expect(projections['review:R1']?.state, 'accepted');
   });
 
+  test('consent can be revoked and granted again with a new revision', () {
+    var projections = <String, ObjectProjection>{};
+    var seen = <String>{};
+    for (final entry in <(String, int)>[
+      (EventTypes.consentRequested, 0),
+      (EventTypes.consentGranted, 1),
+      (EventTypes.consentRevoked, 2),
+      (EventTypes.consentRequested, 3),
+      (EventTypes.consentGranted, 4),
+    ]) {
+      final result = reduceCore(
+        projections: projections,
+        seenEventIds: seen,
+        event: _event(
+          entry.$1,
+          'consent',
+          id: 'C1',
+          payload: <String, Object?>{'expected_revision': entry.$2},
+        ),
+      );
+      expect(result.disposition, ReductionDisposition.applied);
+      projections = result.projections;
+      seen = result.seenEventIds;
+    }
+    expect(projections['consent:C1']?.state, ConsentState.granted.name);
+    expect(projections['consent:C1']?.revision.value, 5);
+  });
+
   test('deletion barrier marks scope and completion marks erased refs deleted',
       () {
     final requested = _reduce(
@@ -174,7 +202,7 @@ EventEnvelope _event(
   List<ObjectRef> additionalSubjects = const <ObjectRef>[],
 }) =>
     EventEnvelope(
-      eventId: '$type-$id-$version',
+      eventId: '$type-$id-${payload['expected_revision'] ?? version}-$version',
       eventType: type,
       eventVersion: version,
       occurredAt: DateTime.utc(2026, 8, 20),

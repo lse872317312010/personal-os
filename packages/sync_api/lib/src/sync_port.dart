@@ -33,7 +33,7 @@ abstract interface class SyncCryptographyPort {
 
 final class OpaqueSyncCursor {
   OpaqueSyncCursor(String value) : _value = value {
-    if (value.isEmpty) {
+    if (value.trim().isEmpty) {
       throw ArgumentError.value(value, 'value', 'must not be empty');
     }
   }
@@ -105,7 +105,8 @@ final class EncryptedSyncEnvelope {
       senderDeviceId,
       recipientEpoch,
     ]) {
-      if (value.isEmpty) throw ArgumentError('metadata must not be empty');
+      if (value.trim().isEmpty)
+        throw ArgumentError('metadata must not be empty');
     }
     if (_ciphertext.isEmpty)
       throw ArgumentError('ciphertext must not be empty');
@@ -150,7 +151,14 @@ final class SealedSyncPayload {
     required Uint8List ciphertext,
     required Uint8List signature,
   })  : _ciphertext = Uint8List.fromList(ciphertext),
-        _signature = Uint8List.fromList(signature);
+        _signature = Uint8List.fromList(signature) {
+    if (recipientEpoch.trim().isEmpty) {
+      throw ArgumentError('recipientEpoch must not be empty');
+    }
+    if (_ciphertext.isEmpty || _signature.isEmpty) {
+      throw ArgumentError('sealed payload buffers must not be empty');
+    }
+  }
   final String recipientEpoch;
   final Uint8List _ciphertext;
   final Uint8List _signature;
@@ -162,7 +170,15 @@ final class SyncPushReceipt {
   SyncPushReceipt({
     required List<String> acceptedEnvelopeIds,
     required this.cursor,
-  }) : acceptedEnvelopeIds = List.unmodifiable(acceptedEnvelopeIds);
+  }) : acceptedEnvelopeIds = List.unmodifiable(acceptedEnvelopeIds) {
+    if (this.acceptedEnvelopeIds.toSet().length !=
+        this.acceptedEnvelopeIds.length) {
+      throw ArgumentError('accepted envelope ids must be unique');
+    }
+    if (this.acceptedEnvelopeIds.any((id) => id.trim().isEmpty)) {
+      throw ArgumentError('accepted envelope ids must not be empty');
+    }
+  }
   final List<String> acceptedEnvelopeIds;
   final OpaqueSyncCursor cursor;
 }

@@ -9,6 +9,26 @@ update/delete operation because M1 events are immutable.
 Blob deletion does not alter that event log: events retain an opaque `BlobRef`
 and projections must tolerate a missing blob.
 
+## Event export security contract
+
+`EventExportPort` is a read-only port over immutable `EventEnvelope` values. It
+does not expose append, update, delete, filesystem/share, or plaintext
+serialization operations.
+
+- Every request must provide an explicit `EventExportPolicy` with a maximum
+  sensitivity. D4 is rejected independently and cannot be exported.
+- Events are validated before an adapter receives them. Payloads, integrity
+  fields, and extensions must not contain raw keys, key aliases, secrets,
+  passwords, tokens, paths, URIs, URLs, digests, or content hashes.
+- The result is `OpaqueEventExport`: callers receive only a defensive copy of
+  opaque bytes and safe envelope metadata (format, schema, count, sensitivity
+  ceiling, and creation time).
+- Metadata deliberately excludes event IDs, subject IDs, paths, hashes, key
+  identifiers, SQL details, and content-derived fields.
+- This package does not implement encryption, a filesystem, sharing, or a
+  plaintext fallback. A production adapter must produce authenticated,
+  encrypted bytes and prove that behavior separately on the target platform.
+
 ## BlobStore security contract
 
 - Reads and writes are streaming. Implementations must keep memory bounded and

@@ -1,13 +1,22 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:personal_os_application/application.dart';
+import 'package:personal_os_device_security/device_security.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
 import 'package:personal_os_in_memory_policy/in_memory_policy.dart';
 import 'package:personal_os_model_fixture/model_fixture.dart';
 import 'package:personal_os_policy/policy.dart';
 import 'package:personal_os_policy_application/policy_application.dart';
+import 'package:personal_os_security_api/security_api.dart';
+import 'package:personal_os_storage_api/storage_api.dart';
 
 import '../controller/app_controller.dart';
-import '../controller/theme_controller.dart';
+import 'android_platform_security_bridge.dart';
+import 'native_sqlcipher_event_store.dart';
+import 'native_sqlcipher_session_coordinator.dart';
+
+enum AppExperienceMode { syntheticDemo, secureVault }
 
 /// Replace this composition root with encrypted persistence, keystore-backed
 /// unlock, and a real model adapter. Widgets never reach those adapters.
@@ -15,22 +24,72 @@ final class AppComposition {
   AppComposition({
     required this.controller,
     required this.eventStore,
-    required this.themeController,
+    required this.mode,
   });
 
   final AppController controller;
-  final InMemoryEventStore eventStore;
-  final ThemeController themeController;
+  final EventStore eventStore;
+  final AppExperienceMode mode;
 
   factory AppComposition.inMemoryDemo() {
-    final clock = _SystemClock();
     final policyClock = _SystemPolicyClock();
-    final consentRepository = InMemoryConsentRevisionRepository(
+    return _build(
+      eventStore: InMemoryEventStore(),
+      mode: AppExperienceMode.syntheticDemo,
       initialGrants: <ConsentGrant>[
         _demoAppearanceConsent(policyClock.now()),
       ],
     );
-    final eventStore = InMemoryEventStore();
+  }
+
+  /// The runtime composition used by the shipped application.
+  ///
+  /// Android is the primary vault platform, so it must exercise the native
+  /// authenticated vault path by default. Other platforms keep the synthetic
+  /// composition until they have an equivalent secure adapter. Tests and
+  /// previews should continue to request [inMemoryDemo] explicitly.
+  factory AppComposition.forCurrentPlatform() =>
+      defaultTargetPlatform == TargetPlatform.android
+          ? AppComposition.secureVault()
+          : AppComposition.inMemoryDemo();
+
+  /// Secure composition. The model remains a synthetic fixture by design;
+  /// this factory only wires native authentication and encrypted persistence.
+  factory AppComposition.secureVault({
+    PlatformSecurityBridge? securityBridge,
+    MethodChannel? channel,
+  }) {
+    final bridge =
+        securityBridge ?? AndroidPlatformSecurityBridge(channel: channel);
+    final eventStore = NativeSqlCipherEventStore(channel: channel);
+    final coordinator = NativeSqlCipherSessionCoordinator(
+      bridge: bridge,
+      eventStore: eventStore,
+    );
+    return _build(
+      eventStore: eventStore,
+      mode: AppExperienceMode.secureVault,
+      vaultSession: DefaultVaultSession(DeviceSecureUnlockAdapter(bridge)),
+      sessionCoordinator: coordinator,
+    );
+  }
+
+  static AppComposition _build({
+    required EventStore eventStore,
+    required AppExperienceMode mode,
+    Iterable<ConsentGrant> initialGrants = const <ConsentGrant>[],
+    VaultSession? vaultSession,
+    SecureSessionCoordinator? sessionCoordinator,
+  }) {
+    final clock = _SystemClock();
+    final policyClock = _SystemPolicyClock();
+    final consentRepository = InMemoryConsentRevisionRepository(
+      initialGrants: initialGrants,
+    );
+    final policyConsentRepository = EventBackedConsentRevisionRepository(
+      eventStore: eventStore,
+      fallback: consentRepository,
+    );
     final ids = _SequentialIds();
     final useCase = AnalyzeAppearanceUseCase(
       eventStore: eventStore,
@@ -38,7 +97,7 @@ final class AppComposition {
         behavior: FixtureAppearanceBehavior.syntheticSuccess,
       ),
       policy: AppearancePolicyAdapter(
-        consents: consentRepository,
+        consents: policyConsentRepository,
         clock: policyClock,
       ),
       ids: ids,
@@ -46,7 +105,7 @@ final class AppComposition {
     );
     return AppComposition(
       eventStore: eventStore,
-      themeController: ThemeController(),
+      mode: mode,
       controller: AppController(
         analyzeAppearance: useCase,
         actionFeedback: ActionFeedbackUseCase(
@@ -55,11 +114,24 @@ final class AppComposition {
           clock: clock,
         ),
         profileId: EntityId('primary-user'),
+        sessionQuery: AppearanceSessionQueryHandler(eventStore),
+        consentLifecycle: ConsentLifecycleUseCase(
+          eventStore: eventStore,
+          ids: ids,
+          clock: clock,
+        ),
+        recordObservation: RecordObservationUseCase(
+          eventStore: eventStore,
+          ids: ids,
+          clock: clock,
+        ),
         actor: ActorRef(
           actorId: 'primary-user',
           actorType: ActorType.user,
           authoritySource: 'local-vault-session',
         ),
+        vaultSession: vaultSession,
+        sessionCoordinator: sessionCoordinator,
       ),
     );
   }

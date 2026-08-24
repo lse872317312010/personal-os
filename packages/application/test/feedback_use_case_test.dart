@@ -33,6 +33,7 @@ void main() {
       actor: user,
       correlationId: 'corr:complete',
       executionSummary: '完成理发并拍照',
+      profileId: EntityId('profile-1'),
     ));
 
     expect(store.appendCalls, 1);
@@ -47,6 +48,10 @@ void main() {
         completion.payload['execution_ref'], 'execution:${result.executionId}');
     expect(completion.sourceRefs.single.id.value, result.executionId);
     expect(completion.payload['expected_revision'], 2);
+    expect(
+      completion.subjectRefs.map((ref) => ref.type),
+      <String>['task', 'profile'],
+    );
   });
 
   test('blank execution summary has stable failure and writes nothing',
@@ -75,11 +80,16 @@ void main() {
       actor: user,
       correlationId: 'corr:skip',
       reason: '今天皮肤过敏',
+      profileId: EntityId('profile-1'),
     ));
     expect(store.appendCalls, 1);
     final event = store.batches.single.single;
     expect(event.eventType, EventTypes.taskSkipped);
     expect(event.payload['reason'], '今天皮肤过敏');
+    expect(event.subjectRefs.map((ref) => ref.type), <String>[
+      'task',
+      'profile',
+    ]);
 
     await expectLater(
       useCase.skipTask(SkipTaskCommand(
@@ -103,6 +113,7 @@ void main() {
     final created = await useCase.createReview(CreateReviewCommand(
       actor: user,
       correlationId: 'corr:review',
+      profileId: EntityId('profile-1'),
       sourceRefs: <ObjectRef>[
         ObjectRef(type: 'outcome', id: EntityId('O1')),
       ],
@@ -113,6 +124,7 @@ void main() {
       actor: user,
       correlationId: 'corr:review',
       decision: ReviewDecision.accept,
+      profileId: EntityId('profile-1'),
     ));
 
     expect(store.appendCalls, 2);

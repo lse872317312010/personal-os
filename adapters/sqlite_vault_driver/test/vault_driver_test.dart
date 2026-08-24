@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:personal_os_sqlite_vault_driver/sqlite_vault_driver.dart';
 import 'package:test/test.dart';
 
@@ -18,6 +20,57 @@ void main() {
     ]);
   });
 
+  test('concurrent lifecycle calls are serialized through cleanup', () async {
+    final fixture = Fixture(schemaVersion: 2);
+    final acquireStarted = Completer<void>();
+    final releaseAcquire = Completer<void>();
+    fixture.keys.beforeAcquire = () async {
+      acquireStarted.complete();
+      await releaseAcquire.future;
+    };
+
+    final unlock = fixture.driver.unlock();
+    await acquireStarted.future;
+    final close = fixture.driver.close();
+
+    expect(fixture.connection.transactionCount, 0);
+    releaseAcquire.complete();
+    await Future.wait<void>([unlock, close]);
+
+    expect(fixture.driver.state, VaultLifecycleState.closed);
+    expect(fixture.connection.closed, isTrue);
+    expect(fixture.keys.leases.single.isDestroyed, isTrue);
+  });
+
+  test('a queued unlock cannot enter while the first unlock is opening',
+      () async {
+    final fixture = Fixture(schemaVersion: 2);
+    final acquireStarted = Completer<void>();
+    final releaseAcquire = Completer<void>();
+    fixture.keys.beforeAcquire = () async {
+      acquireStarted.complete();
+      await releaseAcquire.future;
+    };
+
+    final first = fixture.driver.unlock();
+    await acquireStarted.future;
+    final second = fixture.driver.unlock();
+    final secondFailure = expectLater(
+      second,
+      throwsA(isA<VaultDriverFailure>().having(
+        (error) => error.code,
+        'code',
+        VaultDriverFailureCode.invalidLifecycleTransition,
+      )),
+    );
+
+    expect(fixture.keys.leases, hasLength(0));
+    releaseAcquire.complete();
+    await first;
+    await secondFailure;
+    expect(fixture.keys.leases, hasLength(1));
+  });
+
   test('failed unlock is redacted, closes, destroys key, and relocks',
       () async {
     final fixture = Fixture(schemaVersion: 0)
@@ -28,12 +81,28 @@ void main() {
       throwsA(isA<VaultDriverFailure>().having(
         (error) => error.toString(),
         'redacted message',
-        'VaultDriverFailure(vault_unlock_failed)',
+        'VaultDriverFailure(${VaultDriverFailureCode.vaultUnlockFailed})',
       )),
     );
     expect(fixture.connection.closed, isTrue);
     expect(fixture.keys.leases.single.isDestroyed, isTrue);
     expect(fixture.driver.state, VaultLifecycleState.locked);
+  });
+
+  test('failed lifecycle operation does not poison the serialized lane',
+      () async {
+    final fixture = Fixture(schemaVersion: 0)
+      ..connection.tx.failMigration = true;
+
+    await expectLater(
+      fixture.driver.unlock(),
+      throwsA(isA<VaultDriverFailure>()),
+    );
+    fixture.connection.tx.failMigration = false;
+
+    await fixture.driver.unlock();
+    expect(fixture.driver.state, VaultLifecycleState.unlocked);
+    await fixture.driver.lock();
   });
 
   test('native open errors are replaced by a stable public code', () async {
@@ -48,7 +117,11 @@ void main() {
       driver.unlock(),
       throwsA(
         isA<VaultDriverFailure>()
-            .having((error) => error.code, 'code', 'vault_unlock_failed')
+            .having(
+              (error) => error.code,
+              'code',
+              VaultDriverFailureCode.vaultUnlockFailed,
+            )
             .having(
               (error) => error.toString().contains('password'),
               'does not expose native error',
@@ -57,7 +130,30 @@ void main() {
       ),
     );
     expect(keys.leases.single.isDestroyed, isTrue);
+    expect(driver.state, VaultLifecycleState.locked);
   });
+
+  test(
+    'failed open cleanup closes a returned connection and destroys the key',
+    () async {
+      final fixture = Fixture(schemaVersion: 0)
+        ..connection.tx.failMigration = true
+        ..connection.failClose = true;
+
+      await expectLater(
+        fixture.driver.unlock(),
+        throwsA(isA<VaultDriverFailure>().having(
+          (error) => error.code,
+          'code',
+          VaultDriverFailureCode.vaultUnlockFailed,
+        )),
+      );
+
+      expect(fixture.connection.closed, isTrue);
+      expect(fixture.keys.leases.single.isDestroyed, isTrue);
+      expect(fixture.driver.state, VaultLifecycleState.locked);
+    },
+  );
 
   test('rekey commits before old key destruction', () async {
     final fixture = Fixture(schemaVersion: 2);
@@ -82,12 +178,32 @@ void main() {
       throwsA(isA<VaultDriverFailure>().having(
         (error) => error.code,
         'code',
-        'vault_rekey_failed',
+        VaultDriverFailureCode.vaultRekeyFailed,
       )),
     );
     expect(oldKey.isDestroyed, isFalse);
     expect(fixture.keys.leases.last.isDestroyed, isTrue);
   });
+
+  test(
+    'rekey provider failure is redacted and leaves the active vault usable',
+    () async {
+      final fixture = Fixture(schemaVersion: 2);
+      await fixture.driver.unlock();
+      fixture.keys.failAcquire = true;
+
+      await expectLater(
+        fixture.driver.rekey(),
+        throwsA(isA<VaultDriverFailure>().having(
+          (error) => error.toString(),
+          'redacted message',
+          'VaultDriverFailure(${VaultDriverFailureCode.vaultRekeyFailed})',
+        )),
+      );
+      expect(fixture.driver.state, VaultLifecycleState.unlocked);
+      expect(fixture.keys.leases.single.isDestroyed, isFalse);
+    },
+  );
 
   test('lock tolerates close failure and destroys active lease', () async {
     final fixture = Fixture(schemaVersion: 2);
@@ -100,6 +216,18 @@ void main() {
     expect(fixture.keys.leases.single.isDestroyed, isTrue);
   });
 
+  test('repeated lock is idempotent after cleanup', () async {
+    final fixture = Fixture(schemaVersion: 2);
+    await fixture.driver.unlock();
+
+    await fixture.driver.lock();
+    await fixture.driver.lock();
+
+    expect(fixture.driver.state, VaultLifecycleState.locked);
+    expect(fixture.connection.closed, isTrue);
+    expect(fixture.keys.leases.single.isDestroyed, isTrue);
+  });
+
   test('close is terminal and idempotent', () async {
     final fixture = Fixture(schemaVersion: 2);
     await fixture.driver.close();
@@ -108,6 +236,16 @@ void main() {
     expect(fixture.driver.state, VaultLifecycleState.closed);
     await expectLater(
         fixture.driver.unlock(), throwsA(isA<VaultDriverFailure>()));
+    await expectLater(
+      fixture.driver.rekey(),
+      throwsA(isA<VaultDriverFailure>().having(
+        (error) => error.code,
+        'code',
+        VaultDriverFailureCode.vaultClosed,
+      )),
+    );
+    await fixture.driver.lock();
+    expect(fixture.driver.state, VaultLifecycleState.closed);
   });
 
   test('invalid migration chain is rejected before opening', () {
@@ -122,6 +260,37 @@ void main() {
       ),
       throwsArgumentError,
     );
+  });
+
+  test('migration cannot jump from a schema version before the chain',
+      () async {
+    final keys = FakeKeys();
+    final connection = FakeConnection(0);
+    final driver = VaultDriver(
+      keyProvider: keys,
+      opener: FakeOpener(connection),
+      migrations: const <VaultMigration>[
+        VaultMigration(fromVersion: 1, toVersion: 2),
+      ],
+    );
+
+    await expectLater(
+      driver.unlock(),
+      throwsA(isA<VaultDriverFailure>().having(
+        (error) => error.code,
+        'code',
+        VaultDriverFailureCode.vaultUnlockFailed,
+      )),
+    );
+    expect(connection.tx.calls, <String>[
+      'pragma:foreignKeysOn',
+      'pragma:secureDeleteOn',
+      'pragma:trustedSchemaOff',
+      'schema',
+    ]);
+    expect(connection.closed, isTrue);
+    expect(keys.leases.single.isDestroyed, isTrue);
+    expect(driver.state, VaultLifecycleState.locked);
   });
 }
 
@@ -154,9 +323,14 @@ final class FakeLease implements VaultKeyLease {
 
 final class FakeKeys implements VaultKeyProvider {
   final leases = <FakeLease>[];
+  bool failAcquire = false;
+  Future<void> Function()? beforeAcquire;
 
   @override
   Future<VaultKeyLease> acquire(VaultKeyPurpose purpose) async {
+    if (failAcquire)
+      throw StateError('key alias and raw secret must not escape');
+    await beforeAcquire?.call();
     final lease = FakeLease();
     leases.add(lease);
     return lease;

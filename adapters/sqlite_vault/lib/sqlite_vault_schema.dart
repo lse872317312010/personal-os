@@ -64,6 +64,14 @@ final class SqliteVaultSchema {
     'plaintexthash',
     'subjecthash',
     'subjectdigest',
+    'databasepath',
+    'sqlcipherkey',
+    'keystorealias',
+    'keyalias',
+    'rawexception',
+    'stacktrace',
+    'plaintextbytes',
+    'originalbytes',
   };
 
   /// Ordered write shape required for one atomic append transaction.
@@ -74,6 +82,18 @@ final class SqliteVaultSchema {
     'INSERT INTO projections',
     'INSERT INTO outbox',
   ];
+
+  /// Deletion targets are deliberately opaque transport tokens.  They may be
+  /// random URL-safe identifiers, but may not contain paths, SQL, or semantic
+  /// separators that make them useful as a copied object identifier.
+  static void validateDeletionTargetToken(String token) {
+    final value = token.trim();
+    if (token != value ||
+        value.length < 22 ||
+        value.contains(RegExp(r'[^A-Za-z0-9_-]'))) {
+      throw const VaultSchemaViolation();
+    }
+  }
 }
 
 final class VaultPersistenceValidator {
@@ -81,8 +101,7 @@ final class VaultPersistenceValidator {
 
   static void validateSensitivity(String sensitivity) {
     if (!SqliteVaultSchema.persistedSensitivities.contains(sensitivity)) {
-      throw VaultSchemaViolation(
-          'Sensitivity $sensitivity cannot be persisted');
+      throw const VaultSchemaViolation();
     }
   }
 
@@ -95,7 +114,12 @@ final class VaultPersistenceValidator {
         final key = entry.key.toString();
         final normalized = key.replaceAll(RegExp('[_-]'), '').toLowerCase();
         if (SqliteVaultSchema.forbiddenSecretFields.contains(normalized)) {
-          throw VaultSchemaViolation('Forbidden secret field at $path.$key');
+          throw const VaultSchemaViolation();
+        }
+        if ((normalized == 'sensitivity' ||
+                normalized == 'maximumsensitivity') &&
+            entry.value.toString().toUpperCase() == 'D4') {
+          throw const VaultSchemaViolation.d4();
         }
         rejectForbiddenSecretFields(entry.value, '$path.$key');
       }
@@ -109,11 +133,8 @@ final class VaultPersistenceValidator {
   }
 }
 
-final class VaultSchemaViolation implements Exception {
-  const VaultSchemaViolation(this.message);
+final class VaultSchemaViolation extends PersistenceException {
+  const VaultSchemaViolation() : super.schemaViolation();
 
-  final String message;
-
-  @override
-  String toString() => 'VaultSchemaViolation: $message';
+  const VaultSchemaViolation.d4() : super.d4PersistenceForbidden();
 }

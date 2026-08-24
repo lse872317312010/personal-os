@@ -14,5 +14,3 @@ __pycache__/
 .idea/
 .vscode/
 .DS_Store
-**/pubspec.lock
-!apps/personal_os_app/pubspec.lock

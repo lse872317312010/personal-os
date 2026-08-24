@@ -20,7 +20,7 @@ void main() {
       final store = InMemoryEventStore();
       store.append(_event('e1', 0));
 
-      final result = store.append(_event('e1', 0));
+      final result = store.append(_event('e1', 999));
 
       expect(result.committed, isTrue);
       expect(result.duplicateEventIds, ['e1']);
@@ -29,33 +29,37 @@ void main() {
       expect(store.readProjection('goal', 'goal-1')?.revision.value, 1);
     });
 
-    test('same event_id with different content is a conflict', () async {
-      final EventStore store = InMemoryEventStore();
-      await store.appendAll([_event('e1', 0)]);
+    test('same event_id with different content is a stable conflict', () async {
+      final store = InMemoryEventStore();
+      await store.appendAll([_event('e1', 0, objectId: 'goal-1')]);
 
       await expectLater(
-        store.appendAll([_event('e1', 1)]),
+        store.appendAll([_event('e1', 0, objectId: 'goal-2')]),
         throwsA(
-          isA<EventAppendConflict>().having(
-            (error) => error.message,
-            'message',
-            InMemoryRejectionReason.eventIdConflict,
-          ),
+          isA<EventAppendConflict>()
+              .having((error) => error.code, 'code',
+                  PersistenceErrorCode.eventConflict)
+              .having((error) => error.toString(), 'toString',
+                  isNot(contains('goal-2'))),
         ),
       );
-      expect((await store.readById('e1'))?.payload['expected_revision'], 0);
+      expect(store.readEvents().map((stored) => stored.event.eventId), ['e1']);
+      expect(store.readProjection('goal', 'goal-2'), isNull);
     });
 
-    test('conflicting duplicate inside a batch rolls back all state', () async {
+    test('same event_id with different content in one batch rolls back', () {
       final store = InMemoryEventStore();
+      final result = store.appendTransaction([
+        _event('e1', 0, objectId: 'goal-1'),
+        _event('e1', 0, objectId: 'goal-2'),
+      ]);
 
-      await expectLater(
-        store.appendAll([_event('e1', 0), _event('e1', 1)]),
-        throwsA(isA<EventAppendConflict>()),
-      );
+      expect(result.committed, isFalse);
+      expect(result.failure, AppendFailure.eventConflict);
+      expect(result.reasonCode, PersistenceErrorCode.eventConflict);
       expect(store.readEvents(), isEmpty);
-      expect(store.readAllProjections(), isEmpty);
       expect(store.readOutbox(), isEmpty);
+      expect(store.readAllProjections(), isEmpty);
     });
 
     test('revision conflict rejects the whole batch without partial commit',
@@ -147,17 +151,51 @@ void main() {
       expect(await store.readById('e1'), isNull);
     });
 
+    test('formal append maps reducer rejection reasons to stable conflicts',
+        () async {
+      final EventStore store = InMemoryEventStore();
+
+      await expectLater(
+        store.appendAll([_event('unsupported', 0, eventVersion: 2)]),
+        throwsA(
+          isA<EventAppendConflict>().having(
+            (error) => error.code,
+            'code',
+            PersistenceErrorCode.eventConflict,
+          ),
+        ),
+      );
+    });
+
+    test('negative read limits fail closed with a stable read error', () async {
+      final EventStore store = InMemoryEventStore();
+
+      await expectLater(
+        store.readBySubject(
+          ObjectRef(type: 'goal', id: EntityId('goal-1')),
+          limit: -1,
+        ),
+        throwsA(
+          isA<PersistenceException>().having(
+            (error) => error.code,
+            'code',
+            PersistenceErrorCode.readFailed,
+          ),
+        ),
+      );
+    });
+
     test('D4 event is rejected before any store mutation', () async {
       final store = InMemoryEventStore();
 
       await expectLater(
         store.appendAll([_event('d4', 0, sensitivity: Sensitivity.d4)]),
         throwsA(
-          isA<StateError>().having(
-            (error) => error.message,
-            'message',
-            'event_append_rejected:d4_persistence_forbidden',
-          ),
+          isA<PersistenceException>()
+              .having((error) => error.code, 'code',
+                  PersistenceErrorCode.d4PersistenceForbidden)
+              .having((error) => error.message, 'message',
+                  'event_append_rejected:d4_persistence_forbidden'),
         ),
       );
       expect(store.readEvents(), isEmpty);
@@ -179,10 +217,10 @@ void main() {
           ),
         ]),
         throwsA(
-          isA<StateError>().having(
-            (error) => error.message,
-            'message',
-            'event_append_rejected:d4_persistence_forbidden',
+          isA<PersistenceException>().having(
+            (error) => error.code,
+            'code',
+            PersistenceErrorCode.d4PersistenceForbidden,
           ),
         ),
       );
@@ -198,13 +236,14 @@ EventEnvelope _event(
   int expectedRevision, {
   String objectId = 'goal-1',
   String eventType = EventTypes.goalCreated,
+  int eventVersion = 1,
   Sensitivity sensitivity = Sensitivity.d1,
 }) {
   final instant = DateTime.utc(2026, 8, 20);
   return EventEnvelope(
     eventId: eventId,
     eventType: eventType,
-    eventVersion: 1,
+    eventVersion: eventVersion,
     occurredAt: instant,
     recordedAt: instant,
     actor: ActorRef(

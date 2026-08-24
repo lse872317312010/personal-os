@@ -16,6 +16,7 @@ void main() {
   final access = BlobAccessContext(
     actorRef: 'user:owner',
     purpose: 'appearance-analysis',
+    consentRef: 'consent:appearance-v1',
   );
 
   setUp(() {
@@ -52,6 +53,43 @@ void main() {
     expect(listened, isFalse);
     expect(repository.beginWriteCalls, 0);
     expect(cryptography.beginSealCalls, 0);
+  });
+
+  test('requires a consent binding before listening or touching storage',
+      () async {
+    final missingConsent = BlobAccessContext(
+      actorRef: 'user:owner',
+      purpose: 'appearance-analysis',
+    );
+    var listened = false;
+    final input = Stream<List<int>>.multi((controller) {
+      listened = true;
+      controller.close();
+    });
+
+    await expectLater(
+      engine.put(
+        bytes: input,
+        mediaType: 'image/jpeg',
+        sensitivity: Sensitivity.d3,
+        access: missingConsent,
+      ),
+      throwsA(_safeException('consent_required')),
+    );
+    expect(listened, isFalse);
+    expect(repository.beginWriteCalls, 0);
+    expect(cryptography.beginSealCalls, 0);
+  });
+
+  test('rejects a blank consent binding at the access boundary', () {
+    expect(
+      () => BlobAccessContext(
+        actorRef: 'user:owner',
+        purpose: 'appearance-analysis',
+        consentRef: '  ',
+      ),
+      throwsArgumentError,
+    );
   });
 
   test('successful put stores ciphertext and zeroizes owned input', () async {
@@ -136,6 +174,32 @@ void main() {
     expect(bytes, <int>[2, 3, 4]);
   });
 
+  test('preserves the stable plaintext length mismatch error', () async {
+    final ref = await _put(engine, access);
+    repository.plaintextLengthOverride = 99;
+
+    await expectLater(
+      engine.openRead(ref, access: access).drain<void>(),
+      throwsA(_safeException('plaintext_length_mismatch')),
+    );
+    expect(log.last, BlobEngineEvent.openFailed);
+  });
+
+  test('does not allow a different consent to access the blob', () async {
+    final ref = await _put(engine, access);
+    final otherConsent = BlobAccessContext(
+      actorRef: access.actorRef,
+      purpose: access.purpose,
+      consentRef: 'consent:other-v1',
+    );
+
+    await expectLater(
+      engine.openRead(ref, access: otherConsent).drain<void>(),
+      throwsA(_safeException('consent_mismatch')),
+    );
+    expect(cryptography.seenPlaintext, isEmpty);
+  });
+
   test('delete destroys key before ciphertext and is idempotent', () async {
     final ref = await _put(engine, access);
 
@@ -160,7 +224,7 @@ void main() {
     expect(cryptography.destroyed, [cryptography.key]);
 
     expect(await engine.delete(ref, access: access), BlobDeleteResult.deleted);
-    expect(cryptography.destroyed, [cryptography.key, cryptography.key]);
+    expect(cryptography.destroyed, [cryptography.key]);
     expect(repository.readable(ref), isNull);
   });
 
@@ -272,6 +336,7 @@ final class _FakeRepository implements CiphertextBlobRepository {
   bool openFailure = false;
   bool metadataFailure = false;
   int deleteFailuresRemaining = 0;
+  int? plaintextLengthOverride;
   int? readChunkSize;
   int _nextRef = 0;
   _FakeWrite? lastWrite;
@@ -296,8 +361,18 @@ final class _FakeRepository implements CiphertextBlobRepository {
     if (openFailure) throw StateError('ref-path-content-hash');
     final stored = _stored[ref];
     if (stored == null) return null;
+    final metadata = plaintextLengthOverride == null
+        ? stored.metadata
+        : CiphertextBlobMetadata(
+            key: stored.metadata.key,
+            mediaType: stored.metadata.mediaType,
+            consentRef: stored.metadata.consentRef,
+            plaintextLength: plaintextLengthOverride!,
+            sensitivity: stored.metadata.sensitivity,
+            createdAt: stored.metadata.createdAt,
+          );
     return CiphertextBlobRead(
-      metadata: stored.metadata,
+      metadata: metadata,
       ciphertext: _ciphertextChunks(stored.ciphertext, readChunkSize),
     );
   }

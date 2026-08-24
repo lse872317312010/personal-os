@@ -7,6 +7,8 @@ environment:
   sdk: ">=3.3.0 <4.0.0"
 
 dependencies:
+  personal_os_blob_engine:
+    path: ../blob_engine
   personal_os_domain:
     path: ../domain
   personal_os_events:

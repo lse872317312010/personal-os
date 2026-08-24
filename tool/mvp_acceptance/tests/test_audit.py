@@ -15,7 +15,7 @@ DIGEST = "b" * 64
 
 
 def check(item_id):
-    return {"id": item_id, "status": "pass", "evidence_ref": f"review:{item_id}"}
+    return {"id": item_id, "status": "pass", "evidence_ref": f"review:{item_id}", "commit": COMMIT}
 
 
 def valid_ledger():
@@ -89,11 +89,26 @@ class AuditTests(unittest.TestCase):
         self.assertFalse(passed[4])
         self.assertTrue(any("dogfood" in error for error in errors))
 
+    def test_pass_check_must_bind_candidate_commit(self):
+        ledger = valid_ledger()
+        ledger["gates"]["static"]["checks"][0]["commit"] = "b" * 40
+        passed, errors = audit_module.audit(ledger)
+        self.assertFalse(passed[0])
+        self.assertTrue(any("commit" in error for error in errors))
+
     def test_rejects_forbidden_sensitive_field_anywhere(self):
         ledger = valid_ledger()
         ledger["gates"]["redmi_device"]["device_serial"] = "do-not-store"
-        _, errors = audit_module.audit(ledger)
+        passed, errors = audit_module.audit(ledger)
+        self.assertEqual([False] * 5, passed)
         self.assertTrue(any("forbidden sensitive field" in error for error in errors))
+
+    def test_root_schema_error_is_fail_closed(self):
+        ledger = valid_ledger()
+        ledger["schema_version"] = 999
+        passed, errors = audit_module.audit(ledger)
+        self.assertEqual([False] * 5, passed)
+        self.assertTrue(any("schema_version" in error for error in errors))
 
     def test_cli_target_exit_codes(self):
         ledger = valid_ledger()

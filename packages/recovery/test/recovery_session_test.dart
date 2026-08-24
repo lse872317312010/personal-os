@@ -87,6 +87,58 @@ void main() {
       }
     });
 
+    test('authentication receives a copy and the borrowed copy is wiped',
+        () async {
+      final fixture = Fixture();
+      Uint8List? retained;
+      fixture.authenticatorOverride = (envelope, secret) async {
+        retained = secret;
+        return AuthenticatedRecoveryPayload(
+          accountBindingCommitment: 'opaque-commitment',
+          generation: 7,
+          securityStateAnchorRevision: 40,
+          minimumAccountEpoch: 9,
+        );
+      };
+
+      final original = RecoverySecret([4, 5, 6]);
+      await fixture.session().restore(original);
+
+      expect(original.isDestroyed, isTrue);
+      expect(retained, orderedEquals([0, 0, 0]));
+    });
+
+    test('pre-auth rejection does not discard an unstarted staged state',
+        () async {
+      final fixture = Fixture(status: RecoveryPackageStatus.revoked);
+      final result = await fixture.session().restore(RecoverySecret([1]));
+
+      expect(result.errorCode, RecoveryErrorCode.packageRevoked);
+      expect(fixture.calls, isEmpty);
+    });
+
+    test('post-commit failure never discards committed staged state', () async {
+      final fixture = Fixture(fault: Fault.consistency);
+      final result = await fixture.session().restore(RecoverySecret([1]));
+
+      expect(result.errorCode, RecoveryErrorCode.consistencyFailed);
+      expect(fixture.calls, contains('commit-security'));
+      expect(fixture.calls, isNot(contains('discard-security')));
+    });
+
+    test('staged cleanup failure is reported without exposing adapter error',
+        () async {
+      final fixture = Fixture(
+        fault: Fault.tombstones,
+        discardFails: true,
+      );
+      final result = await fixture.session().restore(RecoverySecret([1]));
+
+      expect(result.errorCode, RecoveryErrorCode.stagedStateCleanupFailed);
+      expect(fixture.audit.events.last.errorCode,
+          RecoveryErrorCode.stagedStateCleanupFailed);
+    });
+
     test('security state rollback fails before any security application',
         () async {
       final fixture = Fixture(
@@ -186,7 +238,7 @@ void main() {
   });
 }
 
-enum Fault { none, wrongCode, corruptCiphertext, tombstones }
+enum Fault { none, wrongCode, corruptCiphertext, tombstones, consistency }
 
 final class Fixture
     implements
@@ -202,6 +254,7 @@ final class Fixture
     this.generation = 7,
     this.knownGeneration = 6,
     this.anchorRevision = 40,
+    this.discardFails = false,
     this.security = const SecurityStateSnapshot(
       revision: 43,
       accountEpoch: 9,
@@ -215,10 +268,15 @@ final class Fixture
   final int generation;
   final int knownGeneration;
   final int anchorRevision;
+  final bool discardFails;
   final SecurityStateSnapshot security;
   final calls = <String>[];
   final audit = Audit();
   bool enableReadsCalled = false;
+  Future<AuthenticatedRecoveryPayload> Function(
+    RecoveryEnvelope,
+    Uint8List,
+  )? authenticatorOverride;
 
   RecoverySession session() => RecoverySession(
         sessionId: 'session-opaque',
@@ -250,6 +308,8 @@ final class Fixture
     Uint8List recoverySecret,
   ) async {
     calls.add('authenticate');
+    final override = authenticatorOverride;
+    if (override != null) return override(envelope, recoverySecret);
     if (fault == Fault.wrongCode || fault == Fault.corruptCiphertext) {
       throw const RecoveryFailure(RecoveryErrorCode.authFailed);
     }
@@ -295,7 +355,10 @@ final class Fixture
       calls.add('commit-security');
 
   @override
-  Future<void> discardStagedState() async => calls.add('discard-security');
+  Future<void> discardStagedState() async {
+    calls.add('discard-security');
+    if (discardFails) throw StateError('adapter path should not escape');
+  }
 
   @override
   Future<void> syncCiphertextOnly() async => calls.add('sync-ciphertext');
@@ -303,6 +366,7 @@ final class Fixture
   @override
   Future<bool> verifyConsistency() async {
     calls.add('consistency');
+    if (fault == Fault.consistency) return false;
     return true;
   }
 

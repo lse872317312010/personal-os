@@ -3,6 +3,7 @@
 
 import datetime
 import json
+import re
 import sys
 
 RESULTS = {"pass", "fail", "blocked"}
@@ -17,6 +18,7 @@ FAILURES = {
     "capability_mismatch", "wrong_key_accepted", "recovery_failed",
     "revoked_device_authorized", "unexpected_result",
 }
+SHA40 = re.compile(r"^[0-9a-f]{40}$")
 
 
 def require(condition: bool, label: str) -> None:
@@ -28,6 +30,7 @@ def main(path: str) -> None:
     with open(path, encoding="utf-8") as source:
         value = json.load(source)
     required = {"schemaVersion", "recordKind", "targetClass", "buildProfile",
+                "candidateCommit",
                 "startedAtUtc", "completedAtUtc", "overall", "scenarios"}
     allowed = required | {"capabilities"}
     require(type(value) is dict and set(value) <= allowed and required <= set(value), "root fields")
@@ -35,9 +38,14 @@ def main(path: str) -> None:
     require(value["recordKind"] in {"real_device", "synthetic"}, "recordKind")
     require(value["targetClass"] == "redmi_turbo", "targetClass")
     require(value["buildProfile"] in {"debug", "profile", "release"}, "buildProfile")
+    require(isinstance(value["candidateCommit"], str) and SHA40.fullmatch(value["candidateCommit"]), "candidateCommit")
     require(value["overall"] in RESULTS, "overall")
     for field in ("startedAtUtc", "completedAtUtc"):
         datetime.datetime.fromisoformat(value[field].replace("Z", "+00:00"))
+    require(value["startedAtUtc"].endswith("Z") and value["completedAtUtc"].endswith("Z"), "UTC timestamps")
+    started = datetime.datetime.fromisoformat(value["startedAtUtc"].replace("Z", "+00:00"))
+    completed = datetime.datetime.fromisoformat(value["completedAtUtc"].replace("Z", "+00:00"))
+    require(completed >= started, "completedAtUtc before startedAtUtc")
     scenarios = value["scenarios"]
     require(type(scenarios) is list and len(scenarios) == 9, "scenarios length")
     require({item.get("id") for item in scenarios} == SCENARIOS, "scenario IDs")
@@ -46,6 +54,14 @@ def main(path: str) -> None:
         require(item["result"] in RESULTS and item["failureCode"] in FAILURES, "scenario enums")
         require(type(item["checksPassed"]) is int and type(item["checksTotal"]) is int, "check count type")
         require(0 <= item["checksPassed"] <= item["checksTotal"] and item["checksTotal"] >= 1, "check counts")
+        if item["result"] == "pass":
+            require(value["recordKind"] == "real_device", "synthetic pass")
+            require(item["checksPassed"] == item["checksTotal"] and item["failureCode"] == "none", "pass scenario evidence")
+        else:
+            require(item["failureCode"] != "none", "non-pass scenario failureCode")
+    if value["overall"] == "pass":
+        require(value["recordKind"] == "real_device", "synthetic overall pass")
+        require(all(item["result"] == "pass" for item in scenarios), "overall pass requires all scenarios")
     if "capabilities" in value:
         capabilities = value["capabilities"]
         fields = {"protectionLevel", "userAuthenticationAvailable", "deviceCredentialAvailable", "nonExportableKeys", "atomicDeviceRevocation"}

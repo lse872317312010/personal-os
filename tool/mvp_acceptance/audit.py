@@ -44,7 +44,8 @@ def _walk_forbidden(value: object, path: str = "$") -> list[str]:
     return errors
 
 
-def _check_set(gate: dict, expected: set[str], field: str = "checks") -> bool:
+def _check_set(gate: dict, expected: set[str], field: str = "checks",
+               candidate_commit: str | None = None) -> bool:
     items = gate.get(field)
     if not isinstance(items, list):
         return False
@@ -55,6 +56,7 @@ def _check_set(gate: dict, expected: set[str], field: str = "checks") -> bool:
         and item.get("status") == "pass"
         and isinstance(item.get("evidence_ref"), str)
         and item["evidence_ref"].strip()
+        and (candidate_commit is None or item.get("commit") == candidate_commit)
     }
     return passed == expected and len(items) == len(expected)
 
@@ -72,6 +74,11 @@ def audit(data: object) -> tuple[list[bool], list[str]]:
     commit = data.get("candidate_commit")
     if not isinstance(commit, str) or not SHA40.fullmatch(commit):
         errors.append("$.candidate_commit: expected lowercase 40-character git SHA")
+    if errors:
+        # Root-level validation errors must never coexist with a verification
+        # result.  Otherwise a complete-looking gate set could promote a
+        # ledger that also contains malformed or sensitive root data.
+        return [False] * len(GATES), errors
     gates = data.get("gates")
     if not isinstance(gates, dict) or set(gates) != set(GATES):
         errors.append("$.gates: expected exactly five named gates")
@@ -96,20 +103,29 @@ def audit(data: object) -> tuple[list[bool], list[str]]:
             if not isinstance(gate.get("checked_by"), str) or not gate["checked_by"].strip():
                 errors.append(f"$.gates.{name}.checked_by: required")
                 valid = False
+            for field in ("checks", "scenarios", "steps", "safety_checks"):
+                items = gate.get(field)
+                if isinstance(items, list):
+                    for item_index, item in enumerate(items):
+                        if isinstance(item, dict) and item.get("status") == "pass" and item.get("commit") != commit:
+                            errors.append(
+                                f"$.gates.{name}.{field}[{item_index}].commit: must equal candidate_commit"
+                            )
+                            valid = False
         if name == "static" and declared:
-            valid &= _check_set(gate, {"contract_audit", "dependency_audit"})
+            valid &= _check_set(gate, {"contract_audit", "dependency_audit"}, candidate_commit=commit)
         elif name == "flutter_test" and declared:
-            valid &= _check_set(gate, FLUTTER_CHECKS)
+            valid &= _check_set(gate, FLUTTER_CHECKS, candidate_commit=commit)
         elif name == "apk" and declared:
             artifact = gate.get("artifact")
             ok = isinstance(artifact, dict) and SHA256.fullmatch(str(artifact.get("sha256", ""))) is not None and isinstance(artifact.get("bytes"), int) and artifact["bytes"] > 0
-            valid &= ok and _check_set(gate, {"release_apk_build"})
+            valid &= ok and _check_set(gate, {"release_apk_build"}, candidate_commit=commit)
         elif name == "redmi_device" and declared:
-            valid &= _check_set(gate, REDMI_SCENARIOS, "scenarios")
+            valid &= _check_set(gate, REDMI_SCENARIOS, "scenarios", commit)
             valid &= isinstance(gate.get("android_major"), int) and gate["android_major"] > 0
             valid &= SHA256.fullmatch(str(gate.get("apk_sha256", ""))) is not None
         elif name == "dogfood" and declared:
-            valid &= _check_set(gate, DOGFOOD_STEPS, "steps") and _check_set(gate, DOGFOOD_SAFETY, "safety_checks")
+            valid &= _check_set(gate, DOGFOOD_STEPS, "steps", commit) and _check_set(gate, DOGFOOD_SAFETY, "safety_checks", commit)
             try:
                 start = dt.date.fromisoformat(gate["cycle_start"])
                 end = dt.date.fromisoformat(gate["cycle_end"])

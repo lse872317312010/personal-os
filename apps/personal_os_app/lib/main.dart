@@ -5,5 +5,5 @@ import 'src/composition/app_composition.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(PersonalOsApp(composition: AppComposition.inMemoryDemo()));
+  runApp(PersonalOsApp(composition: AppComposition.forCurrentPlatform()));
 }

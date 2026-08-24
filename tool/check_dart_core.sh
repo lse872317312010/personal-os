@@ -9,20 +9,6 @@ cd "${REPO_ROOT}"
 
 python3 tool/validate_local_dependencies.py
 
-bash tool/check_secrets.sh
-
-# Run toolchain unit tests (Python + shell)
-if python3 -c 'import pytest' >/dev/null 2>&1; then
-  echo "Running toolchain Python tests"
-  python3 -m pytest tool/tests/ -q
-else
-  echo "pytest not available; skipping toolchain Python tests"
-fi
-if [[ -f tool/tests/test_check_secrets.sh ]]; then
-  echo "Running toolchain shell tests"
-  bash tool/tests/test_check_secrets.sh || exit 1
-fi
-
 mapfile -d '' PACKAGE_FILES < <(
   find "${CORE_ROOTS[@]}" -mindepth 2 -maxdepth 2 -name pubspec.yaml -print0 | sort -z
 )

@@ -17,6 +17,8 @@ void main() {
     await tester.tap(find.byKey(const Key('unlock-vault')));
     await tester.pump();
     expect(find.text('今天，从一个小改变开始'), findsOneWidget);
+    expect(find.text('最近观察'), findsOneWidget);
+    expect(find.textContaining('blob://'), findsNothing);
 
     await tester.tap(find.byKey(const Key('lock-vault')));
     await tester.pump();

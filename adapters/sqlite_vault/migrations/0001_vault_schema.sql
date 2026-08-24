@@ -46,7 +46,8 @@ CREATE TABLE event_subjects (
   subject_id TEXT NOT NULL CHECK (length(trim(subject_id)) > 0),
   subject_revision INTEGER CHECK (subject_revision IS NULL OR subject_revision >= 0),
   subject_ordinal INTEGER NOT NULL CHECK (subject_ordinal >= 0),
-  PRIMARY KEY (event_id, subject_type, subject_id)
+  PRIMARY KEY (event_id, subject_type, subject_id),
+  UNIQUE (event_id, subject_ordinal)
 );
 
 CREATE INDEX event_subjects_subject_idx
@@ -129,7 +130,10 @@ CREATE INDEX consent_revisions_subject_idx
 CREATE TABLE deletion_tombstones (
   tombstone_id TEXT PRIMARY KEY CHECK (length(trim(tombstone_id)) > 0),
   target_type TEXT NOT NULL,
-  target_token TEXT NOT NULL UNIQUE CHECK (length(trim(target_token)) >= 22),
+  target_token TEXT NOT NULL UNIQUE CHECK (
+    length(trim(target_token)) >= 22 AND
+    target_token NOT GLOB '*[^A-Za-z0-9_-]*'
+  ),
   scope TEXT NOT NULL CHECK (scope IN ('logical', 'content', 'cryptographic', 'full')),
   requested_event_id TEXT REFERENCES event_log(event_id) ON DELETE RESTRICT,
   completed_event_id TEXT REFERENCES event_log(event_id) ON DELETE RESTRICT,

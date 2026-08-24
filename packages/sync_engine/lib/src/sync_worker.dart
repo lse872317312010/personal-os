@@ -15,11 +15,16 @@ abstract final class SyncFailureReason {
   static const epochMismatch = 'epoch_mismatch';
   static const sequenceGap = 'sequence_gap';
   static const sequenceOverlap = 'sequence_overlap';
+  static const replayConflict = 'replay_conflict';
   static const sequenceCountMismatch = 'sequence_count_mismatch';
+  static const invalidEnvelope = 'invalid_envelope';
+  static const invalidPageLimit = 'invalid_page_limit';
+  static const pageResponseInvalid = 'page_response_invalid';
   static const eventEncodeFailed = 'event_encode_failed';
   static const payloadDecodeFailed = 'payload_decode_failed';
   static const cryptographyFailed = 'cryptography_failed';
   static const appendFailed = 'append_failed';
+  static const batchNotCommitted = 'batch_not_committed';
   static const relayAckMismatch = 'relay_ack_mismatch';
   static const transportFailed = 'transport_failed';
 }
@@ -111,6 +116,8 @@ final class SyncWorker {
   final SyncCryptographyPort _cryptography;
   final EventStore _eventStore;
   final Map<String, int> _lastReceived;
+  final Set<String> _acceptedEnvelopeIds = <String>{};
+  final Map<String, DeviceSequenceRange> _acceptedEnvelopeRanges = {};
 
   int lastReceivedSequence(String senderDeviceId) =>
       _lastReceived[senderDeviceId] ?? -1;
@@ -123,6 +130,9 @@ final class SyncWorker {
   }) async {
     if (events.isEmpty)
       return SyncResult.rejected(SyncFailureReason.emptyBatch);
+    if (envelopeId.trim().isEmpty) {
+      return SyncResult.rejected(SyncFailureReason.invalidEnvelope);
+    }
     if (events.any((event) => event.sensitivity == Sensitivity.d4)) {
       return SyncResult.rejected(SyncFailureReason.d4SyncForbidden);
     }
@@ -199,6 +209,13 @@ final class SyncWorker {
     required OpaqueSyncCursor cursor,
     int limit = 100,
   }) async {
+    if (limit <= 0 || limit > 1000) {
+      return SyncPullResult(
+        items: [SyncResult.rejected(SyncFailureReason.invalidPageLimit)],
+        cursor: cursor,
+        hasMore: false,
+      );
+    }
     late final SyncPage page;
     try {
       page = await _transport.pull(
@@ -213,16 +230,87 @@ final class SyncWorker {
         hasMore: false,
       );
     }
-    final results = <SyncResult>[];
+    if (page.envelopes.length > limit) {
+      return SyncPullResult(
+        items: [SyncResult.rejected(SyncFailureReason.pageResponseInvalid)],
+        cursor: cursor,
+        hasMore: false,
+      );
+    }
+    final pageEnvelopeIds = <String>{};
     for (final envelope in page.envelopes) {
-      final result = await _receive(envelope, cursor);
-      results.add(result);
-      if (result.disposition == SyncDisposition.rejected) break;
+      if (!pageEnvelopeIds.add(envelope.envelopeId)) {
+        return SyncPullResult(
+          items: [
+            SyncResult.rejected(
+              SyncFailureReason.replayConflict,
+              envelopeId: envelope.envelopeId,
+            )
+          ],
+          cursor: cursor,
+          hasMore: false,
+        );
+      }
+    }
+    final results = <SyncResult>[];
+    final stagedLastReceived = Map<String, int>.of(_lastReceived);
+    final stagedEnvelopeIds = <String>{};
+    final stagedEvents = <EventEnvelope>[];
+    for (final envelope in page.envelopes) {
+      final item = await _prepareReceive(
+        envelope,
+        cursor,
+        stagedLastReceived,
+        stagedEnvelopeIds,
+      );
+      results.add(item.result);
+      if (item.result.disposition == SyncDisposition.rejected) break;
+      stagedEvents.addAll(item.events);
+    }
+    if (results.every(
+      (result) => result.disposition != SyncDisposition.rejected,
+    )) {
+      try {
+        if (stagedEvents.isNotEmpty) {
+          await _eventStore.appendAll(stagedEvents);
+        }
+      } on Object {
+        final failed = results.map((result) {
+          if (result.disposition != SyncDisposition.applied) return result;
+          return SyncResult.rejected(
+            SyncFailureReason.appendFailed,
+            envelopeId: result.envelopeId,
+          );
+        }).toList(growable: false);
+        return SyncPullResult(
+          items: failed,
+          cursor: cursor,
+          hasMore: page.hasMore,
+        );
+      }
+      _lastReceived
+        ..clear()
+        ..addAll(stagedLastReceived);
+      _acceptedEnvelopeIds.addAll(stagedEnvelopeIds);
+      for (final envelope in page.envelopes) {
+        if (stagedEnvelopeIds.contains(envelope.envelopeId)) {
+          _acceptedEnvelopeRanges[envelope.envelopeId] = envelope.sequence;
+        }
+      }
     }
     final rejected =
         results.any((result) => result.disposition == SyncDisposition.rejected);
+    final committedResults = rejected
+        ? results.map((result) {
+            if (result.disposition != SyncDisposition.applied) return result;
+            return SyncResult.rejected(
+              SyncFailureReason.batchNotCommitted,
+              envelopeId: result.envelopeId,
+            );
+          }).toList(growable: false)
+        : results;
     return SyncPullResult(
-      items: results,
+      items: committedResults,
       // A relay cursor represents the whole page. Never checkpoint it when an
       // envelope failed, even if earlier envelopes in that page committed.
       cursor: rejected ? cursor : page.cursor,
@@ -230,33 +318,64 @@ final class SyncWorker {
     );
   }
 
-  Future<SyncResult> _receive(
+  Future<_PreparedReceive> _prepareReceive(
     EncryptedSyncEnvelope envelope,
     OpaqueSyncCursor durableCursor,
+    Map<String, int> stagedLastReceived,
+    Set<String> stagedEnvelopeIds,
   ) async {
-    final String? rejection = _validateMetadata(envelope);
+    String? rejection = _validateMetadata(envelope);
     if (rejection != null) {
-      return SyncResult.rejected(rejection, envelopeId: envelope.envelopeId);
+      return _PreparedReceive.rejected(
+        SyncResult.rejected(rejection, envelopeId: envelope.envelopeId),
+      );
     }
-    final previous = lastReceivedSequence(envelope.senderDeviceId);
+    final acceptedRange = _acceptedEnvelopeRanges[envelope.envelopeId];
+    if (acceptedRange != null &&
+        (acceptedRange.first != envelope.sequence.first ||
+            acceptedRange.last != envelope.sequence.last)) {
+      return _PreparedReceive.rejected(
+        SyncResult.rejected(
+          SyncFailureReason.replayConflict,
+          envelopeId: envelope.envelopeId,
+        ),
+      );
+    }
+    final previous = stagedLastReceived[envelope.senderDeviceId] ?? -1;
     if (envelope.sequence.last <= previous) {
-      return SyncResult.success(
-        disposition: SyncDisposition.duplicate,
-        cursor: durableCursor,
-        envelopeId: envelope.envelopeId,
-        eventCount: 0,
+      final knownReplay = _acceptedEnvelopeIds.contains(envelope.envelopeId) ||
+          stagedEnvelopeIds.contains(envelope.envelopeId);
+      if (!knownReplay) {
+        return _PreparedReceive.rejected(
+          SyncResult.rejected(
+            SyncFailureReason.sequenceOverlap,
+            envelopeId: envelope.envelopeId,
+          ),
+        );
+      }
+      return _PreparedReceive.result(
+        SyncResult.success(
+          disposition: SyncDisposition.duplicate,
+          cursor: durableCursor,
+          envelopeId: envelope.envelopeId,
+          eventCount: 0,
+        ),
       );
     }
     if (envelope.sequence.first <= previous) {
-      return SyncResult.rejected(
-        SyncFailureReason.sequenceOverlap,
-        envelopeId: envelope.envelopeId,
+      return _PreparedReceive.rejected(
+        SyncResult.rejected(
+          SyncFailureReason.sequenceOverlap,
+          envelopeId: envelope.envelopeId,
+        ),
       );
     }
     if (envelope.sequence.first != previous + 1) {
-      return SyncResult.rejected(
-        SyncFailureReason.sequenceGap,
-        envelopeId: envelope.envelopeId,
+      return _PreparedReceive.rejected(
+        SyncResult.rejected(
+          SyncFailureReason.sequenceGap,
+          envelopeId: envelope.envelopeId,
+        ),
       );
     }
 
@@ -275,9 +394,11 @@ final class SyncWorker {
         ),
       );
     } on Object {
-      return SyncResult.rejected(
-        SyncFailureReason.cryptographyFailed,
-        envelopeId: envelope.envelopeId,
+      return _PreparedReceive.rejected(
+        SyncResult.rejected(
+          SyncFailureReason.cryptographyFailed,
+          envelopeId: envelope.envelopeId,
+        ),
       );
     }
 
@@ -285,37 +406,48 @@ final class SyncWorker {
     try {
       events = _decodePayload(plaintext);
     } on Object {
-      return SyncResult.rejected(
-        SyncFailureReason.payloadDecodeFailed,
-        envelopeId: envelope.envelopeId,
+      return _PreparedReceive.rejected(
+        SyncResult.rejected(
+          SyncFailureReason.payloadDecodeFailed,
+          envelopeId: envelope.envelopeId,
+        ),
       );
     } finally {
       _zeroize(plaintext);
     }
     if (events.length != envelope.sequence.count) {
-      return SyncResult.rejected(
-        SyncFailureReason.sequenceCountMismatch,
-        envelopeId: envelope.envelopeId,
+      return _PreparedReceive.rejected(
+        SyncResult.rejected(
+          SyncFailureReason.sequenceCountMismatch,
+          envelopeId: envelope.envelopeId,
+        ),
       );
     }
-    try {
-      await _eventStore.appendAll(events);
-    } on Object {
-      return SyncResult.rejected(
-        SyncFailureReason.appendFailed,
-        envelopeId: envelope.envelopeId,
+    if (events.any((event) => event.sensitivity == Sensitivity.d4)) {
+      return _PreparedReceive.rejected(
+        SyncResult.rejected(
+          SyncFailureReason.d4SyncForbidden,
+          envelopeId: envelope.envelopeId,
+        ),
       );
     }
-    _lastReceived[envelope.senderDeviceId] = envelope.sequence.last;
-    return SyncResult.success(
-      disposition: SyncDisposition.applied,
-      cursor: durableCursor,
-      envelopeId: envelope.envelopeId,
-      eventCount: events.length,
+    stagedLastReceived[envelope.senderDeviceId] = envelope.sequence.last;
+    stagedEnvelopeIds.add(envelope.envelopeId);
+    return _PreparedReceive.events(
+      SyncResult.success(
+        disposition: SyncDisposition.applied,
+        cursor: durableCursor,
+        envelopeId: envelope.envelopeId,
+        eventCount: events.length,
+      ),
+      events,
     );
   }
 
   String? _validateMetadata(EncryptedSyncEnvelope envelope) {
+    if (envelope.envelopeId.trim().isEmpty) {
+      return SyncFailureReason.invalidEnvelope;
+    }
     if (envelope.protocolVersion != protocolVersion) {
       return SyncFailureReason.unsupportedProtocolVersion;
     }
@@ -369,4 +501,20 @@ final class SyncWorker {
       // and clears any internal copies it creates.
     }
   }
+}
+
+final class _PreparedReceive {
+  const _PreparedReceive(this.result, this.events);
+
+  _PreparedReceive.result(SyncResult result)
+      : this(result, const <EventEnvelope>[]);
+
+  _PreparedReceive.rejected(SyncResult result)
+      : this(result, const <EventEnvelope>[]);
+
+  _PreparedReceive.events(SyncResult result, List<EventEnvelope> events)
+      : this(result, events);
+
+  final SyncResult result;
+  final List<EventEnvelope> events;
 }

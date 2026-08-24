@@ -96,6 +96,16 @@ def main() -> None:
     }
     assert "subject_revision" in subject_columns
     assert "subject_ordinal" in subject_columns
+    subject_unique_indexes = {
+        row[1]
+        for row in db.execute("PRAGMA index_list(event_subjects)")
+        if row[2]
+    }
+    assert any(
+        {row[2] for row in db.execute(f"PRAGMA index_info('{index}')")} ==
+        {"event_id", "subject_ordinal"}
+        for index in subject_unique_indexes
+    )
 
     insert_event = """
         INSERT INTO event_log (
@@ -195,6 +205,24 @@ def main() -> None:
         ("event-committed",),
     ).fetchone()[0] == 7
 
+    try:
+        db.execute(
+            """INSERT INTO deletion_tombstones (
+                 tombstone_id, target_type, target_token, scope, deleted_at
+               ) VALUES (?, ?, ?, ?, ?)""",
+            (
+                "tombstone-invalid-token",
+                "blob",
+                "not a copied identifier",
+                "content",
+                "2026-08-20T00:00:02.000Z",
+            ),
+        )
+    except sqlite3.IntegrityError:
+        pass
+    else:
+        raise AssertionError("non-opaque deletion token unexpectedly persisted")
+
     # Deletion identity is an opaque random token; propagation evolves by append.
     db.execute(
         """INSERT INTO deletion_tombstones (
@@ -259,6 +287,17 @@ def main() -> None:
         pass
     else:
         raise AssertionError("event_log update unexpectedly succeeded")
+
+    # Subject order is part of the event contract and cannot be duplicated.
+    try:
+        db.execute(
+            "INSERT INTO event_subjects VALUES (?, ?, ?, ?, ?)",
+            ("event-committed", "other", "other-1", None, 0),
+        )
+    except sqlite3.IntegrityError:
+        pass
+    else:
+        raise AssertionError("duplicate subject ordinal unexpectedly persisted")
 
     print("sqlite_vault schema v1: PASS (SQLite only; SQLCipher not exercised)")
 

@@ -11,8 +11,12 @@ dependencies:
     sdk: flutter
   personal_os_application:
     path: ../../packages/application
+  personal_os_device_security:
+    path: ../../adapters/device_security
   personal_os_domain:
     path: ../../packages/domain
+  personal_os_events:
+    path: ../../packages/events
   personal_os_in_memory:
     path: ../../adapters/in_memory
   personal_os_in_memory_policy:
@@ -25,6 +29,10 @@ dependencies:
     path: ../../packages/policy
   personal_os_policy_application:
     path: ../../adapters/policy_application
+  personal_os_security_api:
+    path: ../../packages/security_api
+  personal_os_storage_api:
+    path: ../../packages/storage_api
 
 dev_dependencies:
   flutter_test:

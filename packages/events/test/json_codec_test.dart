@@ -172,7 +172,7 @@ void main() {
       expect(frozen, [
         <String, Object?>{'value': 'before'}
       ]);
-      expect(frozen.clear, throwsUnsupportedError);
+      expect(() => frozen.clear(), throwsUnsupportedError);
       expect(
         () => (frozen.single as Map<String, Object?>)['value'] = 'mutation',
         throwsUnsupportedError,
@@ -278,8 +278,8 @@ EventEnvelope _event([Sensitivity sensitivity = Sensitivity.d3]) =>
       },
     );
 
-Matcher _reason(String reason) => throwsA(isA<EventCodecException>()
-    .having((error) => error.reasonCode, 'reasonCode', reason));
+Matcher _reason(String reason) => isA<EventCodecException>()
+    .having((error) => error.reasonCode, 'reasonCode', reason);
 
 EventEnvelope _eventWithContainers(
   Map<String, Object?> payload,

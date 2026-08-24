@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_os_in_memory/in_memory.dart';
 
 import 'package:personal_os_app/src/app.dart';
 import 'package:personal_os_app/src/composition/app_composition.dart';
@@ -19,7 +20,7 @@ void main() {
     expect(composition.controller.taskState(taskId), 'completed');
     expect(find.text('succeeded: task_completed'), findsOneWidget);
     expect(
-      composition.eventStore
+      (composition.eventStore as InMemoryEventStore)
           .readEvents()
           .map((stored) => stored.event.eventType),
       containsAll(<String>['execution.recorded', 'task.completed']),
@@ -38,7 +39,7 @@ void main() {
     expect(composition.controller.taskState(taskId), 'skipped');
     expect(find.text('succeeded: task_skipped'), findsOneWidget);
     expect(
-      composition.eventStore
+      (composition.eventStore as InMemoryEventStore)
           .readEvents()
           .map((stored) => stored.event.eventType),
       contains('task.skipped'),
@@ -62,7 +63,7 @@ void main() {
     expect(composition.controller.reviewState, 'accepted');
     expect(find.text('succeeded: review_accepted'), findsOneWidget);
     expect(
-      composition.eventStore
+      (composition.eventStore as InMemoryEventStore)
           .readEvents()
           .map((stored) => stored.event.eventType),
       containsAll(<String>[
@@ -90,7 +91,7 @@ void main() {
     expect(composition.controller.reviewState, 'rejected');
     expect(find.text('succeeded: review_rejected'), findsOneWidget);
     expect(
-      composition.eventStore
+      (composition.eventStore as InMemoryEventStore)
           .readEvents()
           .map((stored) => stored.event.eventType),
       containsAll(<String>[
@@ -117,7 +118,10 @@ void main() {
       isNull,
     );
     expect(find.textContaining('先完成或跳过'), findsOneWidget);
-    expect(composition.eventStore.readEvents(), isEmpty);
+    expect(
+      (composition.eventStore as InMemoryEventStore).readEvents(),
+      isEmpty,
+    );
   });
 }
 
@@ -126,7 +130,7 @@ Future<AppComposition> _readyComposition(WidgetTester tester) async {
   await tester.pumpWidget(PersonalOsApp(composition: composition));
   await tester.tap(find.byKey(const Key('unlock-vault')));
   await tester.pump();
-  composition.controller.setConsent(true);
+  await composition.controller.setConsent(true);
   await composition.controller.analyzeBlobReference(
     blobReference: 'blob://vault/test-portrait',
     observationContext: 'front',

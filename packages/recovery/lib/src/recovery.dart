@@ -62,7 +62,8 @@ enum RecoveryErrorCode {
   securityStateRollback('SECURITY_STATE_ROLLBACK'),
   deviceRevocationApplyFailed('DEVICE_REVOCATION_APPLY_FAILED'),
   deletionTombstoneApplyFailed('DELETION_TOMBSTONE_APPLY_FAILED'),
-  consistencyFailed('RECOVERY_CONSISTENCY_FAILED');
+  consistencyFailed('RECOVERY_CONSISTENCY_FAILED'),
+  stagedStateCleanupFailed('RECOVERY_STAGED_STATE_CLEANUP_FAILED');
 
   const RecoveryErrorCode(this.wireValue);
   final String wireValue;
@@ -105,7 +106,8 @@ final class RecoverySecret {
 
   Uint8List borrowForAuthentication() {
     if (_destroyed) throw StateError('Recovery secret already destroyed');
-    return _bytes;
+    // Adapters must never retain or mutate the session's backing storage.
+    return Uint8List.fromList(_bytes);
   }
 
   void destroy() {
@@ -259,8 +261,9 @@ final class RecoverySession {
   final DateTime Function() _clock;
   final List<RecoverySessionState> _states = [RecoverySessionState.intake];
   bool _started = false;
-  bool _securityStateStageMayExist = false;
   int? _authenticatedGeneration;
+  bool _stagingStarted = false;
+  bool _stagingCommitted = false;
 
   RecoverySessionState get state => _states.last;
 
@@ -275,10 +278,11 @@ final class RecoverySession {
         _validateStatus();
 
         AuthenticatedRecoveryPayload payload;
+        final borrowedSecret = secret.borrowForAuthentication();
         try {
           payload = await _authenticator.authenticate(
             envelope,
-            secret.borrowForAuthentication(),
+            borrowedSecret,
           );
         } on RecoveryFailure catch (error) {
           if (error.code == RecoveryErrorCode.authFailed) rethrow;
@@ -286,6 +290,7 @@ final class RecoverySession {
         } catch (_) {
           throw const RecoveryFailure(RecoveryErrorCode.authFailed);
         } finally {
+          borrowedSecret.fillRange(0, borrowedSecret.length, 0);
           // Clear as soon as authentication finishes; the outer finally also
           // covers every path that rejects before authentication starts.
           secret.destroy();
@@ -311,7 +316,7 @@ final class RecoverySession {
         }
         _advance(RecoverySessionState.deviceBound);
         _advance(RecoverySessionState.securityStateSyncing);
-        _securityStateStageMayExist = true;
+        _stagingStarted = true;
 
         final snapshot = await _fetchSecurityState();
         if (!snapshot.signatureValid || !snapshot.accountBindingValid) {
@@ -348,7 +353,7 @@ final class RecoverySession {
         }
         _advance(RecoverySessionState.deletionTombstonesApplied);
         await _securityState.commitStagedState(snapshot);
-        _securityStateStageMayExist = false;
+        _stagingCommitted = true;
         _advance(RecoverySessionState.securityStateApplied);
 
         await _vaultSync.syncCiphertextOnly();
@@ -367,15 +372,21 @@ final class RecoverySession {
         _advance(RecoverySessionState.unlocked);
         return RecoveryResult._(List.unmodifiable(_states), null);
       } on RecoveryFailure catch (error) {
-        await _discardBestEffort();
-        _fail(error.code);
-        return RecoveryResult._(List.unmodifiable(_states), error.code);
+        final cleanupFailed = !await _discardBestEffort();
+        final finalCode = cleanupFailed
+            ? RecoveryErrorCode.stagedStateCleanupFailed
+            : error.code;
+        _fail(finalCode);
+        return RecoveryResult._(List.unmodifiable(_states), finalCode);
       } catch (_) {
-        await _discardBestEffort();
-        _fail(RecoveryErrorCode.consistencyFailed);
+        final cleanupFailed = !await _discardBestEffort();
+        final finalCode = cleanupFailed
+            ? RecoveryErrorCode.stagedStateCleanupFailed
+            : RecoveryErrorCode.consistencyFailed;
+        _fail(finalCode);
         return RecoveryResult._(
           List.unmodifiable(_states),
-          RecoveryErrorCode.consistencyFailed,
+          finalCode,
         );
       }
     } finally {
@@ -427,21 +438,42 @@ final class RecoverySession {
     }
   }
 
-  Future<void> _discardBestEffort() async {
-    if (!_securityStateStageMayExist) return;
+  Future<bool> _discardBestEffort() async {
+    if (!_stagingStarted || _stagingCommitted) return true;
     try {
       await _securityState.discardStagedState();
+      return true;
     } catch (_) {
-      // Recovery failure must remain the primary error.
-    } finally {
-      _securityStateStageMayExist = false;
+      return false;
     }
   }
 
   void _advance(RecoverySessionState next) {
-    if (state == RecoverySessionState.failed ||
-        state == RecoverySessionState.unlocked ||
-        next.index <= state.index) {
+    final expected = switch (state) {
+      RecoverySessionState.intake => RecoverySessionState.envelopeValidated,
+      RecoverySessionState.envelopeValidated =>
+        RecoverySessionState.packageAuthenticated,
+      RecoverySessionState.packageAuthenticated =>
+        RecoverySessionState.accountVerified,
+      RecoverySessionState.accountVerified => RecoverySessionState.deviceBound,
+      RecoverySessionState.deviceBound =>
+        RecoverySessionState.securityStateSyncing,
+      RecoverySessionState.securityStateSyncing =>
+        RecoverySessionState.deviceRevocationsApplied,
+      RecoverySessionState.deviceRevocationsApplied =>
+        RecoverySessionState.accountEpochApplied,
+      RecoverySessionState.accountEpochApplied =>
+        RecoverySessionState.deletionTombstonesApplied,
+      RecoverySessionState.deletionTombstonesApplied =>
+        RecoverySessionState.securityStateApplied,
+      RecoverySessionState.securityStateApplied =>
+        RecoverySessionState.vaultDataSyncing,
+      RecoverySessionState.vaultDataSyncing =>
+        RecoverySessionState.consistencyVerified,
+      RecoverySessionState.consistencyVerified => RecoverySessionState.unlocked,
+      RecoverySessionState.failed || RecoverySessionState.unlocked => null,
+    };
+    if (expected != next) {
       throw StateError('Recovery state cannot move backward or leave terminal');
     }
     _states.add(next);

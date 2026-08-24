@@ -311,7 +311,10 @@ String? _transition(EventEnvelope event, String? from) =>
               from == TaskState.ready.name ||
               from == TaskState.inProgress.name =>
         TaskState.stopped.name,
-      EventTypes.consentRequested when from == null =>
+      EventTypes.consentRequested
+          when from == null ||
+              from == ConsentState.revoked.name ||
+              from == ConsentState.expired.name =>
         ConsentState.requested.name,
       EventTypes.consentGranted when from == ConsentState.requested.name =>
         ConsentState.granted.name,

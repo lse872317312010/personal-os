@@ -219,6 +219,7 @@ def load_ledger(path: Path) -> dict[str, Any]:
 
 def aggregate(value: dict[str, Any], candidate_commit: str | None) -> dict[str, Any]:
     """Aggregate only explicitly selected, real candidate-bound records."""
+    validate_ledger(value)
     if candidate_commit is not None:
         _require(HEX40.fullmatch(candidate_commit) is not None,
                  "candidate_commit selector is invalid")
@@ -226,7 +227,10 @@ def aggregate(value: dict[str, Any], candidate_commit: str | None) -> dict[str, 
     selected = [
         record for record in records
         if candidate_commit is not None
+        and candidate_commit == value["candidate_commit"]
+        and value["kind"] == "real"
         and record["candidate_commit"] == candidate_commit
+        and record["kind"] in {"real", "device"}
     ]
     passed: list[bool] = []
     for gate in GATES:

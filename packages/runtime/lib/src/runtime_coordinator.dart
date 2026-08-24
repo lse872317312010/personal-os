@@ -62,8 +62,15 @@ final class RuntimeCoordinator {
   RuntimeState _state = RuntimeState.locked;
   RuntimeState get state => _state;
 
+  // Lifecycle calls may arrive concurrently from app and platform callbacks.
+  // Keep the whole transition, including cleanup, inside one serialized lane
+  // so no caller can observe or act on a half-completed transition.
+  Future<void> _transitionTail = Future<void>.value();
+
   /// Unlocks the vault before exposing storage or starting dependent services.
-  Future<void> unlock() async {
+  Future<void> unlock() => _serialize(_unlock);
+
+  Future<void> _unlock() async {
     if (_state == RuntimeState.foreground) return;
     _requireState(RuntimeState.locked);
     _state = RuntimeState.unlocking;
@@ -81,7 +88,9 @@ final class RuntimeCoordinator {
   }
 
   /// Suspends network and model access while retaining the unlocked local vault.
-  Future<void> enterBackground() async {
+  Future<void> enterBackground() => _serialize(_enterBackground);
+
+  Future<void> _enterBackground() async {
     if (_state == RuntimeState.background || _state == RuntimeState.locked)
       return;
     _requireState(RuntimeState.foreground);
@@ -97,7 +106,9 @@ final class RuntimeCoordinator {
   }
 
   /// Restarts model and sync access only after a valid background transition.
-  Future<void> enterForeground() async {
+  Future<void> enterForeground() => _serialize(_enterForeground);
+
+  Future<void> _enterForeground() async {
     if (_state == RuntimeState.foreground || _state == RuntimeState.locked)
       return;
     _requireState(RuntimeState.background);
@@ -113,7 +124,9 @@ final class RuntimeCoordinator {
   }
 
   /// Locks in dependency order: sync, model, event store, then vault.
-  Future<void> lock() async {
+  Future<void> lock() => _serialize(_lock);
+
+  Future<void> _lock() async {
     if (_state == RuntimeState.locked) return;
     if (_state == RuntimeState.closed) {
       throw const RuntimeFailure('invalid_runtime_transition');
@@ -133,7 +146,9 @@ final class RuntimeCoordinator {
   }
 
   /// Permanently closes this coordinator after enforcing the lock boundary.
-  Future<void> close() async {
+  Future<void> close() => _serialize(_close);
+
+  Future<void> _close() async {
     if (_state == RuntimeState.closed) return;
     if (_state == RuntimeState.foreground ||
         _state == RuntimeState.background) {
@@ -162,6 +177,17 @@ final class RuntimeCoordinator {
     await _attempt(_model.disable);
     await _attempt(_eventStore.makeUnavailable);
     await _attempt(_vault.lock);
+  }
+
+  Future<T> _serialize<T>(Future<T> Function() operation) {
+    final result = _transitionTail.then<T>((_) => operation());
+    // A failed transition must not poison the lane for later recovery/close
+    // calls. The returned future still carries the original stable failure.
+    _transitionTail = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace __) {},
+    );
+    return result;
   }
 }
 

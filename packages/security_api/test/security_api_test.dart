@@ -15,7 +15,7 @@ void main() {
 
     expect(session.state, VaultSessionState.locked);
     expect(
-      session.requireGrant,
+      () => session.requireGrant(),
       throwsA(_hasCode(SecurityErrorCode.vaultLocked)),
     );
     await session.unlock(reason: 'Open personal vault');
@@ -37,6 +37,68 @@ void main() {
       throwsA(_hasCode(SecurityErrorCode.unlockExpired)),
     );
     expect(session.state, VaultSessionState.locked);
+  });
+
+  test('failed re-authentication clears the previous grant', () async {
+    final port = _SequenceUnlockPort([
+      UnlockGrant.opaque(
+        id: 'grant-1',
+        expiresAt: now.add(const Duration(minutes: 1)),
+      ),
+      const SecurityException(SecurityErrorCode.unlockDenied),
+    ]);
+    final session = DefaultVaultSession(port, clock: () => now);
+
+    await session.unlock(reason: 'Open personal vault');
+    expect(session.isUnlocked, isTrue);
+
+    await expectLater(
+      session.unlock(reason: 'Re-authenticate'),
+      throwsA(_hasCode(SecurityErrorCode.unlockDenied)),
+    );
+    expect(session.state, VaultSessionState.locked);
+  });
+
+  test('security errors expose only fixed safe messages', () {
+    for (final code in SecurityErrorCode.values) {
+      final error = SecurityException(code);
+      expect(error.safeMessage, isNotEmpty);
+      expect(error.safeMessage, isNot(contains(code.wireValue)));
+      expect(error.toString(), 'SecurityException(${code.wireValue})');
+    }
+  });
+
+  test('secure vault port returns only an opaque lifecycle capability',
+      () async {
+    final grant = UnlockGrant.opaque(
+      id: 'grant-1',
+      expiresAt: now.add(const Duration(minutes: 1)),
+    );
+    final port = _FakeSecureVaultPort(now: now);
+
+    final session = await port.open(grant: grant);
+    expect(session.isActive, isTrue);
+    await port.close(session);
+    expect(session.isActive, isFalse);
+    expect(port.openCount, 1);
+    await expectLater(
+      port.close(session),
+      throwsA(_hasCode(SecurityErrorCode.vaultLocked)),
+    );
+  });
+
+  test('secure vault port rejects expired grants before opening', () async {
+    final grant = UnlockGrant.opaque(
+      id: 'grant-1',
+      expiresAt: now,
+    );
+    final port = _FakeSecureVaultPort(now: now);
+
+    await expectLater(
+      port.open(grant: grant),
+      throwsA(_hasCode(SecurityErrorCode.unlockExpired)),
+    );
+    expect(port.openCount, 0);
   });
 
   test('fake provider wraps and unwraps without returning plaintext bytes',
@@ -110,6 +172,51 @@ final class _FakeUnlockPort implements SecureUnlockPort {
   @override
   Future<UnlockGrant> requestUnlock(UnlockRequest request) async =>
       UnlockGrant.opaque(id: 'grant-1', expiresAt: expiresAt);
+}
+
+final class _SequenceUnlockPort implements SecureUnlockPort {
+  _SequenceUnlockPort(this._responses);
+
+  final List<Object> _responses;
+
+  @override
+  Future<UnlockGrant> requestUnlock(UnlockRequest request) async {
+    final response = _responses.removeAt(0);
+    if (response is SecurityException) throw response;
+    return response as UnlockGrant;
+  }
+}
+
+final class _FakeSecureVaultPort implements SecureVaultPort {
+  _FakeSecureVaultPort({required this.now});
+
+  final DateTime now;
+  var openCount = 0;
+
+  @override
+  Future<OpaqueVaultSession> open({required UnlockGrant grant}) async {
+    if (!grant.isValidAt(now)) {
+      throw const SecurityException(SecurityErrorCode.unlockExpired);
+    }
+    openCount++;
+    return _FakeOpaqueVaultSession();
+  }
+
+  @override
+  Future<void> close(OpaqueVaultSession session) async {
+    final value = session as _FakeOpaqueVaultSession;
+    if (!value.active) {
+      throw const SecurityException(SecurityErrorCode.vaultLocked);
+    }
+    value.active = false;
+  }
+}
+
+final class _FakeOpaqueVaultSession implements OpaqueVaultSession {
+  var active = true;
+
+  @override
+  bool get isActive => active;
 }
 
 final class _FakeKeyProvider implements KeyProvider {

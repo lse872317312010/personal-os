@@ -90,6 +90,10 @@ SecurityException _mapFailure(PlatformSecurityFailure failure) =>
           SecurityErrorCode.rotationConflict,
         PlatformSecurityFailureCode.deviceRevoked =>
           SecurityErrorCode.deviceRevoked,
+        PlatformSecurityFailureCode.vaultLocked =>
+          SecurityErrorCode.vaultLocked,
+        PlatformSecurityFailureCode.vaultSessionInvalid =>
+          SecurityErrorCode.vaultLocked,
         PlatformSecurityFailureCode.unavailable =>
           SecurityErrorCode.providerUnavailable,
       },

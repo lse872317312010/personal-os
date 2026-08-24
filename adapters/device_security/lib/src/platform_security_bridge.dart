@@ -63,6 +63,18 @@ final class PlatformAuthenticationTicket {
   final DateTime expiresAt;
 }
 
+/// Opaque native handle for an opened vault.
+///
+/// The adapter may pass this value back to the same bridge, but application
+/// code must never receive it. Native implementations must not encode a path,
+/// key, alias, or database connection in a value exposed outside this file's
+/// adapter boundary.
+final class PlatformVaultSession {
+  PlatformVaultSession({required String id}) : id = _nonBlank(id, 'id');
+
+  final String id;
+}
+
 final class PlatformKeyReference {
   PlatformKeyReference({
     required String id,
@@ -120,6 +132,8 @@ enum PlatformSecurityFailureCode {
   invalidEnvelope,
   rotationConflict,
   deviceRevoked,
+  vaultLocked,
+  vaultSessionInvalid,
   unavailable,
 }
 
@@ -142,6 +156,18 @@ abstract interface class PlatformSecurityBridge {
   Future<PlatformAuthenticationTicket> authenticate(
     PlatformAuthenticationRequest request,
   );
+
+  /// Opens the local vault using a short-lived authentication ticket.
+  ///
+  /// The native implementation must validate the ticket inside its trusted
+  /// boundary and keep database keys, paths, and native handles private.
+  Future<PlatformVaultSession> openVault({
+    required String authenticationTicketId,
+    required DateTime ticketExpiresAt,
+  });
+
+  /// Closes and invalidates a previously opened native vault session.
+  Future<void> closeVault({required PlatformVaultSession session});
 
   Future<PlatformKeyReference> createKey({
     required KeyPurpose purpose,

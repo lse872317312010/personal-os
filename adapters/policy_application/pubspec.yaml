@@ -13,6 +13,10 @@ dependencies:
     path: ../../packages/domain
   personal_os_policy:
     path: ../../packages/policy
+  personal_os_events:
+    path: ../../packages/events
+  personal_os_storage_api:
+    path: ../../packages/storage_api
 
 dev_dependencies:
   test: ^1.25.0
