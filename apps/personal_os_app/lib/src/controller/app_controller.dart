@@ -151,6 +151,9 @@ final class AppController extends ChangeNotifier {
     final vaultSession = _vaultSession!;
     final coordinator = _sessionCoordinator;
     final secureVault = _secureVault;
+    if (coordinator != null) {
+      coordinator.onSessionInvalidated = _handleSessionInvalidated;
+    }
     try {
       await vaultSession.unlock(reason: 'Open Personal OS vault');
       final session = coordinator != null
@@ -262,6 +265,10 @@ final class AppController extends ChangeNotifier {
   }
 
   void _handleSessionInvalidated(SecurityException error) {
+    final vaultSession = _vaultSession;
+    if (vaultSession != null) {
+      unawaited(vaultSession.lock());
+    }
     lockVault(errorCode: error.code.wireValue);
   }
 
