@@ -1,0 +1,41 @@
+name: Normalize Dart formatting
+
+on:
+  push:
+    branches:
+      - "codex/**"
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: "3.3.4"
+
+      - name: Normalize Dart source formatting
+        run: |
+          find packages adapters apps test_contract -type f -name '*.dart' -print0 \
+            | xargs -0 dart format --output=write
+
+      - name: Commit normalized formatting
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- '*.dart'
+          if git diff --cached --quiet; then
+            echo "Dart formatting already normalized"
+            exit 0
+          fi
+          git commit -m "chore: normalize Dart formatting [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
