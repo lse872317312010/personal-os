@@ -303,8 +303,34 @@ final class InMemoryEventStore implements EventStore {
 }
 
 bool _sameEventContent(EventEnvelope left, EventEnvelope right) =>
-    EventEnvelopeJsonCodec.encodeString(left) ==
-    EventEnvelopeJsonCodec.encodeString(right);
+    EventEnvelopeJsonCodec.encodeString(_idempotencyEvent(left)) ==
+    EventEnvelopeJsonCodec.encodeString(_idempotencyEvent(right));
+
+/// The expected projection revision is an optimistic-concurrency guard, not
+/// part of the event's identity. A retry may carry a newly computed guard
+/// while still representing the exact same append. All other envelope and
+/// payload fields remain part of the conflict check.
+EventEnvelope _idempotencyEvent(EventEnvelope event) {
+  final payload = Map<String, Object?>.of(event.payload)
+    ..remove('expected_revision');
+  return EventEnvelope(
+    eventId: event.eventId,
+    eventType: event.eventType,
+    eventVersion: event.eventVersion,
+    occurredAt: event.occurredAt,
+    recordedAt: event.recordedAt,
+    actor: event.actor,
+    subjectRefs: event.subjectRefs,
+    correlationId: event.correlationId,
+    causationId: event.causationId,
+    sourceRefs: event.sourceRefs,
+    consentRefs: event.consentRefs,
+    sensitivity: event.sensitivity,
+    payload: payload,
+    integrity: event.integrity,
+    extensions: event.extensions,
+  );
+}
 
 bool _isReducerConflict(String? reason) => switch (reason) {
       ReductionReason.illegalStateTransition ||
@@ -312,7 +338,6 @@ bool _isReducerConflict(String? reason) => switch (reason) {
       ReductionReason.unsupportedEventVersion ||
       ReductionReason.missingSubject ||
       ReductionReason.missingExecutionRecord ||
-      ReductionReason.invalidDeletionTombstone =>
-        true,
+      ReductionReason.invalidDeletionTombstone => true,
       _ => false,
     };
