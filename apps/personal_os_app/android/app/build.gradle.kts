@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.personalos.app"
-    compileSdk = 37
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -35,6 +35,6 @@ flutter {
 
 dependencies {
     implementation("androidx.biometric:biometric:1.1.0")
-    implementation("net.zetetic:sqlcipher-android:4.18.0@aar")
+    implementation("net.zetetic:sqlcipher-android:4.17.0@aar")
     implementation("androidx.sqlite:sqlite:2.7.0")
 }
