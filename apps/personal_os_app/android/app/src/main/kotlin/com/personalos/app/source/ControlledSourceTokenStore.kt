@@ -41,7 +41,7 @@ internal class ControlledSourceTokenStore(
             return ConsumeResult.Expired
         }
         return try {
-            when (val outcome = sink.ingest(entry.uri)) {
+            when (val outcome = sink.ingest(entry.uri, token)) {
                 is BlobSinkResult.Stored -> {
                     if (!ControlledSourceMethodChannelContract.isOpaqueBlobRef(outcome.blobRef)) {
                         ConsumeResult.WriteFailed
