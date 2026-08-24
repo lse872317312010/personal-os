@@ -79,6 +79,23 @@ class ControlledSourceTokenStoreTest {
     }
 
     @Test
+    fun releaseRetiresTokenImmediately() {
+        val store = ControlledSourceTokenStore(
+            nowMillis = { 10L },
+            tokenFactory = { "opaque_token_123456" },
+        )
+        val token = store.issue(Uri.parse("content://private/provider/5"), "session-1")
+
+        assertTrue(store.release(token))
+        assertEquals(
+            ControlledSourceTokenStore.ConsumeResult.Consumed,
+            store.consume(token, "session-1", sink(Uri.parse("content://private/provider/5")) {
+                error("retired token must not read the source")
+            }),
+        )
+    }
+
+    @Test
     fun writeFailureIsStableAndTokenCannotBeRetried() {
         val store = ControlledSourceTokenStore(
             nowMillis = { 10L },
