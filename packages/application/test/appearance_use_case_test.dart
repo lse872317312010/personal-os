@@ -59,10 +59,8 @@ void main() {
         EventTypes.taskPlanned,
       ],
     );
-    expect(store.events.every((event) => event.sensitivity == Sensitivity.d3),
-        isTrue);
-    expect(
-        store.events.every((event) => event.correlationId == 'corr-1'), isTrue);
+    expect(store.events.every((event) => event.sensitivity == Sensitivity.d3), isTrue);
+    expect(store.events.every((event) => event.correlationId == 'corr-1'), isTrue);
     expect(result.claimIds, hasLength(2));
     expect(result.taskIds, hasLength(1));
     expect(result.eventIds, hasLength(5));
@@ -100,6 +98,25 @@ void main() {
     expect(store.events, isEmpty);
   });
 
+  test('event-store failure is stable and publishes no partial loop', () async {
+    final store = _MemoryEventStore()..failAppend = true;
+    final useCase = AnalyzeAppearanceUseCase(
+      eventStore: store,
+      modelGateway: _FakeModelGateway(_completeAnalysis()),
+      policy: const _FixedPolicy(PolicyVerdict.allow()),
+      ids: _SequentialIds(),
+      clock: _FixedClock(),
+    );
+
+    await expectLater(
+      useCase.execute(_command(actor)),
+      throwsA(isA<AppearanceUseCaseFailure>()
+          .having((e) => e.code, 'code', AppearanceFailureCode.analysisFailed)
+          .having((e) => e.toString(), 'safe', isNot(contains('secret')))),
+    );
+    expect(store.events, isEmpty);
+  });
+
   test('history query uses profile subject and limit', () async {
     final store = _MemoryEventStore();
     final handler = AppearanceHistoryQueryHandler(store);
@@ -125,10 +142,8 @@ AnalyzeAppearanceCommand _command(ActorRef actor) => AnalyzeAppearanceCommand(
 
 AppearanceAnalysisResult _completeAnalysis() => AppearanceAnalysisResult(
       findings: <AppearanceFinding>[
-        AppearanceFinding(
-            dimension: 'hair', statement: '顶部体积不足', confidence: .8),
-        AppearanceFinding(
-            dimension: 'skin', statement: '肤色略不均', confidence: .7),
+        AppearanceFinding(dimension: 'hair', statement: '顶部体积不足', confidence: .8),
+        AppearanceFinding(dimension: 'skin', statement: '肤色略不均', confidence: .7),
       ],
       actions: <AppearanceActionSuggestion>[
         AppearanceActionSuggestion(title: '尝试纹理短发', rationale: '增强顶部轮廓'),
@@ -139,12 +154,14 @@ AppearanceAnalysisResult _completeAnalysis() => AppearanceAnalysisResult(
 final class _MemoryEventStore implements EventStore {
   final events = <EventEnvelope>[];
   int appendCalls = 0;
+  bool failAppend = false;
   ObjectRef? lastReadSubject;
   int? lastReadLimit;
 
   @override
   Future<void> appendAll(List<EventEnvelope> events) async {
     appendCalls++;
+    if (failAppend) throw StateError('secret adapter detail');
     this.events.addAll(events);
   }
 
@@ -170,8 +187,7 @@ final class _FakeModelGateway implements AppearanceAnalysisGateway {
   int calls = 0;
 
   @override
-  Future<AppearanceAnalysisResult> analyze(
-      AppearanceAnalysisInput input) async {
+  Future<AppearanceAnalysisResult> analyze(AppearanceAnalysisInput input) async {
     calls++;
     return result;
   }
