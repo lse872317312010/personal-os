@@ -237,7 +237,7 @@ void main() {
     );
     expect(controller.result, isNotNull);
 
-    coordinator.invalidate(const SecurityErrorCode.unlockExpired);
+    coordinator.invalidate(SecurityErrorCode.unlockExpired);
 
     expect(controller.vaultUnlocked, isFalse);
     expect(controller.result, isNull);
@@ -405,6 +405,9 @@ final class _FakeVaultSession implements VaultSession {
 
   @override
   VaultSessionState get state => _state;
+
+  @override
+  bool get isUnlocked => state == VaultSessionState.unlocked;
 
   @override
   Future<void> unlock({required String reason}) async {
