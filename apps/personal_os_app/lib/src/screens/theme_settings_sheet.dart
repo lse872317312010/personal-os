@@ -23,8 +23,7 @@ class ThemeSettingsSheet extends StatelessWidget {
                 ),
               ),
               for (final mode in ThemeMode.values)
-                if (mode != ThemeMode.light || true)
-                  RadioListTile<ThemeMode>(
+                RadioListTile<ThemeMode>(
                     key: Key('theme-option-${mode.name}'),
                     value: mode,
                     groupValue: controller.mode,
