@@ -35,17 +35,23 @@ device evidence.
 
 `MainActivity` also registers `personal_os/internal/controlled_source`. Its
 Photo Picker capability uses Android's system `PickVisualMedia` contract and
-requests no media/storage permission. The selected `Uri` stays native. Dart
-receives a short-lived opaque token; consuming it streams through the native
-Vault blob sink and returns only an opaque `blob://...` reference. The Dart
-application then records the observation and calls the existing analysis use
-case with that reference.
+requests no media/storage permission. Camera capture is wired separately and
+requests `android.permission.CAMERA` explicitly at capture time. The native
+capture allocates an app-private cache file under `camera_capture`, exposes it
+to the camera through the non-exported Android `FileProvider`, and keeps the
+`Uri`, file, and bytes native. Dart receives only a short-lived opaque source
+token; consuming it streams through the native Vault blob sink and returns only
+an opaque `blob://...` reference. The Dart application then records the
+observation and calls the existing analysis use case with that reference.
 
-The source contract reports `photoPicker: true` and `camera: false` in the
-current Android implementation. `capturePhoto` is deliberately unavailable;
-there is no CameraX/FileProvider path. Native token lifetime, resolver access,
-blob writing, deletion, and channel failures are fail-closed by stable codes,
-but none of this has been compiled or exercised on a device in this workspace.
+The source contract reports `photoPicker: true` and `camera: true` in the
+current Android implementation. `capturePhoto` requests permission before
+launching the camera, and cancellation, denial, failed capture, invalid session,
+token release/expiry, and channel teardown clean up the cache file. If cache
+cleanup fails after native blob ingestion, the stored blob is deleted as a
+rollback and a stable failure code is returned. These are implementation claims;
+none has been compiled or exercised on an Android runtime, Redmi device, or
+production environment here.
 
 ## Channel contract
 
@@ -120,9 +126,9 @@ older split-column table is rejected; no lossy migration is attempted.
 - Session expiry is scheduled natively and closes the database handle. Channel
   teardown and `MainActivity.onDestroy` cancel prompts, wipe pending ticket
   keys, close all database handles, and stop worker executors.
-- Keystore hardware backing, StrongBox, Redmi-device behavior, migration from
-  any pre-existing plaintext file, rekey, deletion, export, and real-device
-  evidence are unverified.
+- Keystore hardware backing, StrongBox, Camera/Photo Picker runtime behavior,
+  Redmi-device behavior, migration from any pre-existing plaintext file, rekey,
+  deletion, export, real-model behavior, and real-device evidence are unverified.
 - Channel errors return only stable codes and fixed safe messages; `details` is
   always null. Raw exceptions, paths, aliases, and stack traces never cross
   the channel. Event-content conflicts use only the fixed conflict code and
@@ -130,5 +136,5 @@ older split-column table is rejected; no lossy migration is attempted.
 
 The native vault and controlled-source implementations must remain compatible
 with their Dart contracts. Their presence in the Android composition is an
-implementation claim only; it is not SQLCipher, Photo Picker, Redmi, or
-production verification.
+implementation claim only; it is not Android compile/runtime, SQLCipher,
+Camera/Photo Picker, Redmi, real-model, or production verification.

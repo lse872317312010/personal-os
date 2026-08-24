@@ -38,9 +38,14 @@ secure composition, the user-visible Photo Picker path is:
 `Photo Picker Uri → native opaque source token → native Vault blob sink → opaque BlobRef → RecordObservation → AnalyzeAppearanceUseCase`
 
 The Uri, stream, paths, provider metadata, and blob bytes remain native; Dart
-receives only opaque values. This is an implemented contract and wiring path,
-not a runtime or production proof. Camera capture is not implemented: the
-native capability reports `camera: false` and `capturePhoto` is unavailable.
+receives only opaque values. Camera capture is also wired through an explicit
+capture-time camera permission request, an app-private cache file exposed only
+through Android `FileProvider`, an opaque native source token, and the native
+Vault blob sink. Cancellation, permission denial, capture failure, token
+release/expiry, cache cleanup failure, and post-ingest cleanup failure use
+stable fail-closed outcomes; if cleanup fails after a blob is written, the
+stored blob is rolled back. These are implemented contract and wiring claims,
+not Android compile/runtime, Redmi, production, or real-model proof.
 
 ## Boundary rules
 
@@ -73,9 +78,11 @@ GitHub Actions, or SQLCipher production verification.
 ## Android MVP build and Redmi Turbo install
 
 The checked-in Android host contains its Gradle settings, application module,
-Kotlin activity, themes, and a restrictive manifest. It intentionally declares
-no internet, camera, microphone, location, contacts, or shared-storage
-permission. Android backup and cleartext traffic are disabled.
+Kotlin activity, themes, and a restrictive manifest. It declares no internet,
+microphone, location, contacts, or shared-storage permission; Camera permission
+is requested explicitly only when capture starts. Camera output is staged in an
+app-private cache directory exposed through `FileProvider`. Android backup and
+cleartext traffic are disabled.
 
 The Gradle wrapper launcher/JAR is generated locally from the installed Flutter
 SDK template and ignored by Git. This avoids checking a generated binary into
@@ -108,7 +115,8 @@ Flutter, Dart, and Android SDK/Gradle tooling were unavailable in the authoring
 environment. The files and dependency directions were statically reviewed, but
 `flutter pub get`, `flutter analyze`, tests, APK assembly, Redmi Turbo
 installation, biometric unlock, SQLCipher production behavior, crash/cold-start
-recovery, and camera/photo-picker integration are **not verified**.
+recovery, Camera/Photo Picker integration, and real-model behavior are **not
+verified**.
 
 When a Flutter SDK is available, use the scripts above or run:
 
