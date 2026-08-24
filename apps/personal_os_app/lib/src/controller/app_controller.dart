@@ -480,8 +480,9 @@ final class AppController extends ChangeNotifier {
         acquire: () => _sourcePort!.capturePhoto(),
         observationContext: observationContext,
       );
+
   Future<void> _analyzeSourceAndAnalyze({
-  required Future<OpaqueSourceToken> Function() acquire,
+    required Future<OpaqueSourceToken> Function() acquire,
     required String observationContext,
   }) async {
     if (!_vaultUnlocked) {
