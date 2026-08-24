@@ -21,6 +21,39 @@ void main() {
     authoritySource: 'local-session',
   );
 
+  IngestAppearanceFromSourceUseCase _useCase(
+    _SourceIngestion ingestion,
+    _Store store,
+    _Model model,
+  ) =>
+      IngestAppearanceFromSourceUseCase(
+        ingestion: ingestion,
+        recordObservation: RecordObservationUseCase(
+          eventStore: store,
+          ids: _Ids(),
+          clock: _Clock(),
+        ),
+        analyzeAppearance: AnalyzeAppearanceUseCase(
+          eventStore: store,
+          modelGateway: model,
+          policy: const _Policy(),
+          ids: _Ids(),
+          clock: _Clock(),
+        ),
+      );
+
+  IngestAppearanceFromSourceCommand _command() =>
+      IngestAppearanceFromSourceCommand(
+        source: source,
+        mediaType: 'image/jpeg',
+        access: access,
+        profileId: EntityId('profile-1'),
+        observationContext: 'profile appearance capture',
+        consentRef: consent,
+        actor: actor,
+        correlationId: 'corr-appearance-source',
+      );
+
   test('success passes only token in and BlobRef into events and analysis',
       () async {
     final ingestion = _SourceIngestion();
@@ -102,38 +135,6 @@ void main() {
     expect(store.events, hasLength(1));
   });
 
-  IngestAppearanceFromSourceUseCase _useCase(
-    _SourceIngestion ingestion,
-    _Store store,
-    _Model model,
-  ) =>
-      IngestAppearanceFromSourceUseCase(
-        ingestion: ingestion,
-        recordObservation: RecordObservationUseCase(
-          eventStore: store,
-          ids: _Ids(),
-          clock: _Clock(),
-        ),
-        analyzeAppearance: AnalyzeAppearanceUseCase(
-          eventStore: store,
-          modelGateway: model,
-          policy: const _Policy(),
-          ids: _Ids(),
-          clock: _Clock(),
-        ),
-      );
-
-  IngestAppearanceFromSourceCommand _command() =>
-      IngestAppearanceFromSourceCommand(
-        source: source,
-        mediaType: 'image/jpeg',
-        access: access,
-        profileId: EntityId('profile-1'),
-        observationContext: 'profile appearance capture',
-        consentRef: consent,
-        actor: actor,
-        correlationId: 'corr-appearance-source',
-      );
 }
 
 Iterable<Object?> _flatten(Object? value) sync* {
