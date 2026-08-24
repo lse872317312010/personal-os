@@ -46,6 +46,26 @@ class ControlledSourceMethodChannelContractTest {
     }
 
     @Test
+    fun readFailureUsesStableCode() {
+        assertEquals(
+            mapOf("errorCode" to "source.read_failed"),
+            ControlledSourceMethodChannelContract.safeFailure(
+                ControlledSourceMethodChannelContract.ERROR_READ_FAILED,
+            ),
+        )
+    }
+
+    @Test
+    fun safeFailureNeverIncludesNativeDetails() {
+        assertEquals(
+            mapOf("errorCode" to "source.unavailable"),
+            ControlledSourceMethodChannelContract.safeFailure(
+                "SecurityException: content://private/provider/1",
+            ),
+        )
+    }
+
+    @Test
     fun safeTokenResultContainsNoSourceMetadata() {
         assertEquals(
             mapOf("token" to "native_photo_token_01"),

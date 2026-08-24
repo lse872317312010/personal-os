@@ -87,6 +87,17 @@ See `tool/android_mvp/README.md` for the USB-debugging and HyperOS checklist.
 The scripts do not collect device IDs, logcat, bug reports, screenshots, or
 phone files.
 
+## Controlled Android source entry
+
+The Android host registers the system Photo Picker through
+`ActivityResultContracts.PickVisualMedia`. It requests no media or storage
+permission. The selected `Uri` remains in the native resolver boundary; Dart
+receives only a random opaque token. Native token ownership is one-shot,
+five-minute bounded, and explicitly releasable. Native consume checks resolver
+readability and returns only stable error codes. This contract does not expose
+bytes, paths, URIs, provider metadata, aliases, or raw exceptions and does not
+implement camera capture or AI analysis.
+
 ## Verification status
 
 Flutter, Dart, and Android SDK/Gradle tooling were unavailable in the authoring
