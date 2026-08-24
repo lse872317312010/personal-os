@@ -42,13 +42,12 @@ abstract final class PersistenceErrorCode {
 
 /// Public persistence failure with a fixed safe message.
 ///
-/// It extends [StateError] for compatibility with the original candidate
-/// adapters. The inherited [StateError.message] is a stable reason token, not
-/// an exception detail. Callers that need user-facing text must use
-/// [safeMessage].
-class PersistenceException extends StateError {
+/// This is deliberately an adapter-neutral exception rather than a platform
+/// error. The public [message] is a stable reason token, not exception detail;
+/// callers that need user-facing text must use [safeMessage].
+class PersistenceException implements Exception {
   const PersistenceException._(this.code, String stableReason)
-      : super(stableReason);
+      : message = stableReason;
 
   const PersistenceException.d4PersistenceForbidden()
       : this._(
@@ -72,6 +71,7 @@ class PersistenceException extends StateError {
       : this._(PersistenceErrorCode.writeFailed, 'write_failed');
 
   final String code;
+  final String message;
 
   String get safeMessage => _safeMessages[code]!;
 
@@ -112,16 +112,15 @@ const _safeMessages = <String, String>{
   PersistenceErrorCode.transactionFailed:
       'The local storage operation was rolled back.',
   PersistenceErrorCode.readFailed: 'The local state could not be read safely.',
-  PersistenceErrorCode.writeFailed:
-      'The local state could not be written safely.',
+  PersistenceErrorCode.writeFailed: 'The local state could not be written safely.',
   PersistenceErrorCode.vaultLocked: 'The local vault is locked.',
   PersistenceErrorCode.authenticationRequired: 'Authentication is required.',
   PersistenceErrorCode.authenticationFailed: 'Authentication failed.',
   PersistenceErrorCode.keyUnavailable: 'The local security key is unavailable.',
   PersistenceErrorCode.keyRevoked: 'The local security key is revoked.',
   PersistenceErrorCode.corrupted: 'The local state could not be trusted.',
-  PersistenceErrorCode.unsupported:
-      'This local storage operation is unsupported.',
+  PersistenceErrorCode.unsupported: 'This local storage operation is unsupported.',
   PersistenceErrorCode.notFound: 'The requested local state was not found.',
   PersistenceErrorCode.unavailable: 'Local storage is temporarily unavailable.',
 };
+
