@@ -22,14 +22,14 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('analysis-consent')),
       300,
-      scrollable: find.byType(ListView).first,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.tap(find.byKey(const Key('analysis-consent')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('analyze-reference')),
       300,
-      scrollable: find.byType(ListView).first,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.tap(find.byKey(const Key('analyze-reference')));
     await tester.pumpAndSettle();
@@ -65,7 +65,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('analyze-reference')),
       300,
-      scrollable: find.byType(ListView).first,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.tap(find.byKey(const Key('analyze-reference')));
     await tester.pump();
