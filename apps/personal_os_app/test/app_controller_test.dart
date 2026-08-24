@@ -68,6 +68,29 @@ void main() {
     expect(gateway.eventTypesAtCall, contains('observation.recorded'));
   });
 
+  test('failed retry clears the prior success and stays out of claims',
+      () async {
+    final gateway = _CountingGateway();
+    final controller = _controller(gateway)..unlockVault();
+    await controller.setConsent(true);
+    await controller.analyzeBlobReference(
+      blobReference: 'blob://vault/one',
+      observationContext: 'front',
+    );
+    expect(controller.result, isNotNull);
+
+    gateway.fail = true;
+    await controller.analyzeBlobReference(
+      blobReference: 'blob://vault/two',
+      observationContext: 'front',
+    );
+
+    expect(controller.submission, SubmissionStatus.failed);
+    expect(controller.errorCode, AppearanceFailureCode.analysisFailed);
+    expect(controller.result, isNull);
+    expect(controller.completedStep, 0);
+  });
+
   test('observation failure is fail-closed before any gateway call', () async {
     final gateway = _CountingGateway();
     final controller = _controller(gateway, withObservation: true)
@@ -347,6 +370,7 @@ AppController _controller(
 
 final class _CountingGateway implements AppearanceAnalysisGateway {
   int calls = 0;
+  bool fail = false;
   InMemoryEventStore? eventStore;
   List<String> eventTypesAtCall = const <String>[];
 
@@ -354,6 +378,7 @@ final class _CountingGateway implements AppearanceAnalysisGateway {
   Future<AppearanceAnalysisResult> analyze(
       AppearanceAnalysisInput input) async {
     calls++;
+    if (fail) throw StateError('test failure');
     eventTypesAtCall =
         eventStore?.readEvents().map((e) => e.event.eventType).toList() ??
             const <String>[];
