@@ -55,16 +55,16 @@ void main() {
       expect(db.projections['goal:goal-1']?['revision'], 1);
     });
 
-    test('retry with a different expected revision remains idempotent',
-        () async {
+    test('retry revision guard remains idempotent', () async {
       final db = FakeSqlExecutor();
       final store = SqliteVaultEventStore(db);
 
       await store.appendAll(<EventEnvelope>[_goal('e1')]);
       await store.appendAll(<EventEnvelope>[
-        _goal('e1', payload: const <String, Object?>{
-          'expected_revision': 999,
-        }),
+        _goal(
+          'e1',
+          payload: const <String, Object?>{'expected_revision': 999},
+        ),
       ]);
 
       expect(db.events, hasLength(1));
