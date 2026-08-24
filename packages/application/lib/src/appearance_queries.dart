@@ -3,7 +3,9 @@ import 'package:personal_os_events/events.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 
 final class GetAppearanceHistoryQuery {
-  const GetAppearanceHistoryQuery({required this.profileId, this.limit = 50})
+  /// Matches the current native adapter cap so bootstrap never silently keeps
+  /// only the oldest 50 events. Pagination is required before this cap grows.
+  const GetAppearanceHistoryQuery({required this.profileId, this.limit = 1000})
       : assert(limit > 0);
 
   final EntityId profileId;
