@@ -5,8 +5,9 @@ application composition boundaries are intended to support Windows and iOS.
 
 ## Implemented review surface
 
-- explicit Vault lock gate; the default composition is clearly labeled as a
-  synthetic in-memory demo;
+- explicit Vault lock gate; Android selects the secure composition by default,
+  while the synthetic in-memory composition remains explicit for tests and
+  previews;
 - Home → observation capture → Claim review → Plan → Task → Review navigation;
 - `AnalyzeAppearanceUseCase` wired through application ports;
 - real `AppearancePolicyAdapter` authorization against an exact-revision
@@ -41,20 +42,21 @@ Vault adapter owns encrypted blob ingestion and returns the reference.
 5. The UI consent switch writes a consent event through
    `ConsentLifecycleUseCase`; `AppearancePolicyAdapter` independently checks
    subject, actor, scope, D3 ceiling, status, revision, and validity.
-6. The default demo event store is in-memory. The secure composition persists
-   event JSON through the native SQLCipher Vault, but native compilation,
+6. The non-Android/demo event store is in-memory. The Android runtime
+   composition persists event JSON through the native SQLCipher Vault, but
+   native compilation,
    integration tests, SQLCipher production behavior, and crash/cold-start
    recovery are not verified here. Consent events in the demo prove the
    lifecycle contract only.
 7. `adapters/model_fixture` is a deterministic demo/test adapter. It does not
    open the blob, inspect a person, or provide production AI analysis.
 
-The composition root exposes `AppExperienceMode`. `syntheticDemo` remains the
-default entry point and keeps synthetic/offline wording consistent. The
-`secureVault` composition now explicitly connects platform authentication plus
-encrypted persistence; it must still pass compilation, integration, and device
-evidence gates before being treated as production-ready. This app does not
-claim Redmi, GitHub Actions, or SQLCipher production verification.
+The composition root exposes `AppExperienceMode`. Android uses `secureVault` at
+runtime; `syntheticDemo` remains available through an explicit factory for
+tests/previews and for platforms without an equivalent secure adapter. The
+secure path must still pass compilation, integration, and device evidence gates
+before being treated as production-ready. This app does not claim Redmi,
+GitHub Actions, or SQLCipher production verification.
 
 ## Android MVP build and Redmi Turbo install
 
@@ -102,3 +104,4 @@ flutter analyze
 flutter test
 flutter build apk --debug
 ```
+
