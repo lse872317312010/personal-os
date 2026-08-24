@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "adapters": {
+    "device_security": {
+      "package": "personal_os_device_security",
+      "kind": "persistence"
+    },
+    "in_memory": {
+      "package": "personal_os_in_memory",
+      "kind": "persistence"
+    },
+    "in_memory_policy": {
+      "package": "personal_os_in_memory_policy",
+      "kind": "policy"
+    },
+    "in_memory_relay": {
+      "package": "personal_os_in_memory_relay",
+      "kind": "relay"
+    },
+    "model_fixture": {
+      "package": "personal_os_model_fixture",
+      "kind": "model"
+    },
+    "policy_application": {
+      "package": "personal_os_policy_application",
+      "kind": "policy"
+    },
+    "sqlite_vault": {
+      "package": "personal_os_sqlite_vault_schema",
+      "kind": "persistence"
+    },
+    "sqlite_vault_driver": {
+      "package": "personal_os_sqlite_vault_driver",
+      "kind": "persistence"
+    }
+  }
+}
