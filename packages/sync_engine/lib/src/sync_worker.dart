@@ -324,7 +324,7 @@ final class SyncWorker {
     Map<String, int> stagedLastReceived,
     Set<String> stagedEnvelopeIds,
   ) async {
-    String? rejection = _validateMetadata(envelope);
+    final rejection = _validateMetadata(envelope);
     if (rejection != null) {
       return _PreparedReceive.rejected(
         SyncResult.rejected(rejection, envelopeId: envelope.envelopeId),
