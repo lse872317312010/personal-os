@@ -97,9 +97,9 @@ void main() {
           ids: _Ids(),
           clock: _Clock(),
         ),
-      ).execute(_buildCommand(Stream<List<int>>.multi((controller) {
+      ).execute(_buildCommand(Stream<List<int>>.multi((controller) async {
         listened = true;
-        controller.close();
+        await controller.close();
       }))),
       throwsA(isA<ObservationUseCaseFailure>().having(
         (error) => error.code,
@@ -116,10 +116,10 @@ void main() {
     final ingestion = _Ingestion()..failure = const _SafeIngestionFailure();
     var listened = false;
     final command = _buildCommand(
-      Stream<List<int>>.multi((controller) {
+      Stream<List<int>>.multi((controller) async {
         listened = true;
         controller.add(<int>[1]);
-        controller.close();
+        await controller.close();
       }),
       sensitivity: Sensitivity.d4,
     );
