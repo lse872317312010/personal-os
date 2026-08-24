@@ -36,6 +36,18 @@ final class IngestAppearanceFromSourceCommand {
   final Sensitivity sensitivity;
 }
 
+final class IngestAppearanceFromSourceResult {
+  const IngestAppearanceFromSourceResult({
+    required this.blobRef,
+    required this.observation,
+    required this.analysis,
+  });
+
+  final BlobRef blobRef;
+  final RecordObservationResult observation;
+  final AppearanceLoopResult analysis;
+}
+
 /// Composes native source streaming directly into encrypted blob storage and
 /// then runs the existing opaque-BlobRef observation/analysis loop.
 final class IngestAppearanceFromSourceUseCase {
@@ -132,6 +144,5 @@ final class IngestAppearanceFromSourceUseCase {
     } catch (_) {
       // Preserve the stable failure and never leak adapter details.
     }
-  }
   }
 }
