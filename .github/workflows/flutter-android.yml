@@ -62,7 +62,11 @@ jobs:
             echo "Android sdkmanager not found at $sdkmanager_path" >&2
             exit 1
           fi
+          # sdkmanager exits successfully after consuming the license answers;
+          # the producer side of yes may receive the expected SIGPIPE.
+          set +o pipefail
           yes | "$sdkmanager_path" --licenses >/dev/null
+          set -o pipefail
           "$sdkmanager_path" "platforms;android-37"
 
       - name: Verify repository contracts
