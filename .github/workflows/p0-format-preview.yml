@@ -1,9 +1,8 @@
 name: P0 formatter preview
 
 on:
-  push:
-    branches:
-      - codex/p0-fix-android-build-blockers
+  pull_request:
+    types: [synchronize]
 
 permissions:
   contents: read
