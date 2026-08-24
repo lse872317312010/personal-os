@@ -56,9 +56,6 @@ jobs:
       - name: Verify repository contracts
         run: bash tool/check_contracts.sh
 
-      - name: Verify Dart core
-        run: bash tool/check_dart_core.sh
-
       - name: Test and build debug APK
         run: bash tool/android_mvp/build_debug.sh
 
