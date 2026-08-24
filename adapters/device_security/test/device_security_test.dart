@@ -25,8 +25,7 @@ void main() {
     );
   });
 
-  test('reports bridge capabilities without inventing hardware support',
-      () async {
+  test('reports bridge capabilities without inventing hardware support', () async {
     bridge.capabilities = const DeviceSecurityCapabilities(
       protectionLevel: HardwareProtectionLevel.trustedEnvironment,
       userAuthenticationAvailable: true,
@@ -66,8 +65,7 @@ void main() {
   });
 
   test('key creation passes only purpose and opaque ticket ID', () async {
-    final result =
-        await keys.createKey(purpose: KeyPurpose.vaultMaster, grant: grant);
+    final result = await keys.createKey(purpose: KeyPurpose.vaultMaster, grant: grant);
 
     expect(result.id, 'native-key-1');
     expect(result.purpose, KeyPurpose.vaultMaster);
@@ -84,23 +82,20 @@ void main() {
       version: 1,
     );
 
-    final wrapped =
-        await keys.wrapKey(key: key, wrappingKey: wrapping, grant: grant);
+    final wrapped = await keys.wrapKey(key: key, wrappingKey: wrapping, grant: grant);
     input[0] = 0;
     final firstRead = wrapped.ciphertext;
     firstRead[1] = 0;
 
     expect(wrapped.ciphertext, [8, 9, 10]);
 
-    await keys.unwrapKey(
-        wrappedKey: wrapped, wrappingKey: wrapping, grant: grant);
+    await keys.unwrapKey(wrappedKey: wrapped, wrappingKey: wrapping, grant: grant);
     final captured = bridge.lastWrappedKey!.ciphertext;
     captured[2] = 0;
     expect(bridge.lastWrappedKey!.ciphertext, [8, 9, 10]);
   });
 
-  test('revocation is one atomic bridge call and returns rotated epoch',
-      () async {
+  test('revocation is one atomic bridge call and returns rotated epoch', () async {
     final current = KeyHandle(
       id: 'epoch-2',
       purpose: KeyPurpose.accountEpoch,
@@ -137,10 +132,8 @@ void main() {
     );
   });
 
-  test('destroy delegates by opaque reference and authentication ticket',
-      () async {
-    final key =
-        KeyHandle(id: 'delete-me', purpose: KeyPurpose.blob, version: 4);
+  test('destroy delegates by opaque reference and authentication ticket', () async {
+    final key = KeyHandle(id: 'delete-me', purpose: KeyPurpose.blob, version: 4);
 
     await keys.destroyKey(key: key, grant: grant);
 
@@ -148,8 +141,7 @@ void main() {
     expect(bridge.lastTicketId, grant.id);
   });
 
-  test('safe logs cannot contain reasons, IDs, ciphertext or native messages',
-      () async {
+  test('safe logs cannot contain reasons, IDs, ciphertext or native messages', () async {
     await unlock.requestUnlock(
       UnlockRequest(reason: 'SECRET reason with user details'),
     );
@@ -162,57 +154,43 @@ void main() {
       throwsA(_hasCode(SecurityErrorCode.providerUnavailable)),
     );
 
-    final rendered = log.events
-        .map((event) => <String, Object?>{
-              'operation': event.operation.name,
-              'outcome': event.outcome.name,
-              'errorCode': event.errorCode,
-            })
-        .toString();
+    final rendered = log.events.map((event) => <String, Object?>{
+          'operation': event.operation.name,
+          'outcome': event.outcome.name,
+          'errorCode': event.errorCode,
+        }).toString();
     expect(rendered, isNot(contains('SECRET')));
     expect(rendered, isNot(contains('ticket-sensitive-value')));
     expect(rendered, isNot(contains('native-key-1')));
     expect(rendered, isNot(contains('[8, 9, 10]')));
   });
 
-  test('all bridge failure codes map without exposing native exception text',
-      () {
+  test('all bridge failure codes map without exposing native exception text', () {
     const expected = <PlatformSecurityFailureCode, SecurityErrorCode>{
       PlatformSecurityFailureCode.cancelled: SecurityErrorCode.unlockCancelled,
       PlatformSecurityFailureCode.denied: SecurityErrorCode.unlockDenied,
-      PlatformSecurityFailureCode.authenticationUnavailable:
-          SecurityErrorCode.unlockUnavailable,
-      PlatformSecurityFailureCode.authenticationExpired:
-          SecurityErrorCode.unlockExpired,
+      PlatformSecurityFailureCode.authenticationUnavailable: SecurityErrorCode.unlockUnavailable,
+      PlatformSecurityFailureCode.authenticationExpired: SecurityErrorCode.unlockExpired,
       PlatformSecurityFailureCode.keyNotFound: SecurityErrorCode.keyNotFound,
-      PlatformSecurityFailureCode.purposeMismatch:
-          SecurityErrorCode.keyPurposeMismatch,
+      PlatformSecurityFailureCode.purposeMismatch: SecurityErrorCode.keyPurposeMismatch,
       PlatformSecurityFailureCode.keyDestroyed: SecurityErrorCode.keyDestroyed,
-      PlatformSecurityFailureCode.invalidEnvelope:
-          SecurityErrorCode.wrappedKeyInvalid,
-      PlatformSecurityFailureCode.rotationConflict:
-          SecurityErrorCode.rotationConflict,
-      PlatformSecurityFailureCode.deviceRevoked:
-          SecurityErrorCode.deviceRevoked,
+      PlatformSecurityFailureCode.invalidEnvelope: SecurityErrorCode.wrappedKeyInvalid,
+      PlatformSecurityFailureCode.rotationConflict: SecurityErrorCode.rotationConflict,
+      PlatformSecurityFailureCode.deviceRevoked: SecurityErrorCode.deviceRevoked,
       PlatformSecurityFailureCode.vaultLocked: SecurityErrorCode.vaultLocked,
-      PlatformSecurityFailureCode.vaultSessionInvalid:
-          SecurityErrorCode.vaultLocked,
-      PlatformSecurityFailureCode.unavailable:
-          SecurityErrorCode.providerUnavailable,
+      PlatformSecurityFailureCode.vaultSessionInvalid: SecurityErrorCode.vaultLocked,
+      PlatformSecurityFailureCode.unavailable: SecurityErrorCode.providerUnavailable,
     };
 
     for (final entry in expected.entries) {
-      final mapped =
-          mapPlatformSecurityFailure(PlatformSecurityFailure(entry.key));
+      final mapped = mapPlatformSecurityFailure(PlatformSecurityFailure(entry.key));
       expect(mapped.code, entry.value);
       expect(mapped.safeMessage, isNotEmpty);
       expect(mapped.toString(), isNot(contains('PlatformSecurityFailure')));
     }
   });
 
-  test(
-      'unexpected native authentication exception fails closed without text leakage',
-      () async {
+  test('unexpected native authentication exception fails closed without text leakage', () async {
     bridge.unexpectedFailure = StateError(
       'SECRET native biometric diagnostics and account identity',
     );
@@ -279,8 +257,7 @@ void main() {
     expect(bridge.closeCalls, 1);
   });
 
-  test('close failure still invalidates the opaque session and hides text',
-      () async {
+  test('close failure still invalidates the opaque session and hides text', () async {
     final session = await vault.open(grant: grant);
     bridge.unexpectedFailure = StateError('SECRET native handle diagnostics');
 
@@ -297,8 +274,7 @@ void main() {
     expect(log.events.last.errorCode, 'security.provider_unavailable');
   });
 
-  test('unexpected native key exception fails closed without text leakage',
-      () async {
+  test('unexpected native key exception fails closed without text leakage', () async {
     bridge.unexpectedFailure = StateError(
       'SECRET native keystore alias and device identity',
     );
@@ -352,7 +328,12 @@ final class _FakeBridge implements PlatformSecurityBridge {
 
   void _check() {
     final unexpected = unexpectedFailure;
-    if (unexpected is Exception || unexpected is Error) throw unexpected;
+    if (unexpected is Exception) {
+      throw unexpected;
+    }
+    if (unexpected is Error) {
+      throw unexpected;
+    }
     if (unexpected != null) throw StateError('unexpected native failure');
     final value = failure;
     if (value != null) throw value;
@@ -400,8 +381,7 @@ final class _FakeBridge implements PlatformSecurityBridge {
   }) async {
     _check();
     lastTicketId = authenticationTicketId;
-    return PlatformKeyReference(
-        id: 'native-key-1', purpose: purpose, version: 1);
+    return PlatformKeyReference(id: 'native-key-1', purpose: purpose, version: 1);
   }
 
   @override
@@ -472,8 +452,7 @@ final class _FakeBridge implements PlatformSecurityBridge {
   Future<void> authorizeNewData({
     required String deviceId,
     required PlatformKeyReference epochKey,
-  }) async =>
-      _check();
+  }) async => _check();
 
   @override
   Future<void> destroyKey({
@@ -485,3 +464,4 @@ final class _FakeBridge implements PlatformSecurityBridge {
     lastTicketId = authenticationTicketId;
   }
 }
+
