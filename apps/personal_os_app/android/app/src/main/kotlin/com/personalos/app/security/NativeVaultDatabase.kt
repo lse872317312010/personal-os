@@ -137,7 +137,11 @@ internal class SqlCipherVaultDatabase private constructor(
                 events.forEach { event ->
                     validateText(event.profileId, MAX_ID_LENGTH)
                     validateText(event.eventId, MAX_ID_LENGTH)
-                    validateEventJson(event.eventJson)
+                    validateEventIdentity(
+                        event.eventJson,
+                        event.eventId,
+                        event.profileId,
+                    )
 
                     val existingEventJson = existingEventJson(event.eventId)
                     if (existingEventJson != null) {
@@ -365,15 +369,40 @@ internal class SqlCipherVaultDatabase private constructor(
         }
     }
 
-    private fun validateEventJson(eventJson: String) {
+    private fun validateEventIdentity(
+        eventJson: String,
+        expectedEventId: String,
+        expectedProfileId: String,
+    ) {
         if (eventJson.isBlank() || eventJson.length > MAX_EVENT_JSON_LENGTH) {
             throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
         }
         try {
-            // Parse at the boundary so malformed JSON can never become an
-            // idempotent retry or be persisted for a later comparison.
-            JSONObject(eventJson)
+            // Parse and cross-check the untrusted channel payload before any
+            // index row or event body can be persisted.
+            val event = JSONObject(eventJson)
+            if (event.optString("event_id", null) != expectedEventId) {
+                throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+            }
+            val subjects = event.optJSONArray("subject_refs")
+                ?: throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+            var matchingProfile = false
+            for (index in 0 until subjects.length()) {
+                val subject = subjects.optJSONObject(index)
+                    ?: throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+                if (subject.optString("type", null) == "profile" &&
+                    subject.optString("id", null) == expectedProfileId
+                ) {
+                    matchingProfile = true
+                }
+            }
+            if (!matchingProfile) {
+                throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+            }
+        } catch (failure: NativeVaultFailure) {
+            throw failure
         } catch (_: Throwable) {
+            // Never expose JSON parser details across the native boundary.
             throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
         }
     }
