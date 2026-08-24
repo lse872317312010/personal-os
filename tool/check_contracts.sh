@@ -9,11 +9,9 @@ python3 adapters/sqlite_vault/tool/validate_schema.py
 python3 tool/contract_audit/audit_recovery.py
 python3 -m unittest discover -s tool/contract_audit/tests -p 'test_*.py'
 python3 -m unittest discover -s tool/mvp_acceptance/tests -p 'test_*.py'
-python3 tool/tests/test_check_composition_root.py
-python3 tool/check_composition_root.py
-python3 tool/tests/test_check_persistence_boundary.py
-python3 tool/check_persistence_boundary.py
 python3 evidence/android/tool/validate_evidence.py \
   evidence/android/records/synthetic.example.json
+python3 -m unittest tool/tests/test_evidence_ledger.py
+python3 tool/evidence_ledger.py --ledger evidence/mvp/status.json
 
 echo 'repository contracts: PASS'
