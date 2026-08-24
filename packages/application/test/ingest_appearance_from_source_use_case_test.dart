@@ -60,7 +60,8 @@ void main() {
     final store = _Store();
     final model = _Model();
 
-    final result = await _buildUseCase(ingestion, store, model).execute(_buildCommand());
+    final result =
+        await _buildUseCase(ingestion, store, model).execute(_buildCommand());
 
     expect(result.blobRef, BlobRef('blob://opaque-source-1'));
     expect(ingestion.sources, [source]);
@@ -134,7 +135,6 @@ void main() {
     expect(ingestion.discarded, [BlobRef('blob://opaque-source-1')]);
     expect(store.events, hasLength(1));
   });
-
 }
 
 Iterable<Object?> _flatten(Object? value) sync* {
