@@ -273,6 +273,7 @@ final class FakeSqlExecutor implements SqlExecutor {
       stagedProjections,
       stagedOutbox,
       projectionQueryKeys,
+      writeStages,
       failOnOutbox: failOnOutbox,
     );
     try {
@@ -296,7 +297,8 @@ final class _FakeTransaction implements SqlTransaction {
     this.subjects,
     this.projections,
     this.outbox,
-    this.projectionQueryKeys, {
+    this.projectionQueryKeys,
+    this.writeStages, {
     required this.failOnOutbox,
   });
 
@@ -305,6 +307,7 @@ final class _FakeTransaction implements SqlTransaction {
   final Map<String, SqlRow> projections;
   final Map<String, SqlRow> outbox;
   final List<String> projectionQueryKeys;
+  final List<String> writeStages;
   final bool failOnOutbox;
 
   @override
