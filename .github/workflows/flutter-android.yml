@@ -126,7 +126,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           test -s release/personal-os-latest-debug.apk
-          test -s release/personal-os-latest-debug.apk.provenance.json
+          test -s release/personal-os-latest-debug.provenance.json
           test -s release/personal-os-latest-debug.apk.sha256
           sha256sum --check release/personal-os-latest-debug.apk.sha256
 
