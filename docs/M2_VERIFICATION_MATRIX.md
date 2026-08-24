@@ -5,11 +5,11 @@
 | Gate | 验证对象 | 自动化证据 | 目标平台证据 | 当前状态 |
 |---|---|---|---|---|
 | M2-G1 | Dart core 确定性与边界 | format、analyze、unit/contract tests | 不需要 | Repository contract 已定义；当前工作区未提供 Dart SDK，证据未绑定候选 commit |
-| M2-G2 | Flutter Android shell | analyze、widget tests、APK build | Redmi Turbo 安装、冷启动、离线闭环 | 合成 UI、observation recording 与 history UI 已存在；当前工作区未提供 Flutter SDK，未编译，真机证据未取得 |
+| M2-G2 | Flutter Android shell | analyze、widget tests、APK build | Redmi Turbo 安装、冷启动、离线闭环 | secure composition、observation recording/history UI 与 controlled Photo Picker wiring 已存在；当前工作区未提供 Flutter SDK，未编译，真机证据未取得 |
 | M2-G3 | Windows portability | Windows build 与相同 core tests | Windows 启动、Vault open/close | Blocked |
 | M2-G4 | SQLCipher Vault | migration、wrong-key、rekey、rollback tests | Android/Windows 加密文件与锁定验证 | native SQLCipher database/event JSON storage 已接入 secure composition；未编译/未运行 integration tests，SQLCipher production verification 未取得 |
 | M2-G5 | Device key protection | bridge tests 与错误脱敏 | Keystore capability、认证、撤销、重启 | native Keystore authentication primitive 已实现；未编译/未运行，Android/Redmi 行为未验证 |
-| M2-G6 | Encrypted Blob | fake crypto/repository lifecycle tests、bounded ingestion contract | 大文件、进程终止、空间耗尽、crypto-erasure | adapter-neutral ingestion contract 已完成；真实加密 Blob adapter 与平台证据未取得 |
+| M2-G6 | Encrypted Blob | fake crypto/repository lifecycle tests、bounded ingestion contract | 大文件、进程终止、空间耗尽、crypto-erasure | controlled Photo Picker→native blob sink→opaque `BlobRef` wiring exists; native/runtime, large-file, interruption, crypto-erasure and production evidence 未取得 |
 | M2-G7 | E2EE sync | account isolation、AAD、gap、ACK tests | 双设备离线/补采/撤销 | Simulation only |
 | M2-G8 | Recovery | 12 fixtures、状态机与非预言机 tests | Android↔Windows 恢复、损坏/旧包演练 | 协议/fixture 级；跨设备演练未完成 |
 | M2-G9 | Privacy | D4 multi-layer rejection、secret scan | 日志/备份/系统分享面检查 | Partial |

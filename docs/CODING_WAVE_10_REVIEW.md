@@ -1,13 +1,13 @@
 # Coding Wave 10：可体验 MVP 收口
 
-状态：代码与静态门禁完成；等待 Flutter CI 生成 APK，随后进入 Redmi Turbo 真机验证。
+状态：代码与静态门禁完成；受控 Photo Picker→native blob→analysis wiring 已接入，等待 Flutter/Android 编译与 exact-commit 运行时证据，随后进入 Redmi Turbo 真机验证。
 
 ## 用户可见闭环
 
 当前 Android MVP 提供一条明确的中文离线体验路径：
 
 1. 进入本地 Vault 演示会话；
-2. 查看“不读取相册、不调用真实 AI、不上传云端”的合成示例说明；
+2. 合成 demo 不读取相册；secure Android path 可通过系统 Photo Picker 选择照片，但当前分析仍使用 synthetic model，不上传云端；
 3. 明确授予本次 D3 外貌分析同意；
 4. 生成并人工采用示例建议；
 5. 选择一个两分钟行动计划；
@@ -42,4 +42,4 @@
 - 本执行环境没有 Flutter/Dart/ADB；
 - Flutter analyze/widget tests 与 APK build 等待 GitHub Actions；
 - Redmi Turbo 安装、冷启动、进程死亡、重启、权限拒绝与恢复演练尚未执行；
-- 当前仍是内存 + synthetic model 的体验版，重启后不保留数据，也不分析真实照片。
+- Photo Picker、native blob sink 和 application wiring 已实现但未运行时验证；Camera 仍不可用；当前模型仍是 synthetic fixture，不代表真实照片分析。Android durable-vault、冷启动/重启、Redmi 和 production 行为仍未验证。

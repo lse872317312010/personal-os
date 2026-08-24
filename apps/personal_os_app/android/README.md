@@ -31,6 +31,22 @@ this workspace. Therefore this review did not claim JVM/Kotlin compilation,
 SQLCipher runtime behavior, Keystore behavior, migration execution, or Redmi
 device evidence.
 
+## Controlled source channel
+
+`MainActivity` also registers `personal_os/internal/controlled_source`. Its
+Photo Picker capability uses Android's system `PickVisualMedia` contract and
+requests no media/storage permission. The selected `Uri` stays native. Dart
+receives a short-lived opaque token; consuming it streams through the native
+Vault blob sink and returns only an opaque `blob://...` reference. The Dart
+application then records the observation and calls the existing analysis use
+case with that reference.
+
+The source contract reports `photoPicker: true` and `camera: false` in the
+current Android implementation. `capturePhoto` is deliberately unavailable;
+there is no CameraX/FileProvider path. Native token lifetime, resolver access,
+blob writing, deletion, and channel failures are fail-closed by stable codes,
+but none of this has been compiled or exercised on a device in this workspace.
+
 ## Channel contract
 
 `MainActivity` registers the private Flutter `MethodChannel`
@@ -112,7 +128,7 @@ older split-column table is rejected; no lossy migration is attempted.
   the channel. Event-content conflicts use only the fixed conflict code and
   message; event IDs and JSON are never included in channel error details.
 
-The native implementation must remain compatible with the Dart
-`PlatformSecurityBridge` contract before it can be connected to the real
-composition root.
-
+The native vault and controlled-source implementations must remain compatible
+with their Dart contracts. Their presence in the Android composition is an
+implementation claim only; it is not SQLCipher, Photo Picker, Redmi, or
+production verification.
