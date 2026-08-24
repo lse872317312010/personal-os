@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:personal_os_blob_engine/blob_engine.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
@@ -50,8 +48,12 @@ final class IngestObservationUseCase {
   final BlobIngestionContract _ingestion;
   final RecordObservationUseCase _recordObservation;
 
-  Future<RecordObservationResult> execute(
-      IngestObservationCommand command) async {
+  Future<RecordObservationResult> execute(IngestObservationCommand command) async {
+    if (_ingestion is! BlobIngestionRollback) {
+      throw const ObservationUseCaseFailure(
+        ObservationFailureCode.rollbackUnavailable,
+      );
+    }
     final blobRef = await _ingestion.ingest(
       bytes: command.bytes,
       mediaType: command.mediaType,
@@ -84,3 +86,4 @@ final class IngestObservationUseCase {
     }
   }
 }
+
