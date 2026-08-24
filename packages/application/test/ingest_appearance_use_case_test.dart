@@ -19,6 +19,39 @@ void main() {
     consentRef: 'consent:appearance-v1',
   );
 
+  IngestAppearanceAnalysisUseCase _useCase(
+    _Ingestion ingestion,
+    _Store store,
+    _Model model,
+  ) =>
+      IngestAppearanceAnalysisUseCase(
+        ingestion: ingestion,
+        recordObservation: RecordObservationUseCase(
+          eventStore: store,
+          ids: _Ids(),
+          clock: _Clock(),
+        ),
+        analyzeAppearance: AnalyzeAppearanceUseCase(
+          eventStore: store,
+          modelGateway: model,
+          policy: const _Policy(),
+          ids: _Ids(),
+          clock: _Clock(),
+        ),
+      );
+
+  IngestAppearanceAnalysisCommand _command(Stream<List<int>> bytes) =>
+      IngestAppearanceAnalysisCommand(
+        bytes: bytes,
+        mediaType: 'image/jpeg',
+        access: access,
+        profileId: EntityId('profile-1'),
+        observationContext: 'profile appearance capture',
+        consentRef: consent,
+        actor: actor,
+        correlationId: 'corr-appearance',
+      );
+
   test('success emits only opaque refs', () async {
     final ingestion = _Ingestion();
     final store = _Store();
@@ -133,38 +166,6 @@ void main() {
     expect(ingestion.discardCalls, 1);
   });
 
-  IngestAppearanceAnalysisUseCase _useCase(
-    _Ingestion ingestion,
-    _Store store,
-    _Model model,
-  ) =>
-      IngestAppearanceAnalysisUseCase(
-        ingestion: ingestion,
-        recordObservation: RecordObservationUseCase(
-          eventStore: store,
-          ids: _Ids(),
-          clock: _Clock(),
-        ),
-        analyzeAppearance: AnalyzeAppearanceUseCase(
-          eventStore: store,
-          modelGateway: model,
-          policy: const _Policy(),
-          ids: _Ids(),
-          clock: _Clock(),
-        ),
-      );
-
-  IngestAppearanceAnalysisCommand _command(Stream<List<int>> bytes) =>
-      IngestAppearanceAnalysisCommand(
-        bytes: bytes,
-        mediaType: 'image/jpeg',
-        access: access,
-        profileId: EntityId('profile-1'),
-        observationContext: 'profile appearance capture',
-        consentRef: consent,
-        actor: actor,
-        correlationId: 'corr-appearance',
-      );
 }
 
 Iterable<Object?> _flatten(Object? value) sync* {
