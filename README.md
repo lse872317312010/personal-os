@@ -1,17 +1,14 @@
 # Personal OS
 
-![Dart core](https://github.com/lse872317312010/personal-os/actions/workflows/dart-core.yml/badge.svg)
-![Dart core (Windows)](https://github.com/lse872317312010/personal-os/actions/workflows/dart-core-windows.yml/badge.svg)
-![Flutter Android](https://github.com/lse872317312010/personal-os/actions/workflows/flutter-android.yml/badge.svg)
-![Repository contracts](https://github.com/lse872317312010/personal-os/actions/workflows/repo-contracts.yml/badge.svg)
-
 一个长期演进的 **AI-native 个人决策操作系统**。
 
 它不是单一的健身、饮食、外貌或社交 App，而是把个人目标、真实状态、约束、行动、反馈和长期记忆连接起来，持续帮助用户做出更好的决策。首位 dogfooding 用户是项目创建者本人，未来保留产品化与商业化可能。
 
 ## 当前阶段
 
-项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，正在推进 **M2 技术选型与总体架构**。已冻结 Redmi Turbo / Android 为首个 Primary Vault，并选择 Flutter + Dart-first core：手机先验证完整闭环，Windows 随后复用同一核心，平台能力通过 adapters 隔离。
+项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，当前基点是 **M2-B1 · Android Secure Local MVP 实现基线**：Android Keystore 认证 primitive、native SQLCipher database/event JSON storage、secure Dart event-store/session coordinator 和 observation history UI 已接入，但当前环境未编译、未完成运行时验证，也不是可交付的 dogfood 版本。Redmi Turbo、GitHub Actions、SQLCipher production behavior 和冷启动恢复均仍需 exact-commit 证据。
+
+当前唯一开发基点为 `main`（`06d937eff01088e42cc5e43cd57cdaa1c8b1e61c`）。任何并行 Agent 都必须从当前基点创建独立分支，不能继续使用旧 Wave 分支，也不能把 SQLCipher、Keystore、冷启动恢复、GitHub Actions 或 Redmi 真机能力标记为已验证，除非提交了绑定候选 commit 的证据。
 
 ## 首批领域
 
@@ -129,4 +126,11 @@ Runtime 编排、恢复契约 CI 与 Redmi Turbo 证据 runbook 见 [Coding Wave
 
 ## 状态
 
-`M2 In Progress / Android-first Flutter Architecture`
+`M2-B1 / native durable-vault implementation present → compiled and evidence-verified pending`
+
+当前主线已经完成 M2-B1 的纯 Dart 安全边界、事件恢复/Consent 生命周期、
+native Keystore 认证 primitive、native SQLCipher database/event JSON storage、
+secure Dart event-store/session coordinator、observation history UI、Blob/Sync/Recovery
+契约加固、B2 observation/ingestion 前置契约、Android fail-closed 原生骨架和证据门禁。
+默认 Composition 仍是 synthetic/in-memory demo；当前未取得编译、GitHub Actions、
+SQLCipher production、冷启动持久化或 Redmi 真机证据，不能视为 `DOGFOOD_READY`。

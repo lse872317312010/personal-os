@@ -59,10 +59,8 @@ void main() {
         EventTypes.taskPlanned,
       ],
     );
-    expect(store.events.every((event) => event.sensitivity == Sensitivity.d3),
-        isTrue);
-    expect(
-        store.events.every((event) => event.correlationId == 'corr-1'), isTrue);
+    expect(store.events.every((event) => event.sensitivity == Sensitivity.d3), isTrue);
+    expect(store.events.every((event) => event.correlationId == 'corr-1'), isTrue);
     expect(result.claimIds, hasLength(2));
     expect(result.taskIds, hasLength(1));
     expect(result.eventIds, hasLength(5));
@@ -125,10 +123,8 @@ AnalyzeAppearanceCommand _command(ActorRef actor) => AnalyzeAppearanceCommand(
 
 AppearanceAnalysisResult _completeAnalysis() => AppearanceAnalysisResult(
       findings: <AppearanceFinding>[
-        AppearanceFinding(
-            dimension: 'hair', statement: '顶部体积不足', confidence: .8),
-        AppearanceFinding(
-            dimension: 'skin', statement: '肤色略不均', confidence: .7),
+        AppearanceFinding(dimension: 'hair', statement: '顶部体积不足', confidence: .8),
+        AppearanceFinding(dimension: 'skin', statement: '肤色略不均', confidence: .7),
       ],
       actions: <AppearanceActionSuggestion>[
         AppearanceActionSuggestion(title: '尝试纹理短发', rationale: '增强顶部轮廓'),
@@ -170,8 +166,7 @@ final class _FakeModelGateway implements AppearanceAnalysisGateway {
   int calls = 0;
 
   @override
-  Future<AppearanceAnalysisResult> analyze(
-      AppearanceAnalysisInput input) async {
+  Future<AppearanceAnalysisResult> analyze(AppearanceAnalysisInput input) async {
     calls++;
     return result;
   }
@@ -210,3 +205,4 @@ extension<T> on Iterable<T> {
     return iterator.moveNext() ? iterator.current : null;
   }
 }
+

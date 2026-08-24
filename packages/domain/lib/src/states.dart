@@ -17,3 +17,4 @@ enum TaskState {
 enum ConsentState { requested, granted, expired, revoked }
 
 enum ReviewState { draft, userReviewed, accepted, rejected }
+

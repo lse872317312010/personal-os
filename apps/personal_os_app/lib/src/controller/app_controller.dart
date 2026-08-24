@@ -1,10 +1,27 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
+import 'package:personal_os_security_api/security_api.dart';
+import 'package:personal_os_storage_api/storage_api.dart';
 
+import '../composition/native_sqlcipher_session_coordinator.dart';
 import '../navigation/app_destination.dart';
 
 enum SubmissionStatus { idle, running, succeeded, failed }
+
+/// UI-safe metadata for an observation. Blob references and event payloads
+/// deliberately never leave the application boundary.
+final class ObservationMetadata {
+  const ObservationMetadata({
+    required this.occurredAt,
+    required this.mediaType,
+  });
+
+  final DateTime occurredAt;
+  final String mediaType;
+}
 
 final class AppController extends ChangeNotifier {
   AppController({
@@ -12,12 +29,35 @@ final class AppController extends ChangeNotifier {
     required ActionFeedbackUseCase actionFeedback,
     required EntityId profileId,
     required ActorRef actor,
+    AppearanceSessionQueryHandler? sessionQuery,
+    ConsentLifecycleUseCase? consentLifecycle,
+    RecordObservationUseCase? recordObservation,
+    VaultSession? vaultSession,
+    SecureVaultPort? secureVault,
+    SecureSessionCoordinator? sessionCoordinator,
   })  : _analyzeAppearance = analyzeAppearance,
         _actionFeedback = actionFeedback,
         _profileId = profileId,
-        _actor = actor {
+        _actor = actor,
+        _sessionQuery = sessionQuery,
+        _consentLifecycle = consentLifecycle,
+        _recordObservation = recordObservation,
+        _vaultSession = vaultSession,
+        _secureVault = secureVault,
+        _sessionCoordinator = sessionCoordinator {
     if (actor.actorType != ActorType.user) {
       throw ArgumentError.value(actor.actorType, 'actor', 'must be user');
+    }
+    if (secureVault != null && sessionCoordinator != null) {
+      throw ArgumentError(
+        'secureVault and sessionCoordinator are mutually exclusive',
+      );
+    }
+    if (vaultSession == null &&
+        (secureVault != null || sessionCoordinator != null)) {
+      throw ArgumentError(
+        'vaultSession must be provided with secure session access',
+      );
     }
   }
 
@@ -25,6 +65,12 @@ final class AppController extends ChangeNotifier {
   final ActionFeedbackUseCase _actionFeedback;
   final EntityId _profileId;
   final ActorRef _actor;
+  final AppearanceSessionQueryHandler? _sessionQuery;
+  final ConsentLifecycleUseCase? _consentLifecycle;
+  final RecordObservationUseCase? _recordObservation;
+  final VaultSession? _vaultSession;
+  final SecureVaultPort? _secureVault;
+  final SecureSessionCoordinator? _sessionCoordinator;
 
   bool _vaultUnlocked = false;
   bool _consentGranted = false;
@@ -38,6 +84,12 @@ final class AppController extends ChangeNotifier {
   bool _planStarted = false;
   String? _reviewId;
   String? _reviewState;
+  List<ObservationMetadata> _observations = const <ObservationMetadata>[];
+  OpaqueVaultSession? _opaqueVaultSession;
+  bool _bootstrapped = false;
+  int _consentStateRevision = 0;
+  int _consentRevision = 0;
+  int _lifecycleEpoch = 0;
 
   bool get vaultUnlocked => _vaultUnlocked;
   bool get consentGranted => _consentGranted;
@@ -51,6 +103,10 @@ final class AppController extends ChangeNotifier {
   String? get reviewId => _reviewId;
   String? get reviewState => _reviewState;
   bool get planStarted => _planStarted;
+  List<ObservationMetadata> get observations => _observations;
+  int get observationCount => _observations.length;
+  ObservationMetadata? get latestObservation =>
+      _observations.isEmpty ? null : _observations.first;
   int get completedStep {
     if (_reviewState == 'accepted' || _reviewState == 'rejected') return 5;
     if (_reviewId != null ||
@@ -66,18 +122,216 @@ final class AppController extends ChangeNotifier {
       .any((state) => state == 'completed' || state == 'skipped');
 
   void unlockVault() {
+    if (_vaultSession != null &&
+        (_secureVault != null || _sessionCoordinator != null)) {
+      unawaited(_unlockSecureVault());
+      return;
+    }
     _vaultUnlocked = true;
     notifyListeners();
+    if (_sessionQuery != null) unawaited(bootstrap());
+  }
+
+  Future<void> _unlockSecureVault() async {
+    final epoch = ++_lifecycleEpoch;
+    try {
+      await _vaultSession!.unlock(reason: 'Open Personal OS vault');
+      final session = _sessionCoordinator != null
+          ? await _sessionCoordinator!.open(
+              grant: _vaultSession!.requireGrant(),
+            )
+          : await _secureVault!.open(
+              grant: _vaultSession!.requireGrant(),
+            );
+      if (!session.isActive) {
+        throw const SecurityException(SecurityErrorCode.providerUnavailable);
+      }
+      if (epoch != _lifecycleEpoch) {
+        if (_sessionCoordinator != null) {
+          await _sessionCoordinator!.close(session);
+        } else {
+          await _secureVault!.close(session);
+        }
+        return;
+      }
+      _opaqueVaultSession = session;
+      _vaultUnlocked = true;
+      _errorCode = null;
+      if (_sessionQuery != null) unawaited(bootstrap());
+    } on SecurityException catch (error) {
+      if (epoch != _lifecycleEpoch) return;
+      _vaultUnlocked = false;
+      _errorCode = error.code.wireValue;
+      await _vaultSession!.lock();
+    } on Object {
+      if (epoch != _lifecycleEpoch) return;
+      _vaultUnlocked = false;
+      _errorCode = SecurityErrorCode.providerUnavailable.wireValue;
+      await _vaultSession!.lock();
+    }
+    notifyListeners();
+  }
+
+  /// Rebuilds the controller's volatile view from persisted profile events.
+  ///
+  /// Consent is intentionally not inferred from the appearance session. Until
+  /// the consent lifecycle is event-backed, a recreated controller remains
+  /// denied by default.
+  Future<void> bootstrap() async {
+    if (_bootstrapped || _sessionQuery == null) return;
+    final epoch = _lifecycleEpoch;
+    try {
+      final view = await _sessionQuery!.execute(
+        GetAppearanceHistoryQuery(profileId: _profileId),
+      );
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _applySession(view);
+      _bootstrapped = true;
+    } on Object {
+      _errorCode = 'persistence.read_failed';
+    }
+    notifyListeners();
+  }
+
+  void _applySession(AppearanceSessionView view) {
+    final eventTimes = <String, DateTime>{
+      for (final event in view.events) event.eventId: event.occurredAt,
+    };
+    final observations = <ObservationMetadata>[];
+    for (final observation in view.observations) {
+      final occurredAt = eventTimes[observation.eventId];
+      if (occurredAt != null) {
+        observations.add(
+          ObservationMetadata(
+            occurredAt: occurredAt,
+            mediaType: observation.mediaType,
+          ),
+        );
+      }
+    }
+    observations.sort((a, b) => b.occurredAt.compareTo(a.occurredAt));
+    _observations = List<ObservationMetadata>.unmodifiable(observations);
+    _taskStates
+      ..clear()
+      ..addEntries(
+        view.tasks.map(
+          (task) => MapEntry<String, String>(task.id, task.state),
+        ),
+      );
+    _planStarted = view.plan != null;
+    if (view.hasAnalysis && view.goal != null && view.plan != null) {
+      _result = AppearanceLoopResult(
+        claimIds: view.claims.map((claim) => claim.id).toList(growable: false),
+        goalId: view.goal!.id,
+        planId: view.plan!.id,
+        taskIds: view.tasks.map((task) => task.id).toList(growable: false),
+        eventIds: view.events
+            .map((event) => event.eventId)
+            .toList(growable: false),
+      );
+    }
+    final review = view.review;
+    _reviewId = review?.id;
+    _reviewState = review?.state;
+    final consent = view.consent;
+    _consentGranted = consent?.state == ConsentState.granted.name;
+    _consentStateRevision = consent?.stateRevision ?? 0;
+    _consentRevision = consent?.consentRevision ?? 0;
   }
 
   void lockVault() {
+    _lifecycleEpoch++;
+    final opaqueSession = _opaqueVaultSession;
+    _opaqueVaultSession = null;
+    if (opaqueSession != null &&
+        (_secureVault != null || _sessionCoordinator != null) &&
+        _vaultSession != null) {
+      unawaited(_closeSecureVault(opaqueSession));
+    }
     _vaultUnlocked = false;
     _destination = AppDestination.home;
+    // Do not retain decrypted session state while the vault is locked. A
+    // subsequent unlock must rebuild it from the event-backed read model.
+    _result = null;
+    _taskStates.clear();
+    _planStarted = false;
+    _reviewId = null;
+    _reviewState = null;
+    _observations = const <ObservationMetadata>[];
+    _consentGranted = false;
+    _consentStateRevision = 0;
+    _consentRevision = 0;
+    _bootstrapped = false;
+    _submission = SubmissionStatus.idle;
+    _errorCode = null;
+    _feedbackSubmission = SubmissionStatus.idle;
+    _feedbackCode = null;
     notifyListeners();
   }
 
+  Future<void> _closeSecureVault(OpaqueVaultSession session) async {
+    try {
+      if (_sessionCoordinator != null) {
+        await _sessionCoordinator!.close(session);
+      } else {
+        await _secureVault!.close(session);
+      }
+    } catch (_) {
+      // The capability was already removed locally; never expose a close
+      // failure or retain a native session after the UI is locked.
+    } finally {
+      await _vaultSession!.lock();
+    }
+  }
+
   void setConsent(bool granted) {
+    if (_consentLifecycle != null) {
+      unawaited(_setPersistedConsent(granted));
+      return;
+    }
     _consentGranted = granted;
+    notifyListeners();
+  }
+
+  Future<void> _setPersistedConsent(bool granted) async {
+    if (granted == _consentGranted) return;
+    final epoch = _lifecycleEpoch;
+    try {
+      if (granted) {
+        final consentRevision = _consentRevision == 0 ? 1 : _consentRevision + 1;
+        final result = await _consentLifecycle!.grant(
+          GrantConsentCommand(
+            profileId: _profileId,
+            consentId: 'local-appearance-consent',
+            consentRevision: consentRevision,
+            expectedConsentStateRevision: _consentStateRevision,
+            actor: _actor,
+            correlationId: _correlation('grant-consent'),
+          ),
+        );
+        if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+        _consentStateRevision = result.stateRevision;
+        _consentRevision = consentRevision;
+        _consentGranted = true;
+      } else if (_consentStateRevision > 0) {
+        final result = await _consentLifecycle!.revoke(
+          RevokeConsentCommand(
+            profileId: _profileId,
+            consentId: 'local-appearance-consent',
+            consentRevision: _consentRevision,
+            expectedConsentStateRevision: _consentStateRevision,
+            actor: _actor,
+            correlationId: _correlation('revoke-consent'),
+          ),
+        );
+        if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+        _consentStateRevision = result.stateRevision;
+        _consentGranted = false;
+      }
+    } on Object {
+      _errorCode = 'consent_persistence_failed';
+      _consentGranted = false;
+    }
     notifyListeners();
   }
 
@@ -106,30 +360,68 @@ final class AppController extends ChangeNotifier {
 
     _submission = SubmissionStatus.running;
     _errorCode = null;
+    final epoch = _lifecycleEpoch;
+    final correlationId = _correlation('appearance');
     notifyListeners();
     try {
-      _result = await _analyzeAppearance.execute(
+      if (_recordObservation != null) {
+        await _recordObservation.execute(
+          RecordObservationCommand(
+            profileId: _profileId,
+            blobRef: BlobRef(blobReference),
+            mediaType: 'image/*',
+            observationContext: observationContext,
+            consentRef: ObjectRef(
+              type: 'consent',
+              id: EntityId('local-appearance-consent'),
+              revision: Revision(_activeConsentRevision),
+            ),
+            actor: _actor,
+            correlationId: correlationId,
+          ),
+        );
+        if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+        _observations = List<ObservationMetadata>.unmodifiable(
+          <ObservationMetadata>[
+            ObservationMetadata(
+              occurredAt: DateTime.now().toUtc(),
+              mediaType: 'image/*',
+            ),
+            ..._observations,
+          ],
+        );
+        notifyListeners();
+      }
+      final result = await _analyzeAppearance.execute(
         AnalyzeAppearanceCommand(
           profileId: _profileId,
           imageRef: blobReference,
           actor: _actor,
-          correlationId: 'mobile-${DateTime.now().microsecondsSinceEpoch}',
+          correlationId: correlationId,
           observationContext: observationContext,
           consentRefs: <ObjectRef>[
             ObjectRef(
               type: 'consent',
               id: EntityId('local-appearance-consent'),
-              revision: Revision(1),
+              revision: Revision(_activeConsentRevision),
             ),
           ],
         ),
       );
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _result = result;
       _submission = SubmissionStatus.succeeded;
       _destination = AppDestination.claims;
+    } on ObservationUseCaseFailure catch (error) {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _submission = SubmissionStatus.failed;
+      _errorCode = error.code;
     } on AppearanceUseCaseFailure catch (error) {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
       _submission = SubmissionStatus.failed;
       _errorCode = error.code;
     } on Object {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
       _submission = SubmissionStatus.failed;
       _errorCode = 'unexpected_failure';
     }
@@ -152,10 +444,12 @@ final class AppController extends ChangeNotifier {
       _feedbackFail('plan_not_started');
       return;
     }
+    final epoch = _lifecycleEpoch;
     await _runFeedback(() async {
       await _actionFeedback.completeTask(
         CompleteTaskCommand(
           taskId: EntityId(taskId),
+          profileId: _profileId,
           expectedTaskRevision: 1,
           actor: _actor,
           correlationId: _correlation('complete-task'),
@@ -164,6 +458,7 @@ final class AppController extends ChangeNotifier {
           consentRefs: _appearanceConsentRefs,
         ),
       );
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return 'stale';
       _taskStates[taskId] = 'completed';
       _destination = AppDestination.review;
       return 'task_completed';
@@ -175,10 +470,12 @@ final class AppController extends ChangeNotifier {
       _feedbackFail('plan_not_started');
       return;
     }
+    final epoch = _lifecycleEpoch;
     await _runFeedback(() async {
       await _actionFeedback.skipTask(
         SkipTaskCommand(
           taskId: EntityId(taskId),
+          profileId: _profileId,
           expectedTaskRevision: 1,
           actor: _actor,
           correlationId: _correlation('skip-task'),
@@ -187,6 +484,7 @@ final class AppController extends ChangeNotifier {
           consentRefs: _appearanceConsentRefs,
         ),
       );
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return 'stale';
       _taskStates[taskId] = 'skipped';
       _destination = AppDestination.review;
       return 'task_skipped';
@@ -203,17 +501,20 @@ final class AppController extends ChangeNotifier {
       _feedbackFail('review_sources_required');
       return;
     }
+    final epoch = _lifecycleEpoch;
     await _runFeedback(() async {
       final created = await _actionFeedback.createReview(
         CreateReviewCommand(
+          profileId: _profileId,
           actor: _actor,
           correlationId: _correlation('create-review'),
-          sourceRefs:
-              taskIds.map((id) => ObjectRef(type: 'task', id: EntityId(id))),
+          sourceRefs: taskIds
+              .map((id) => ObjectRef(type: 'task', id: EntityId(id))),
           sensitivity: Sensitivity.d3,
           consentRefs: _appearanceConsentRefs,
         ),
       );
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return 'stale';
       _reviewId = created.reviewId;
       _reviewState = 'draft';
       return 'review_created';
@@ -226,10 +527,12 @@ final class AppController extends ChangeNotifier {
       _feedbackFail('review_required');
       return;
     }
+    final epoch = _lifecycleEpoch;
     await _runFeedback(() async {
       await _actionFeedback.decideReview(
         DecideReviewCommand(
           reviewId: EntityId(id),
+          profileId: _profileId,
           expectedReviewRevision: 1,
           actor: _actor,
           correlationId: _correlation('decide-review'),
@@ -238,8 +541,8 @@ final class AppController extends ChangeNotifier {
           consentRefs: _appearanceConsentRefs,
         ),
       );
-      _reviewState =
-          decision == ReviewDecision.accept ? 'accepted' : 'rejected';
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return 'stale';
+      _reviewState = decision == ReviewDecision.accept ? 'accepted' : 'rejected';
       return decision == ReviewDecision.accept
           ? 'review_accepted'
           : 'review_rejected';
@@ -250,9 +553,12 @@ final class AppController extends ChangeNotifier {
         ObjectRef(
           type: 'consent',
           id: EntityId('local-appearance-consent'),
-          revision: Revision(1),
+          revision: Revision(_activeConsentRevision),
         ),
       ];
+
+  int get _activeConsentRevision =>
+      _consentRevision == 0 ? 1 : _consentRevision;
 
   String _correlation(String operation) =>
       'mobile-$operation-${DateTime.now().microsecondsSinceEpoch}';
@@ -264,14 +570,19 @@ final class AppController extends ChangeNotifier {
     }
     _feedbackSubmission = SubmissionStatus.running;
     _feedbackCode = null;
+    final epoch = _lifecycleEpoch;
     notifyListeners();
     try {
-      _feedbackCode = await operation();
+      final code = await operation();
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _feedbackCode = code;
       _feedbackSubmission = SubmissionStatus.succeeded;
     } on FeedbackUseCaseFailure catch (error) {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
       _feedbackSubmission = SubmissionStatus.failed;
       _feedbackCode = error.code;
     } on Object {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
       _feedbackSubmission = SubmissionStatus.failed;
       _feedbackCode = 'unexpected_failure';
     }

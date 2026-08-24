@@ -18,8 +18,7 @@ final class AppearanceUseCaseFailure implements Exception {
   final String? detail;
 
   @override
-  String toString() =>
-      'AppearanceUseCaseFailure($code${detail == null ? '' : ': $detail'})';
+  String toString() => 'AppearanceUseCaseFailure($code${detail == null ? '' : ': $detail'})';
 }
 
 final class AppearanceLoopResult {
@@ -175,3 +174,4 @@ final class AnalyzeAppearanceUseCase {
     );
   }
 }
+

@@ -150,8 +150,7 @@ final class InMemoryRelay implements SyncPort {
     _revokedDevices.add(deviceId);
   }
 
-  void restoreDeviceForTest(String deviceId) =>
-      _revokedDevices.remove(deviceId);
+  void restoreDeviceForTest(String deviceId) => _revokedDevices.remove(deviceId);
 
   bool isDeviceRevoked(String deviceId) => _revokedDevices.contains(deviceId);
 

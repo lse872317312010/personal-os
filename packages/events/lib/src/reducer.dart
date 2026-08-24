@@ -207,8 +207,7 @@ Map<String, ObjectProjection> _markErasedRefs(
 ) {
   final raw = event.payload['erased_refs'];
   if (raw is! List) return projections;
-  final refs =
-      raw.whereType<String>().map(_parseLooseRef).whereType<ObjectRef>();
+  final refs = raw.whereType<String>().map(_parseLooseRef).whereType<ObjectRef>();
   return _markDeletionSubjects(projections, refs, event, 'deleted');
 }
 
@@ -240,8 +239,7 @@ ReductionResult _rejected(
       reasonCode: reason,
     );
 
-String? _transition(EventEnvelope event, String? from) =>
-    switch (event.eventType) {
+String? _transition(EventEnvelope event, String? from) => switch (event.eventType) {
       EventTypes.sourceRegistered when from == null => 'registered',
       EventTypes.observationRecorded when from == null => 'recorded',
       EventTypes.baselineCreated when from == null => 'created',
@@ -279,8 +277,7 @@ String? _transition(EventEnvelope event, String? from) =>
       EventTypes.planApproved when from == PlanState.draft.name =>
         PlanState.approved.name,
       EventTypes.planActivated
-          when from == PlanState.approved.name ||
-              from == PlanState.paused.name =>
+          when from == PlanState.approved.name || from == PlanState.paused.name =>
         PlanState.active.name,
       EventTypes.planPaused when from == PlanState.active.name =>
         PlanState.paused.name,
@@ -311,7 +308,10 @@ String? _transition(EventEnvelope event, String? from) =>
               from == TaskState.ready.name ||
               from == TaskState.inProgress.name =>
         TaskState.stopped.name,
-      EventTypes.consentRequested when from == null =>
+      EventTypes.consentRequested
+          when from == null ||
+              from == ConsentState.revoked.name ||
+              from == ConsentState.expired.name =>
         ConsentState.requested.name,
       EventTypes.consentGranted when from == ConsentState.requested.name =>
         ConsentState.granted.name,

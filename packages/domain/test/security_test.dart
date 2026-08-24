@@ -8,8 +8,7 @@ void main() {
       expect(() => _actor(authoritySource: '\n'), throwsArgumentError);
       expect(() => _actor(sessionOrRunId: ' '), throwsArgumentError);
       expect(() => _actor(onBehalfOf: '\t'), throwsArgumentError);
-      expect(
-          () => _actor(capabilityRefs: ['capture', '']), throwsArgumentError);
+      expect(() => _actor(capabilityRefs: ['capture', '']), throwsArgumentError);
     });
 
     test('requires delegation identity for non-user actors', () {

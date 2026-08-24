@@ -49,6 +49,14 @@ final class VaultMigration {
 
 enum VaultLifecycleState { locked, opening, unlocked, closing, closed }
 
+/// Wire-stable failure codes exposed by this driver boundary.
+abstract final class VaultDriverFailureCode {
+  static const invalidLifecycleTransition = 'invalid_lifecycle_transition';
+  static const vaultClosed = 'vault_closed';
+  static const vaultUnlockFailed = 'vault_unlock_failed';
+  static const vaultRekeyFailed = 'vault_rekey_failed';
+}
+
 /// Stable, non-sensitive failure surfaced outside the adapter boundary.
 final class VaultDriverFailure implements Exception {
   const VaultDriverFailure(this.code);
@@ -78,11 +86,21 @@ final class VaultDriver {
   VaultKeyLease? _activeKey;
   VaultLifecycleState _state = VaultLifecycleState.locked;
 
+  // Lifecycle calls may arrive concurrently from app and platform callbacks.
+  // Keep the complete operation, including rollback and key disposal, in one
+  // lane so no operation can observe a half-completed transition.
+  Future<void> _operationTail = Future<void>.value();
+
   VaultLifecycleState get state => _state;
 
-  Future<void> unlock() async {
+  Future<void> unlock() => _serialize(_unlock);
+
+  Future<void> _unlock() async {
+    _requireNotClosed();
     if (_state != VaultLifecycleState.locked) {
-      throw const VaultDriverFailure('invalid_lifecycle_transition');
+      throw const VaultDriverFailure(
+        VaultDriverFailureCode.invalidLifecycleTransition,
+      );
     }
     _state = VaultLifecycleState.opening;
     VaultKeyLease? lease;
@@ -104,33 +122,52 @@ final class VaultDriver {
       await _bestEffortClose(connection);
       await _bestEffortDestroy(lease);
       _state = VaultLifecycleState.locked;
-      throw const VaultDriverFailure('vault_unlock_failed');
+      throw const VaultDriverFailure(VaultDriverFailureCode.vaultUnlockFailed);
     }
   }
 
-  Future<void> rekey() async {
+  Future<void> rekey() => _serialize(_rekey);
+
+  Future<void> _rekey() async {
+    _requireNotClosed();
     final connection = _connection;
-    if (_state != VaultLifecycleState.unlocked || connection == null) {
-      throw const VaultDriverFailure('invalid_lifecycle_transition');
+    final prior = _activeKey;
+    if (_state != VaultLifecycleState.unlocked ||
+        connection == null ||
+        prior == null) {
+      throw const VaultDriverFailure(
+        VaultDriverFailureCode.invalidLifecycleTransition,
+      );
     }
     VaultKeyLease? replacement;
     try {
       replacement = await _keyProvider.acquire(VaultKeyPurpose.rekey);
       _requireLive(replacement);
+      if (identical(replacement, prior)) throw StateError('same key lease');
       await connection.transaction((tx) => tx.rekey(replacement!));
     } catch (_) {
-      await _bestEffortDestroy(replacement);
-      throw const VaultDriverFailure('vault_rekey_failed');
+      if (!identical(replacement, prior)) {
+        await _bestEffortDestroy(replacement);
+      }
+      throw const VaultDriverFailure(VaultDriverFailureCode.vaultRekeyFailed);
     }
-    final prior = _activeKey;
     _activeKey = replacement;
     await _bestEffortDestroy(prior);
   }
 
-  Future<void> lock() async {
-    if (_state == VaultLifecycleState.locked) return;
+  Future<void> lock() => _serialize(_lock);
+
+  Future<void> _lock() async {
+    // Lock is idempotent even after close. This is useful to fail closed from
+    // teardown paths without introducing a second error surface.
+    if (_state == VaultLifecycleState.locked ||
+        _state == VaultLifecycleState.closed) {
+      return;
+    }
     if (_state != VaultLifecycleState.unlocked) {
-      throw const VaultDriverFailure('invalid_lifecycle_transition');
+      throw const VaultDriverFailure(
+        VaultDriverFailureCode.invalidLifecycleTransition,
+      );
     }
     _state = VaultLifecycleState.closing;
     final connection = _connection;
@@ -147,24 +184,55 @@ final class VaultDriver {
     }
   }
 
-  Future<void> close() async {
+  Future<void> close() => _serialize(_close);
+
+  Future<void> _close() async {
     if (_state == VaultLifecycleState.closed) return;
-    if (_state == VaultLifecycleState.unlocked) await lock();
+    if (_state == VaultLifecycleState.unlocked) await _lock();
     if (_state != VaultLifecycleState.locked) {
-      throw const VaultDriverFailure('invalid_lifecycle_transition');
+      throw const VaultDriverFailure(
+        VaultDriverFailureCode.invalidLifecycleTransition,
+      );
     }
     _state = VaultLifecycleState.closed;
   }
 
+  Future<T> _serialize<T>(Future<T> Function() operation) {
+    final result = _operationTail.then<T>((_) => operation());
+    // Preserve the original stable failure for the caller, but keep the lane
+    // usable for a later lock/close or recovery operation.
+    _operationTail = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace __) {},
+    );
+    return result;
+  }
+
+  void _requireNotClosed() {
+    if (_state == VaultLifecycleState.closed) {
+      throw const VaultDriverFailure(VaultDriverFailureCode.vaultClosed);
+    }
+  }
+
   Future<void> _migrate(VaultTransaction tx) async {
     var version = await tx.readSchemaVersion();
-    for (final migration in _migrations) {
-      if (migration.fromVersion == version) {
-        await tx.executeMigration(migration);
-        version = migration.toVersion;
-      }
+    if (_migrations.isEmpty) return;
+
+    final first = _migrations.first.fromVersion;
+    final target = _migrations.last.toVersion;
+    if (version < first || version > target) {
+      throw StateError('unsupported schema version');
     }
-    final target = _migrations.isEmpty ? version : _migrations.last.toVersion;
+
+    for (final migration in _migrations) {
+      if (migration.fromVersion < version) continue;
+      if (migration.fromVersion != version) {
+        throw StateError('unsupported schema version');
+      }
+      await tx.executeMigration(migration);
+      version = migration.toVersion;
+      if (version == target) break;
+    }
     if (version != target) throw StateError('unsupported schema version');
   }
 

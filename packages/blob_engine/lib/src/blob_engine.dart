@@ -6,6 +6,7 @@ import 'package:personal_os_security_api/security_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 
 import 'blob_cryptography_port.dart';
+import 'blob_ingestion_contract.dart';
 import 'ciphertext_blob_repository.dart';
 
 enum BlobEngineEvent {
@@ -20,7 +21,21 @@ enum BlobEngineEvent {
 typedef SafeBlobEngineLog = void Function(BlobEngineEvent event);
 
 final class BlobEngineException implements Exception {
-  const BlobEngineException(this.code);
+  const BlobEngineException(this.code)
+      : assert(
+          code == 'consent_required' ||
+              code == 'put_failed' ||
+              code == 'open_failed' ||
+              code == 'metadata_failed' ||
+              code == 'delete_failed' ||
+              code == 'ciphertext_cleanup_failed' ||
+              code == 'blob_not_found' ||
+          code == 'invalid_blob_key' ||
+          code == 'invalid_blob_metadata' ||
+          code == 'plaintext_length_mismatch' ||
+          code == 'consent_mismatch',
+          'unstable blob error code',
+        );
 
   final String code;
 
@@ -48,6 +63,7 @@ final class EncryptedBlobEngine implements BlobStore {
   final BlobCryptographyPort _cryptography;
   final SafeBlobEngineLog? _safeLog;
   final DateTime Function() _clock;
+  final Set<BlobRef> _cryptoErased = <BlobRef>{};
 
   @override
   Future<BlobRef> put({
@@ -59,6 +75,7 @@ final class EncryptedBlobEngine implements BlobStore {
     // Mandatory before opening a transaction, creating a key, or listening to
     // the caller's stream. Consent cannot override this invariant.
     validateBlobPersistenceSensitivity(sensitivity);
+    _requireConsent(access);
 
     CiphertextBlobWrite? write;
     BlobSealSession? seal;
@@ -75,16 +92,38 @@ final class EncryptedBlobEngine implements BlobStore {
         onLength: (length) => plaintextLength += length,
       );
       await write.write(seal.seal(plaintext));
-      await write.commit(
-        CiphertextBlobMetadata(
-          key: seal.key,
-          mediaType: mediaType,
-          plaintextLength: plaintextLength,
-          sensitivity: sensitivity,
-          createdAt: _clock().toUtc(),
-        ),
-      );
+      try {
+        await write.commit(
+          CiphertextBlobMetadata(
+            key: seal.key,
+            mediaType: mediaType,
+            consentRef: access.consentRef!,
+            plaintextLength: plaintextLength,
+            sensitivity: sensitivity,
+            createdAt: _clock().toUtc(),
+          ),
+        );
+      } on ArgumentError {
+        throw const BlobEngineException('invalid_blob_metadata');
+      }
       return write.ref;
+    } on BlobIngestionException {
+      _safeLog?.call(BlobEngineEvent.putFailed);
+      if (write != null) {
+        try {
+          await write.abort();
+        } on Object {
+          // The repository contract still requires partials to be inaccessible.
+        }
+      }
+      if (seal != null) {
+        try {
+          await _cryptography.destroyKey(seal.key);
+        } on Object {
+          // Preserve the original failure; no committed ciphertext is readable.
+        }
+      }
+      rethrow;
     } on Object {
       _safeLog?.call(BlobEngineEvent.putFailed);
       if (write != null) {
@@ -111,14 +150,23 @@ final class EncryptedBlobEngine implements BlobStore {
     required BlobAccessContext access,
     BlobByteRange? range,
   }) async* {
+    _requireConsent(access);
     try {
       final record = await _repository.open(ref, access: access);
       if (record == null) throw const BlobEngineException('blob_not_found');
+      _validateRecord(record, access);
       final plaintext = _cryptography.open(
         key: record.metadata.key,
         ciphertext: record.ciphertext,
       );
-      yield* _rangeAndZeroize(plaintext, range);
+      yield* _rangeAndZeroize(
+        plaintext,
+        range,
+        expectedLength: record.metadata.plaintextLength,
+      );
+    } on BlobEngineException {
+      _safeLog?.call(BlobEngineEvent.openFailed);
+      rethrow;
     } on Object {
       _safeLog?.call(BlobEngineEvent.openFailed);
       throw const BlobEngineException('open_failed');
@@ -130,9 +178,11 @@ final class EncryptedBlobEngine implements BlobStore {
     BlobRef ref, {
     required BlobAccessContext access,
   }) async {
+    _requireConsent(access);
     try {
       final value = await _repository.metadata(ref, access: access);
       if (value == null) throw const BlobEngineException('blob_not_found');
+      _validateMetadata(value, access);
       return BlobMetadata(
         ref: ref,
         mediaType: value.mediaType,
@@ -140,6 +190,9 @@ final class EncryptedBlobEngine implements BlobStore {
         sensitivity: value.sensitivity,
         createdAt: value.createdAt,
       );
+    } on BlobEngineException {
+      _safeLog?.call(BlobEngineEvent.metadataFailed);
+      rethrow;
     } on Object {
       _safeLog?.call(BlobEngineEvent.metadataFailed);
       throw const BlobEngineException('metadata_failed');
@@ -151,6 +204,7 @@ final class EncryptedBlobEngine implements BlobStore {
     BlobRef ref, {
     required BlobAccessContext access,
   }) async {
+    _requireConsent(access);
     CiphertextBlobMetadata? value;
     try {
       value = await _repository.metadata(ref, access: access);
@@ -167,22 +221,66 @@ final class EncryptedBlobEngine implements BlobStore {
       }
       return BlobDeleteResult.alreadyAbsent;
     }
+    try {
+      _validateMetadata(value, access);
+    } on BlobEngineException {
+      _safeLog?.call(BlobEngineEvent.deleteFailed);
+      rethrow;
+    }
 
     // Crypto-erasure is the security boundary. Never reverse this order.
-    try {
-      await _cryptography.destroyKey(value.key);
-    } on Object {
-      _safeLog?.call(BlobEngineEvent.deleteFailed);
-      throw const BlobEngineException('delete_failed');
+    if (!_cryptoErased.contains(ref)) {
+      try {
+        await _cryptography.destroyKey(value.key);
+        _cryptoErased.add(ref);
+      } on Object {
+        _safeLog?.call(BlobEngineEvent.deleteFailed);
+        throw const BlobEngineException('delete_failed');
+      }
+      _safeLog?.call(BlobEngineEvent.keyDestroyed);
     }
-    _safeLog?.call(BlobEngineEvent.keyDestroyed);
     try {
       await _repository.deleteCiphertext(ref, access: access);
     } on Object {
       _safeLog?.call(BlobEngineEvent.ciphertextCleanupFailed);
       throw const BlobEngineException('ciphertext_cleanup_failed');
     }
+    _cryptoErased.remove(ref);
     return BlobDeleteResult.deleted;
+  }
+}
+
+void _requireConsent(BlobAccessContext access) {
+  if (access.consentRef == null) {
+    throw const BlobEngineException('consent_required');
+  }
+}
+
+void _validateMetadata(
+  CiphertextBlobMetadata metadata,
+  BlobAccessContext access,
+) {
+  try {
+    CiphertextBlobMetadata(
+      key: metadata.key,
+      mediaType: metadata.mediaType,
+      consentRef: metadata.consentRef,
+      plaintextLength: metadata.plaintextLength,
+      sensitivity: metadata.sensitivity,
+      createdAt: metadata.createdAt,
+    );
+  } on ArgumentError {
+    throw const BlobEngineException('invalid_blob_metadata');
+  }
+  if (metadata.consentRef != access.consentRef) {
+    throw const BlobEngineException('consent_mismatch');
+  }
+}
+
+void _validateRecord(CiphertextBlobRead record, BlobAccessContext access) {
+  _validateMetadata(record.metadata, access);
+  if (record.metadata.key.purpose != KeyPurpose.blob) {
+    throw const BlobEngineException('invalid_blob_key');
   }
 }
 
@@ -204,6 +302,7 @@ Stream<Uint8List> _ownedChunks(
 Stream<Uint8List> _rangeAndZeroize(
   Stream<Uint8List> source,
   BlobByteRange? range,
+  {required int expectedLength},
 ) async* {
   var offset = 0;
   await for (final sourceChunk in source) {
@@ -225,6 +324,9 @@ Stream<Uint8List> _rangeAndZeroize(
     } finally {
       _zeroize(owned);
     }
+  }
+  if (range == null && offset != expectedLength) {
+    throw const BlobEngineException('plaintext_length_mismatch');
   }
 }
 

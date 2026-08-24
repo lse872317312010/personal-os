@@ -42,3 +42,4 @@ PolicyDecision authorizeWithConsent({
   }
   return PolicyDecision.allowed();
 }
+

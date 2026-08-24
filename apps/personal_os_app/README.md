@@ -5,12 +5,19 @@ application composition boundaries are intended to support Windows and iOS.
 
 ## Implemented review surface
 
-- explicit Vault lock gate (demo unlock only);
+- explicit Vault lock gate; the default composition is clearly labeled as a
+  synthetic in-memory demo;
 - Home → observation capture → Claim review → Plan → Task → Review navigation;
 - `AnalyzeAppearanceUseCase` wired through application ports;
 - real `AppearancePolicyAdapter` authorization against an exact-revision
-  `ConsentGrant` in `InMemoryConsentRevisionRepository`;
-- production `InMemoryEventStore` used as the disposable shell adapter;
+  `ConsentGrant`, with consent grant/revoke events overlaid by
+  `EventBackedConsentRevisionRepository`;
+- `InMemoryEventStore` remains the disposable synthetic-demo adapter;
+- secure composition now includes native SQLCipher database/event JSON storage,
+  a Dart event store, and a session coordinator; this path is implemented but
+  is not compiled or runtime-verified in the current environment;
+- observation history is rendered from profile-scoped stored events in the
+  mobile shell;
 - fail-before-model checks for locked Vault, missing consent, and non-`blob://`
   inputs;
 - shared `FixtureAppearanceAnalysisGateway.syntheticSuccess` behavior for
@@ -31,13 +38,23 @@ Vault adapter owns encrypted blob ingestion and returns the reference.
 3. Adapters are selected in `AppComposition`.
 4. SQLite/SQLCipher and Android Keystore access belong in adapter packages, not
    this UI shell.
-5. The UI consent switch is only a UX gate. The application use case always
-   invokes `AppearancePolicyAdapter`, which independently checks subject,
-   actor, scope, D3 ceiling, status, revision, and validity.
-6. The demo grant is short-lived and non-durable. It proves composition only;
-   production must persist consent revisions in the encrypted Vault.
+5. The UI consent switch writes a consent event through
+   `ConsentLifecycleUseCase`; `AppearancePolicyAdapter` independently checks
+   subject, actor, scope, D3 ceiling, status, revision, and validity.
+6. The default demo event store is in-memory. The secure composition persists
+   event JSON through the native SQLCipher Vault, but native compilation,
+   integration tests, SQLCipher production behavior, and crash/cold-start
+   recovery are not verified here. Consent events in the demo prove the
+   lifecycle contract only.
 7. `adapters/model_fixture` is a deterministic demo/test adapter. It does not
    open the blob, inspect a person, or provide production AI analysis.
+
+The composition root exposes `AppExperienceMode`. `syntheticDemo` remains the
+default entry point and keeps synthetic/offline wording consistent. The
+`secureVault` composition now explicitly connects platform authentication plus
+encrypted persistence; it must still pass compilation, integration, and device
+evidence gates before being treated as production-ready. This app does not
+claim Redmi, GitHub Actions, or SQLCipher production verification.
 
 ## Android MVP build and Redmi Turbo install
 
@@ -70,11 +87,11 @@ phone files.
 
 ## Verification status
 
-Flutter and Dart SDKs were unavailable in the authoring environment. The files
-and dependency directions were statically reviewed, but `flutter pub get`,
-`flutter analyze`, tests, APK assembly, Redmi Turbo installation, biometric
-unlock, encrypted persistence, and camera/photo-picker integration are **not
-verified**.
+Flutter, Dart, and Android SDK/Gradle tooling were unavailable in the authoring
+environment. The files and dependency directions were statically reviewed, but
+`flutter pub get`, `flutter analyze`, tests, APK assembly, Redmi Turbo
+installation, biometric unlock, SQLCipher production behavior, crash/cold-start
+recovery, and camera/photo-picker integration are **not verified**.
 
 When a Flutter SDK is available, use the scripts above or run:
 

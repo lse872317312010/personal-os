@@ -85,6 +85,48 @@ void main() {
     );
   });
 
+  test('deletion target token is opaque and transport-safe', () {
+    expect(
+      () => SqliteVaultSchema.validateDeletionTargetToken(
+        'J7vVh4nPk2sQ8mWx9Lc3Za',
+      ),
+      returnsNormally,
+    );
+    for (final token in <String>[
+      'too-short',
+      'identifier with spaces and a suffix',
+      'path/with/slashes/and/enough/length',
+    ]) {
+      expect(
+        () => SqliteVaultSchema.validateDeletionTargetToken(token),
+        throwsA(isA<VaultSchemaViolation>()),
+      );
+    }
+  });
+
+  test('nested D4 and security transport fields are rejected', () {
+    expect(
+      () => VaultPersistenceValidator.rejectForbiddenSecretFields(
+        const <String, Object?>{
+          'export': <String, Object?>{'sensitivity': 'D4'},
+        },
+      ),
+      throwsA(
+        isA<VaultSchemaViolation>().having(
+          (error) => error.code,
+          'code',
+          'persistence.d4_forbidden',
+        ),
+      ),
+    );
+    expect(
+      () => VaultPersistenceValidator.rejectForbiddenSecretFields(
+        const <String, Object?>{'database_path': '/private/vault.db'},
+      ),
+      throwsA(isA<VaultSchemaViolation>()),
+    );
+  });
+
   test('ordinary typed payload shape passes secret field validation', () {
     expect(
       () => VaultPersistenceValidator.rejectForbiddenSecretFields(

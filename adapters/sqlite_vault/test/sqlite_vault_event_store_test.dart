@@ -26,7 +26,13 @@ void main() {
 
       await expectLater(
         store.appendAll(<EventEnvelope>[_goal('e1')]),
-        throwsA(isA<StateError>()),
+        throwsA(
+          isA<PersistenceException>().having(
+            (error) => error.code,
+            'code',
+            PersistenceErrorCode.transactionFailed,
+          ),
+        ),
       );
 
       expect(db.events, isEmpty);
@@ -105,10 +111,54 @@ void main() {
         store.appendAll(<EventEnvelope>[
           _goal('d4', sensitivity: Sensitivity.d4),
         ]),
-        throwsA(isA<VaultSchemaViolation>()),
+        throwsA(
+          isA<VaultSchemaViolation>().having(
+            (error) => error.code,
+            'code',
+            PersistenceErrorCode.d4PersistenceForbidden,
+          ),
+        ),
       );
       expect(db.transactionCount, 0);
       expect(db.events, isEmpty);
+    });
+
+    test('nested D4 in an export-shaped payload is rejected before transaction',
+        () async {
+      final db = FakeSqlExecutor();
+      final store = SqliteVaultEventStore(db);
+      final event = _goal(
+        'nested-d4',
+        payload: const <String, Object?>{
+          'expected_revision': 0,
+          'export': <String, Object?>{'maximum_sensitivity': 'D4'},
+        },
+      );
+
+      await expectLater(
+        store.appendAll(<EventEnvelope>[event]),
+        throwsA(
+          isA<VaultSchemaViolation>().having(
+            (error) => error.code,
+            'code',
+            PersistenceErrorCode.d4PersistenceForbidden,
+          ),
+        ),
+      );
+      expect(db.transactionCount, 0);
+    });
+
+    test('writes stages in event, subject, projection, outbox order',
+        () async {
+      final db = FakeSqlExecutor();
+      await SqliteVaultEventStore(db).appendAll(<EventEnvelope>[_goal('order')]);
+
+      expect(db.writeStages, <String>[
+        'event_log',
+        'event_subjects',
+        'projections',
+        'outbox',
+      ]);
     });
   });
 }
@@ -118,6 +168,9 @@ EventEnvelope _goal(
   String objectId = 'goal-1',
   int? pinnedRevision,
   Sensitivity sensitivity = Sensitivity.d1,
+  Map<String, Object?> payload = const <String, Object?>{
+    'expected_revision': 0,
+  },
 }) {
   final instant = DateTime.utc(2026, 8, 20);
   return EventEnvelope(
@@ -140,7 +193,7 @@ EventEnvelope _goal(
     ],
     correlationId: 'correlation-1',
     sensitivity: sensitivity,
-    payload: const <String, Object?>{'expected_revision': 0},
+    payload: payload,
   );
 }
 
@@ -177,6 +230,7 @@ final class FakeSqlExecutor implements SqlExecutor {
   int transactionCount = 0;
   int commitCount = 0;
   int rollbackCount = 0;
+  final List<String> writeStages = <String>[];
 
   @override
   Future<int> execute(String sql, [List<Object?> parameters = const []]) =>
@@ -186,8 +240,7 @@ final class FakeSqlExecutor implements SqlExecutor {
   Future<List<SqlRow>> query(
     String sql, [
     List<Object?> parameters = const [],
-  ]) async =>
-      _query(events, subjects, projections, sql, parameters);
+  ]) async => _query(events, subjects, projections, sql, parameters);
 
   @override
   Future<T> transaction<T>(Future<T> Function(SqlTransaction tx) action) async {
@@ -240,8 +293,7 @@ final class _FakeTransaction implements SqlTransaction {
   Future<List<SqlRow>> query(
     String sql, [
     List<Object?> parameters = const [],
-  ]) async =>
-      _query(
+  ]) async => _query(
         events,
         subjects,
         projections,
@@ -253,10 +305,12 @@ final class _FakeTransaction implements SqlTransaction {
   @override
   Future<int> execute(String sql, [List<Object?> parameters = const []]) async {
     if (sql.startsWith('INSERT INTO event_log')) {
+      writeStages.add('event_log');
       events[parameters[0]! as String] = _eventRow(parameters);
       return 1;
     }
     if (sql.startsWith('INSERT INTO event_subjects')) {
+      writeStages.add('event_subjects');
       subjects.add(<String, Object?>{
         'event_id': parameters[0],
         'subject_type': parameters[1],
@@ -267,6 +321,7 @@ final class _FakeTransaction implements SqlTransaction {
       return 1;
     }
     if (sql.startsWith('INSERT INTO projections')) {
+      writeStages.add('projections');
       final key = '${parameters[1]}:${parameters[2]}';
       if (projections.containsKey(key)) return 0;
       projections[key] = _projectionRow(parameters);
@@ -280,12 +335,12 @@ final class _FakeTransaction implements SqlTransaction {
         'revision': parameters[0],
         'last_event_id': parameters[1],
         'state_json': parameters[2],
-        'state': (jsonDecode(parameters[2]! as String)
-            as Map<String, Object?>)['state'],
+        'state': jsonDecode(parameters[2]! as String)['state'],
       };
       return 1;
     }
     if (sql.startsWith('INSERT INTO outbox')) {
+      writeStages.add('outbox');
       if (failOnOutbox) throw StateError('injected outbox failure');
       outbox[parameters[0]! as String] = <String, Object?>{
         'event_id': parameters[1],
@@ -369,7 +424,7 @@ SqlRow _projectionRow(List<Object?> p) => <String, Object?>{
       'revision': p[3],
       'last_event_id': p[4],
       'state_json': p[5],
-      'state': (jsonDecode(p[5]! as String) as Map<String, Object?>)['state'],
+      'state': jsonDecode(p[5]! as String)['state'],
     };
 
 Map<String, SqlRow> _copyMap(Map<String, SqlRow> source) =>

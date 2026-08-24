@@ -16,6 +16,7 @@ void main() {
   final access = BlobAccessContext(
     actorRef: 'user:owner',
     purpose: 'appearance-analysis',
+    consentRef: 'consent:appearance-v1',
   );
 
   setUp(() {
@@ -54,6 +55,43 @@ void main() {
     expect(cryptography.beginSealCalls, 0);
   });
 
+  test('requires a consent binding before listening or touching storage',
+      () async {
+    final missingConsent = BlobAccessContext(
+      actorRef: 'user:owner',
+      purpose: 'appearance-analysis',
+    );
+    var listened = false;
+    final input = Stream<List<int>>.multi((controller) {
+      listened = true;
+      controller.close();
+    });
+
+    await expectLater(
+      engine.put(
+        bytes: input,
+        mediaType: 'image/jpeg',
+        sensitivity: Sensitivity.d3,
+        access: missingConsent,
+      ),
+      throwsA(_safeException('consent_required')),
+    );
+    expect(listened, isFalse);
+    expect(repository.beginWriteCalls, 0);
+    expect(cryptography.beginSealCalls, 0);
+  });
+
+  test('rejects a blank consent binding at the access boundary', () {
+    expect(
+      () => BlobAccessContext(
+        actorRef: 'user:owner',
+        purpose: 'appearance-analysis',
+        consentRef: '  ',
+      ),
+      throwsArgumentError,
+    );
+  });
+
   test('successful put stores ciphertext and zeroizes owned input', () async {
     final callerChunk = <int>[10, 20, 30];
     final ref = await engine.put(
@@ -65,8 +103,7 @@ void main() {
 
     expect(repository.readable(ref), <int>[11, 21, 31]);
     expect(repository.readable(ref), isNot(callerChunk));
-    expect(callerChunk, <int>[10, 20, 30],
-        reason: 'caller memory is not owned');
+    expect(callerChunk, <int>[10, 20, 30], reason: 'caller memory is not owned');
     expect(cryptography.seenPlaintext.single, isNot(same(callerChunk)));
     expect(cryptography.seenPlaintext.single, everyElement(0));
     expect(repository.lastMetadata!.plaintextLength, 3);
@@ -129,11 +166,36 @@ void main() {
     repository.readChunkSize = 2;
 
     final bytes = await engine
-        .openRead(ref,
-            access: access, range: BlobByteRange(start: 2, endExclusive: 5))
+        .openRead(ref, access: access, range: BlobByteRange(start: 2, endExclusive: 5))
         .expand((chunk) => chunk)
         .toList();
     expect(bytes, <int>[2, 3, 4]);
+  });
+
+  test('preserves the stable plaintext length mismatch error', () async {
+    final ref = await _put(engine, access);
+    repository.plaintextLengthOverride = 99;
+
+    await expectLater(
+      engine.openRead(ref, access: access).drain<void>(),
+      throwsA(_safeException('plaintext_length_mismatch')),
+    );
+    expect(log.last, BlobEngineEvent.openFailed);
+  });
+
+  test('does not allow a different consent to access the blob', () async {
+    final ref = await _put(engine, access);
+    final otherConsent = BlobAccessContext(
+      actorRef: access.actorRef,
+      purpose: access.purpose,
+      consentRef: 'consent:other-v1',
+    );
+
+    await expectLater(
+      engine.openRead(ref, access: otherConsent).drain<void>(),
+      throwsA(_safeException('consent_mismatch')),
+    );
+    expect(cryptography.seenPlaintext, isEmpty);
   });
 
   test('delete destroys key before ciphertext and is idempotent', () async {
@@ -160,7 +222,7 @@ void main() {
     expect(cryptography.destroyed, [cryptography.key]);
 
     expect(await engine.delete(ref, access: access), BlobDeleteResult.deleted);
-    expect(cryptography.destroyed, [cryptography.key, cryptography.key]);
+    expect(cryptography.destroyed, [cryptography.key]);
     expect(repository.readable(ref), isNull);
   });
 
@@ -219,8 +281,7 @@ final class _FakeCryptography implements BlobCryptographyPort {
   int beginSealCalls = 0;
   bool failSeal = false;
   bool destroyFailure = false;
-  KeyHandle key =
-      KeyHandle(id: 'blob-key', purpose: KeyPurpose.blob, version: 1);
+  KeyHandle key = KeyHandle(id: 'blob-key', purpose: KeyPurpose.blob, version: 1);
   final List<Uint8List> seenPlaintext = <Uint8List>[];
   final List<KeyHandle> destroyed = <KeyHandle>[];
   List<String>? operations;
@@ -272,6 +333,7 @@ final class _FakeRepository implements CiphertextBlobRepository {
   bool openFailure = false;
   bool metadataFailure = false;
   int deleteFailuresRemaining = 0;
+  int? plaintextLengthOverride;
   int? readChunkSize;
   int _nextRef = 0;
   _FakeWrite? lastWrite;
@@ -282,8 +344,7 @@ final class _FakeRepository implements CiphertextBlobRepository {
   List<int>? readable(BlobRef ref) => _stored[ref]?.ciphertext;
 
   @override
-  Future<CiphertextBlobWrite> beginWrite(
-      {required BlobAccessContext access}) async {
+  Future<CiphertextBlobWrite> beginWrite({required BlobAccessContext access}) async {
     beginWriteCalls++;
     final write = _FakeWrite(this, BlobRef('opaque-${_nextRef++}'));
     lastWrite = write;
@@ -291,13 +352,22 @@ final class _FakeRepository implements CiphertextBlobRepository {
   }
 
   @override
-  Future<CiphertextBlobRead?> open(BlobRef ref,
-      {required BlobAccessContext access}) async {
+  Future<CiphertextBlobRead?> open(BlobRef ref, {required BlobAccessContext access}) async {
     if (openFailure) throw StateError('ref-path-content-hash');
     final stored = _stored[ref];
     if (stored == null) return null;
+    final metadata = plaintextLengthOverride == null
+        ? stored.metadata
+        : CiphertextBlobMetadata(
+            key: stored.metadata.key,
+            mediaType: stored.metadata.mediaType,
+            consentRef: stored.metadata.consentRef,
+            plaintextLength: plaintextLengthOverride!,
+            sensitivity: stored.metadata.sensitivity,
+            createdAt: stored.metadata.createdAt,
+          );
     return CiphertextBlobRead(
-      metadata: stored.metadata,
+      metadata: metadata,
       ciphertext: _ciphertextChunks(stored.ciphertext, readChunkSize),
     );
   }
@@ -312,8 +382,7 @@ final class _FakeRepository implements CiphertextBlobRepository {
   }
 
   @override
-  Future<bool> deleteCiphertext(BlobRef ref,
-      {required BlobAccessContext access}) async {
+  Future<bool> deleteCiphertext(BlobRef ref, {required BlobAccessContext access}) async {
     operations.add('delete-ciphertext');
     if (deleteFailuresRemaining-- > 0) throw StateError('secret cleanup path');
     return _stored.remove(ref) != null;

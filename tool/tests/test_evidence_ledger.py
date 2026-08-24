@@ -129,6 +129,24 @@ class TruthfulAggregationTests(unittest.TestCase):
         self.assertEqual(result["overall"], "NOT_VERIFIED")
         self.assertTrue(result["legacy_gates_ignored"])
 
+    def test_root_synthetic_kind_cannot_promote_real_records(self):
+        ledger = make_ledger([make_record(evidence_ledger.GENESIS)])
+        ledger["kind"] = "synthetic"
+        result = evidence_ledger.aggregate(ledger, COMMIT_A)
+        self.assertEqual(result["overall"], "NOT_VERIFIED")
+
+    def test_selector_must_match_ledger_candidate(self):
+        ledger = make_ledger([make_record(evidence_ledger.GENESIS, commit=COMMIT_B)])
+        result = evidence_ledger.aggregate(ledger, COMMIT_B)
+        self.assertEqual(result["overall"], "NOT_VERIFIED")
+        self.assertEqual(result["records_considered"], 0)
+
+    def test_aggregate_validates_before_counting_records(self):
+        ledger = make_ledger([make_record(evidence_ledger.GENESIS)])
+        ledger["records"][0]["notes"] = "tampered"
+        with self.assertRaises(evidence_ledger.LedgerError):
+            evidence_ledger.aggregate(ledger, COMMIT_A)
+
 
 if __name__ == "__main__":
     unittest.main()

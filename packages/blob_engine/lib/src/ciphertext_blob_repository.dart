@@ -11,6 +11,7 @@ final class CiphertextBlobMetadata {
   CiphertextBlobMetadata({
     required this.key,
     required this.mediaType,
+    required this.consentRef,
     required this.plaintextLength,
     required this.sensitivity,
     required this.createdAt,
@@ -22,6 +23,19 @@ final class CiphertextBlobMetadata {
     if (mediaType.trim().isEmpty) {
       throw ArgumentError.value(mediaType, 'mediaType', 'must not be blank');
     }
+    if (consentRef.trim().isEmpty || consentRef != consentRef.trim()) {
+      throw ArgumentError.value(consentRef, 'consentRef', 'must be non-blank');
+    }
+    if (mediaType != mediaType.trim() ||
+        mediaType.length > 127 ||
+        !RegExp(r'^[A-Za-z0-9!#\$&^_.+\-]+/[A-Za-z0-9!#\$&^_.+\-]+$')
+            .hasMatch(mediaType)) {
+      throw ArgumentError.value(
+        mediaType,
+        'mediaType',
+        'must be a single bounded type/subtype token',
+      );
+    }
     if (plaintextLength < 0) {
       throw ArgumentError.value(
         plaintextLength,
@@ -29,17 +43,30 @@ final class CiphertextBlobMetadata {
         'must be >= 0',
       );
     }
+    if (!createdAt.isUtc) {
+      throw ArgumentError.value(createdAt, 'createdAt', 'must be UTC');
+    }
   }
 
   final KeyHandle key;
   final String mediaType;
+  final String consentRef;
   final int plaintextLength;
   final Sensitivity sensitivity;
   final DateTime createdAt;
 }
 
 final class CiphertextBlobRead {
-  CiphertextBlobRead({required this.metadata, required this.ciphertext});
+  CiphertextBlobRead({required this.metadata, required this.ciphertext}) {
+    CiphertextBlobMetadata(
+      key: metadata.key,
+      mediaType: metadata.mediaType,
+      consentRef: metadata.consentRef,
+      plaintextLength: metadata.plaintextLength,
+      sensitivity: metadata.sensitivity,
+      createdAt: metadata.createdAt,
+    );
+  }
 
   final CiphertextBlobMetadata metadata;
   final Stream<Uint8List> ciphertext;

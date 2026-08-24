@@ -8,6 +8,8 @@
 - `VaultSession`：显式 lock/unlock，过期授权 fail-closed。
 - `SecureUnlockPort`：对接 Android Keystore、生物认证、Windows Hello 等；
   Core 只获得短期 `UnlockGrant`。
+- `SecureVaultPort`：用已认证的短期 capability 打开本地 Vault；Core 只持有
+  不含 ID、路径、别名、连接或 key bytes 的 opaque session。
 - `KeyProvider`：创建、wrap/unwrap、epoch rotate、device revoke、销毁密钥。
 - `SecurityErrorCode`：稳定 wire value，可用于日志与跨适配器判断。
 
@@ -26,5 +28,6 @@
 3. wrap/unwrap、rotate/revoke 必须原子或 fail-closed；
 4. 错误信息只能包含安全元数据，不得包含密钥材料；
 5. 不得为方便调试添加 `exportKey`、`rawBytes` 等 API。
+6. `SecurityException.safeMessage` 由错误码固定生成，调用方不得覆盖。
 
 运行测试：`dart test packages/security_api`。

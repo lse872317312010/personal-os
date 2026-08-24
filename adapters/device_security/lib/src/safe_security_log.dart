@@ -3,20 +3,21 @@
 enum SecurityOperation {
   capabilities,
   authenticate,
+  openVault,
+  closeVault,
   createKey,
   wrapKey,
   unwrapKey,
   rotateEpoch,
   revokeDevice,
   authorizeNewData,
-  destroyKey
+  destroyKey,
 }
 
 enum SecurityOperationOutcome { succeeded, failed }
 
 final class SafeSecurityEvent {
-  const SafeSecurityEvent(
-      {required this.operation, required this.outcome, this.errorCode});
+  const SafeSecurityEvent({required this.operation, required this.outcome, this.errorCode});
 
   final SecurityOperation operation;
   final SecurityOperationOutcome outcome;

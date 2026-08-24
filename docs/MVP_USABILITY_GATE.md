@@ -50,9 +50,10 @@ G3 必须逐项通过 `evidence/android/REDMI_TURBO_RUNBOOK.md` 对应的九个�
 ## 证据规则
 
 - `kind: synthetic` 永远不能令 gate 通过；示例状态文件故意保持所有 gate 未通过。
-- 每个通过项必须包含 RFC 3339 UTC 时间、40 位 Git commit、执行命令或受控人工步骤、检查者和结果；构建产物还需 SHA-256。
+- 每个通过项必须包含 RFC 3339 UTC 时间、40 位 Git commit、执行命令或受控人工步骤、检查者和结果；子检查自身的 `commit` 也必须等于候选提交，不能只依赖 gate 外层字段；构建产物还需 SHA-256。
 - 所有子检查必须显式列出。缺失、`skip`、`planned`、`blocked` 均为未通过；不得用百分比折算。
 - commit 不一致时不得组合成同一次候选发布，除非重新执行旧证据并指向同一候选提交。
+- Android 记录必须包含 `candidateCommit`；`overall: pass` 只允许出现在 `recordKind: real_device` 且九个场景全部通过的记录中。synthetic 记录永远不能通过 Android 整体校验。
 - 证据只声明观察到的事实。没有 Flutter SDK 就写 `blocked`；没有 APK 就写 `blocked`；没有接入真机就写 `not_run`。
 - 真实 dogfood 周期必须为 2–6 周；短期开发演示不能算完整周期。
 - 任何证据不得包含用户外貌正文、照片路径、日志原文、设备序列号或密钥材料。审计器会拒绝已知敏感字段名，但人工评审仍是发布前必需项。

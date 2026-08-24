@@ -21,3 +21,8 @@ adapter only seals/opens bytes. Relay adapters must implement `SyncPort` only.
 
 Byte buffers and result collections are defensively copied. Diagnostics redact
 ciphertext, signatures, and cursor values.
+
+`DeviceSequenceRange` is inclusive and must be contiguous at the worker
+boundary. Sender identity, account pseudonym, recipient epoch, and protocol
+version are authenticated metadata; implementations must reject mismatches
+before decrypting or writing. The API contains no event payload or D4 fields.

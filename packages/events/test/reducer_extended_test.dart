@@ -3,8 +3,7 @@ import 'package:personal_os_events/events.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('S1 point-in-time objects are projected without invented lifecycles',
-      () {
+  test('S1 point-in-time objects are projected without invented lifecycles', () {
     for (final entry in <(String, String, String)>[
       (EventTypes.sourceRegistered, 'source', 'registered'),
       (EventTypes.observationRecorded, 'observation', 'recorded'),
@@ -66,8 +65,35 @@ void main() {
     expect(projections['review:R1']?.state, 'accepted');
   });
 
-  test('deletion barrier marks scope and completion marks erased refs deleted',
-      () {
+  test('consent can be revoked and granted again with a new revision', () {
+    var projections = <String, ObjectProjection>{};
+    var seen = <String>{};
+    for (final entry in <(String, int)>[
+      (EventTypes.consentRequested, 0),
+      (EventTypes.consentGranted, 1),
+      (EventTypes.consentRevoked, 2),
+      (EventTypes.consentRequested, 3),
+      (EventTypes.consentGranted, 4),
+    ]) {
+      final result = reduceCore(
+        projections: projections,
+        seenEventIds: seen,
+        event: _event(
+          entry.$1,
+          'consent',
+          id: 'C1',
+          payload: <String, Object?>{'expected_revision': entry.$2},
+        ),
+      );
+      expect(result.disposition, ReductionDisposition.applied);
+      projections = result.projections;
+      seen = result.seenEventIds;
+    }
+    expect(projections['consent:C1']?.state, ConsentState.granted.name);
+    expect(projections['consent:C1']?.revision.value, 5);
+  });
+
+  test('deletion barrier marks scope and completion marks erased refs deleted', () {
     final requested = _reduce(
       _event(
         EventTypes.deletionRequested,
@@ -101,8 +127,7 @@ void main() {
     expect(completed.projections['source:S1']?.state, 'deleted');
     expect(completed.projections['blob:S1-raw']?.state, 'deleted');
     expect(
-      completed
-          .projections['tombstone:TS1']?.attributes['contains_content_hash'],
+      completed.projections['tombstone:TS1']?.attributes['contains_content_hash'],
       isFalse,
     );
   });
@@ -146,14 +171,12 @@ void main() {
     expect(detected.projections['plan:P1'], same(plan));
   });
 
-  test('unknown semantic event is rejected and unsupported version quarantined',
-      () {
+  test('unknown semantic event is rejected and unsupported version quarantined', () {
     final unknown = _reduce(_event('future.semantic', 'future'));
     expect(unknown.disposition, ReductionDisposition.rejected);
     expect(unknown.reasonCode, ReductionReason.unsupportedEventType);
 
-    final future =
-        _reduce(_event(EventTypes.sourceRegistered, 'source', version: 2));
+    final future = _reduce(_event(EventTypes.sourceRegistered, 'source', version: 2));
     expect(future.disposition, ReductionDisposition.quarantined);
     expect(future.reasonCode, ReductionReason.unsupportedEventVersion);
   });
@@ -174,7 +197,7 @@ EventEnvelope _event(
   List<ObjectRef> additionalSubjects = const <ObjectRef>[],
 }) =>
     EventEnvelope(
-      eventId: '$type-$id-$version',
+      eventId: '$type-$id-${payload['expected_revision'] ?? version}-$version',
       eventType: type,
       eventVersion: version,
       occurredAt: DateTime.utc(2026, 8, 20),

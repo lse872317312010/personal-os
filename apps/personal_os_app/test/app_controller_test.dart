@@ -41,7 +41,7 @@ void main() {
 
   test('consented blob reference completes the application loop', () async {
     final gateway = _CountingGateway();
-    final controller = _controller(gateway)
+    final controller = _controller(gateway, withObservation: true)
       ..unlockVault()
       ..setConsent(true);
 
@@ -54,6 +54,23 @@ void main() {
     expect(controller.result?.claimIds, hasLength(2));
     expect(controller.result?.taskIds, hasLength(1));
     expect(gateway.calls, 1);
+    expect(gateway.eventTypesAtCall, contains('observation.recorded'));
+  });
+
+  test('observation failure is fail-closed before any gateway call', () async {
+    final gateway = _CountingGateway();
+    final controller = _controller(gateway, withObservation: true)
+      ..unlockVault()
+      ..setConsent(true);
+
+    await controller.analyzeBlobReference(
+      blobReference: 'blob://vault/one',
+      observationContext: '',
+    );
+
+    expect(controller.submission, SubmissionStatus.failed);
+    expect(controller.errorCode, ObservationFailureCode.invalidContext);
+    expect(gateway.calls, 0);
   });
 
   test('UX consent cannot bypass missing persisted consent revision', () async {
@@ -90,64 +107,160 @@ void main() {
     controller.startPlan();
     expect(controller.destination.name, 'tasks');
   });
+
+  test('bootstrap reconstructs the analysis session after controller recreation',
+      () async {
+    final store = InMemoryEventStore();
+    final writer = _controller(_CountingGateway(), store: store);
+    writer
+      ..unlockVault()
+      ..setConsent(true);
+    await writer.analyzeBlobReference(
+      blobReference: 'blob://vault/one',
+      observationContext: 'front',
+    );
+
+    final reader = _controller(
+      _CountingGateway(),
+      store: store,
+      withSessionQuery: true,
+    );
+    await reader.bootstrap();
+
+    expect(reader.result?.claimIds, hasLength(2));
+    expect(reader.result?.taskIds, hasLength(1));
+    expect(reader.planStarted, isTrue);
+    expect(reader.taskState(reader.result!.taskIds.single), 'planned');
+    expect(reader.consentGranted, isFalse);
+  });
+
+  test('bootstrap restores observation metadata without exposing its reference',
+      () async {
+    final store = InMemoryEventStore();
+    final writer = _controller(
+      _CountingGateway(),
+      store: store,
+      withObservation: true,
+    )
+      ..unlockVault()
+      ..setConsent(true);
+    await writer.analyzeBlobReference(
+      blobReference: 'blob://vault/private-photo',
+      observationContext: 'front',
+    );
+
+    final reader = _controller(
+      _CountingGateway(),
+      store: store,
+      withSessionQuery: true,
+    )..unlockVault();
+    await reader.bootstrap();
+
+    expect(reader.observationCount, 1);
+    expect(reader.latestObservation?.mediaType, 'image/*');
+    expect(reader.latestObservation?.occurredAt, isNotNull);
+    expect(reader.observations.toString(), isNot(contains('private-photo')));
+
+    reader.lockVault();
+    expect(reader.observationCount, 0);
+    expect(reader.latestObservation, isNull);
+  });
+
+  test('locking clears volatile session state before the next unlock', () async {
+    final controller = _controller(_CountingGateway())
+      ..unlockVault()
+      ..setConsent(true);
+    await controller.analyzeBlobReference(
+      blobReference: 'blob://vault/one',
+      observationContext: 'front',
+    );
+    controller.startPlan();
+
+    controller.lockVault();
+
+    expect(controller.vaultUnlocked, isFalse);
+    expect(controller.result, isNull);
+    expect(controller.consentGranted, isFalse);
+    expect(controller.planStarted, isFalse);
+    expect(controller.reviewId, isNull);
+  });
 }
 
 AppController _controller(
   _CountingGateway gateway, {
   bool includeGrant = true,
+  InMemoryEventStore? store,
+  bool withSessionQuery = false,
+  bool withObservation = false,
 }) {
-  final store = InMemoryEventStore();
+  final eventStore = store ?? InMemoryEventStore();
   final ids = _Ids();
+  gateway.eventStore = eventStore;
   return AppController(
-    analyzeAppearance: AnalyzeAppearanceUseCase(
-      eventStore: store,
-      modelGateway: gateway,
-      policy: AppearancePolicyAdapter(
-        consents: InMemoryConsentRevisionRepository(
-          initialGrants: includeGrant
-              ? <ConsentGrant>[
-                  ConsentGrant(
-                    consentId: 'local-appearance-consent',
-                    revision: 1,
-                    subjectId: 'me',
-                    authorizedActorId: 'me',
-                    purposes: const <String>{'appearance_review'},
-                    resources: const <String>{'portrait'},
-                    actions: const <String>{'derive'},
-                    maximumSensitivity: Sensitivity.d3,
-                    validFrom: DateTime.utc(2026, 8, 19),
-                    validUntil: DateTime.utc(2026, 8, 21),
-                    status: ConsentStatus.active,
-                  ),
-                ]
-              : const <ConsentGrant>[],
+      analyzeAppearance: AnalyzeAppearanceUseCase(
+        eventStore: eventStore,
+        modelGateway: gateway,
+        policy: AppearancePolicyAdapter(
+          consents: InMemoryConsentRevisionRepository(
+            initialGrants: includeGrant
+                ? <ConsentGrant>[
+                    ConsentGrant(
+                      consentId: 'local-appearance-consent',
+                      revision: 1,
+                      subjectId: 'me',
+                      authorizedActorId: 'me',
+                      purposes: const <String>{'appearance_review'},
+                      resources: const <String>{'portrait'},
+                      actions: const <String>{'derive'},
+                      maximumSensitivity: Sensitivity.d3,
+                      validFrom: DateTime.utc(2026, 8, 19),
+                      validUntil: DateTime.utc(2026, 8, 21),
+                      status: ConsentStatus.active,
+                    ),
+                  ]
+                : const <ConsentGrant>[],
+          ),
+          clock: FixedPolicyClock(DateTime.utc(2026, 8, 20)),
         ),
-        clock: FixedPolicyClock(DateTime.utc(2026, 8, 20)),
+        ids: ids,
+        clock: const _Clock(),
       ),
-      ids: ids,
-      clock: const _Clock(),
-    ),
-    actionFeedback: ActionFeedbackUseCase(
-      eventStore: store,
-      ids: ids,
-      clock: const _Clock(),
-    ),
-    profileId: EntityId('me'),
-    actor: ActorRef(
-      actorId: 'me',
-      actorType: ActorType.user,
-      authoritySource: 'test',
-    ),
-  );
+      actionFeedback: ActionFeedbackUseCase(
+        eventStore: eventStore,
+        ids: ids,
+        clock: const _Clock(),
+      ),
+      recordObservation: withObservation
+          ? RecordObservationUseCase(
+              eventStore: eventStore,
+              ids: ids,
+              clock: const _Clock(),
+            )
+          : null,
+      profileId: EntityId('me'),
+      sessionQuery: withSessionQuery
+          ? AppearanceSessionQueryHandler(eventStore)
+          : null,
+      actor: ActorRef(
+        actorId: 'me',
+        actorType: ActorType.user,
+        authoritySource: 'test',
+      ),
+    );
 }
 
 final class _CountingGateway implements AppearanceAnalysisGateway {
   int calls = 0;
+  InMemoryEventStore? eventStore;
+  List<String> eventTypesAtCall = const <String>[];
 
   @override
-  Future<AppearanceAnalysisResult> analyze(
-      AppearanceAnalysisInput input) async {
+  Future<AppearanceAnalysisResult> analyze(AppearanceAnalysisInput input) async {
     calls++;
+    eventTypesAtCall = eventStore?.readEvents()
+            .map((e) => e.event.eventType)
+            .toList() ??
+        const <String>[];
     return const FixtureAppearanceAnalysisGateway(
       behavior: FixtureAppearanceBehavior.syntheticSuccess,
     ).analyze(input);

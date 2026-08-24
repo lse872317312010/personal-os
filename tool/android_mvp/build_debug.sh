@@ -17,4 +17,12 @@ flutter analyze
 flutter test
 flutter build apk --debug
 
-echo "Debug APK: $app_dir/build/app/outputs/flutter-apk/app-debug.apk"
+apk_path="$app_dir/build/app/outputs/flutter-apk/app-debug.apk"
+manifest_path="$app_dir/build/app/outputs/flutter-apk/app-debug.provenance.json"
+python3 "$tool_dir/write_provenance.py" \
+  --app-dir "$app_dir" \
+  --apk "$apk_path" \
+  --output "$manifest_path"
+
+echo "Debug APK: $apk_path"
+echo "Provenance manifest: $manifest_path"

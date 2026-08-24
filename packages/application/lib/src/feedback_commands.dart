@@ -3,6 +3,7 @@ import 'package:personal_os_domain/domain.dart';
 final class CompleteTaskCommand {
   CompleteTaskCommand({
     required this.taskId,
+    this.profileId,
     required this.expectedTaskRevision,
     required this.actor,
     required this.correlationId,
@@ -12,6 +13,10 @@ final class CompleteTaskCommand {
   }) : consentRefs = List<ObjectRef>.unmodifiable(consentRefs);
 
   final EntityId taskId;
+  /// Optional profile linkage for event-stream reconstruction.
+  ///
+  /// Omitting it preserves the legacy task-only event shape.
+  final EntityId? profileId;
   final int expectedTaskRevision;
   final ActorRef actor;
   final String correlationId;
@@ -23,6 +28,7 @@ final class CompleteTaskCommand {
 final class SkipTaskCommand {
   SkipTaskCommand({
     required this.taskId,
+    this.profileId,
     required this.expectedTaskRevision,
     required this.actor,
     required this.correlationId,
@@ -32,6 +38,7 @@ final class SkipTaskCommand {
   }) : consentRefs = List<ObjectRef>.unmodifiable(consentRefs);
 
   final EntityId taskId;
+  final EntityId? profileId;
   final int expectedTaskRevision;
   final ActorRef actor;
   final String correlationId;
@@ -42,6 +49,7 @@ final class SkipTaskCommand {
 
 final class CreateReviewCommand {
   CreateReviewCommand({
+    this.profileId,
     required this.actor,
     required this.correlationId,
     required Iterable<ObjectRef> sourceRefs,
@@ -51,6 +59,7 @@ final class CreateReviewCommand {
         consentRefs = List<ObjectRef>.unmodifiable(consentRefs);
 
   final ActorRef actor;
+  final EntityId? profileId;
   final String correlationId;
   final List<ObjectRef> sourceRefs;
   final Sensitivity sensitivity;
@@ -62,6 +71,7 @@ enum ReviewDecision { accept, reject }
 final class DecideReviewCommand {
   DecideReviewCommand({
     required this.reviewId,
+    this.profileId,
     required this.expectedReviewRevision,
     required this.actor,
     required this.correlationId,
@@ -72,6 +82,7 @@ final class DecideReviewCommand {
   }) : consentRefs = List<ObjectRef>.unmodifiable(consentRefs);
 
   final EntityId reviewId;
+  final EntityId? profileId;
   final int expectedReviewRevision;
   final ActorRef actor;
   final String correlationId;

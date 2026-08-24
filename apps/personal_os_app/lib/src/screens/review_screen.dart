@@ -57,7 +57,8 @@ final class ReviewScreen extends StatelessWidget {
                 child: Text('闭环完成。你的选择已记录在本地事件流中。'),
               ),
           ],
-          if (!controller.hasFinishedTask) const Text('先完成或跳过一个行动，才能生成复盘。'),
+          if (!controller.hasFinishedTask)
+            const Text('先完成或跳过一个行动，才能生成复盘。'),
         ],
       );
 }

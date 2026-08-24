@@ -24,9 +24,7 @@ void main() {
       extensions['new_key'] = true;
 
       final frozenItems = event.payload['items']! as List<Object?>;
-      expect(frozenItems, [
-        <String, Object?>{'score': 1}
-      ]);
+      expect(frozenItems, [<String, Object?>{'score': 1}]);
       expect(event.integrity['proof'], <String, Object?>{'digest': 'before'});
       expect(event.extensions['values'], ['before']);
       expect(event.payload, isNot(contains('new_key')));
@@ -76,8 +74,7 @@ void main() {
 
       expect(first, second);
       expect(first.indexOf('"actor"'), lessThan(first.indexOf('"event_id"')));
-      expect(
-          first.indexOf('"a_nested"'), lessThan(first.indexOf('"z_nested"')));
+      expect(first.indexOf('"a_nested"'), lessThan(first.indexOf('"z_nested"')));
       expect(first.indexOf('"alpha"'), lessThan(first.indexOf('"zeta"')));
     });
 
@@ -124,8 +121,7 @@ void main() {
       );
     });
 
-    test('retains explicit extensions but rejects unknown top-level fields',
-        () {
+    test('retains explicit extensions but rejects unknown top-level fields', () {
       final encoded = EventEnvelopeJsonCodec.encode(_event());
       final decoded = EventEnvelopeJsonCodec.decode(encoded);
       expect(decoded.extensions['future_hint'], 'preserved');
@@ -169,10 +165,8 @@ void main() {
       (nested['items']! as List<Object?>).add('after');
 
       final frozen = projection.attributes['items']! as List<Object?>;
-      expect(frozen, [
-        <String, Object?>{'value': 'before'}
-      ]);
-      expect(frozen.clear, throwsUnsupportedError);
+      expect(frozen, [<String, Object?>{'value': 'before'}]);
+      expect(() => frozen.clear(), throwsUnsupportedError);
       expect(
         () => (frozen.single as Map<String, Object?>)['value'] = 'mutation',
         throwsUnsupportedError,
@@ -227,8 +221,7 @@ void main() {
   });
 }
 
-EventEnvelope _event([Sensitivity sensitivity = Sensitivity.d3]) =>
-    EventEnvelope(
+EventEnvelope _event([Sensitivity sensitivity = Sensitivity.d3]) => EventEnvelope(
       eventId: 'event-1',
       eventType: EventTypes.observationRecorded,
       eventVersion: 1,
@@ -278,8 +271,8 @@ EventEnvelope _event([Sensitivity sensitivity = Sensitivity.d3]) =>
       },
     );
 
-Matcher _reason(String reason) => throwsA(isA<EventCodecException>()
-    .having((error) => error.reasonCode, 'reasonCode', reason));
+Matcher _reason(String reason) => isA<EventCodecException>()
+    .having((error) => error.reasonCode, 'reasonCode', reason);
 
 EventEnvelope _eventWithContainers(
   Map<String, Object?> payload,

@@ -43,17 +43,16 @@ void main() {
         status: status,
       );
 
-  Future<PolicyVerdict> authorize(ConsentGrant? stored) async {
-    return AppearancePolicyAdapter(
-      consents: _Repository(stored),
-      clock: _FixedClock(now),
-    ).authorizeAnalysis(
-      actor: actor,
-      profileId: profileId,
-      consentRefs: [ref],
-      sensitivity: Sensitivity.d3,
-    );
-  }
+  Future<PolicyVerdict> authorize(ConsentGrant? stored) =>
+      AppearancePolicyAdapter(
+        consents: _Repository(stored),
+        clock: _FixedClock(now),
+      ).authorizeAnalysis(
+        actor: actor,
+        profileId: profileId,
+        consentRefs: [ref],
+        sensitivity: Sensitivity.d3,
+      );
 
   test('denies missing consent', () async {
     final result = await authorize(null);
@@ -81,10 +80,7 @@ void main() {
         grant(purposes: {'another_purpose'}),
         PolicyReason.consentPurposeMismatch,
       ),
-      (
-        grant(resources: {'another_resource'}),
-        PolicyReason.consentResourceMismatch
-      ),
+      (grant(resources: {'another_resource'}), PolicyReason.consentResourceMismatch),
       (grant(actions: {'another_action'}), PolicyReason.consentActionMismatch),
       (
         grant(maximumSensitivity: Sensitivity.d2),
@@ -113,10 +109,7 @@ void main() {
     for (final refs in <List<ObjectRef>>[
       [ObjectRef(type: 'consent', id: EntityId('consent-1'))],
       [ref, ref],
-      [
-        ObjectRef(
-            type: 'claim', id: EntityId('consent-1'), revision: Revision(7))
-      ],
+      [ObjectRef(type: 'claim', id: EntityId('consent-1'), revision: Revision(7))],
     ]) {
       final result = await adapter.authorizeAnalysis(
         actor: actor,

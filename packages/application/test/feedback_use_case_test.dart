@@ -24,8 +24,7 @@ void main() {
     );
   });
 
-  test(
-      'complete task atomically records execution before referenced completion',
+  test('complete task atomically records execution before referenced completion',
       () async {
     final result = await useCase.completeTask(CompleteTaskCommand(
       taskId: EntityId('T1'),
@@ -33,6 +32,7 @@ void main() {
       actor: user,
       correlationId: 'corr:complete',
       executionSummary: '完成理发并拍照',
+      profileId: EntityId('profile-1'),
     ));
 
     expect(store.appendCalls, 1);
@@ -43,14 +43,16 @@ void main() {
     final execution = store.batches.single.first;
     final completion = store.batches.single.last;
     expect(completion.causationId, execution.eventId);
-    expect(
-        completion.payload['execution_ref'], 'execution:${result.executionId}');
+    expect(completion.payload['execution_ref'], 'execution:${result.executionId}');
     expect(completion.sourceRefs.single.id.value, result.executionId);
     expect(completion.payload['expected_revision'], 2);
+    expect(
+      completion.subjectRefs.map((ref) => ref.type),
+      <String>['task', 'profile'],
+    );
   });
 
-  test('blank execution summary has stable failure and writes nothing',
-      () async {
+  test('blank execution summary has stable failure and writes nothing', () async {
     await expectLater(
       useCase.completeTask(CompleteTaskCommand(
         taskId: EntityId('T1'),
@@ -75,11 +77,16 @@ void main() {
       actor: user,
       correlationId: 'corr:skip',
       reason: '今天皮肤过敏',
+      profileId: EntityId('profile-1'),
     ));
     expect(store.appendCalls, 1);
     final event = store.batches.single.single;
     expect(event.eventType, EventTypes.taskSkipped);
     expect(event.payload['reason'], '今天皮肤过敏');
+    expect(event.subjectRefs.map((ref) => ref.type), <String>[
+      'task',
+      'profile',
+    ]);
 
     await expectLater(
       useCase.skipTask(SkipTaskCommand(
@@ -103,6 +110,7 @@ void main() {
     final created = await useCase.createReview(CreateReviewCommand(
       actor: user,
       correlationId: 'corr:review',
+      profileId: EntityId('profile-1'),
       sourceRefs: <ObjectRef>[
         ObjectRef(type: 'outcome', id: EntityId('O1')),
       ],
@@ -113,6 +121,7 @@ void main() {
       actor: user,
       correlationId: 'corr:review',
       decision: ReviewDecision.accept,
+      profileId: EntityId('profile-1'),
     ));
 
     expect(store.appendCalls, 2);
@@ -126,8 +135,7 @@ void main() {
     expect(store.batches.last.last.payload['expected_revision'], 2);
   });
 
-  test('reject path is explicit and atomically follows user_reviewed',
-      () async {
+  test('reject path is explicit and atomically follows user_reviewed', () async {
     await useCase.decideReview(DecideReviewCommand(
       reviewId: EntityId('R1'),
       expectedReviewRevision: 1,
@@ -143,8 +151,7 @@ void main() {
     ]);
   });
 
-  test('non-user cannot accept or reject a review and writes nothing',
-      () async {
+  test('non-user cannot accept or reject a review and writes nothing', () async {
     final agent = ActorRef(
       actorId: 'agent:reviewer',
       actorType: ActorType.agent,
@@ -242,8 +249,7 @@ final class _MemoryStore implements EventStore {
   Future<EventEnvelope?> readById(String eventId) async => null;
 
   @override
-  Future<List<EventEnvelope>> readBySubject(ObjectRef subject,
-          {int? limit}) async =>
+  Future<List<EventEnvelope>> readBySubject(ObjectRef subject, {int? limit}) async =>
       const <EventEnvelope>[];
 }
 

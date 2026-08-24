@@ -19,7 +19,7 @@ void main() {
     expect(composition.controller.taskState(taskId), 'completed');
     expect(find.text('succeeded: task_completed'), findsOneWidget);
     expect(
-      composition.eventStore
+      (composition.eventStore as InMemoryEventStore)
           .readEvents()
           .map((stored) => stored.event.eventType),
       containsAll(<String>['execution.recorded', 'task.completed']),
@@ -38,7 +38,7 @@ void main() {
     expect(composition.controller.taskState(taskId), 'skipped');
     expect(find.text('succeeded: task_skipped'), findsOneWidget);
     expect(
-      composition.eventStore
+      (composition.eventStore as InMemoryEventStore)
           .readEvents()
           .map((stored) => stored.event.eventType),
       contains('task.skipped'),
@@ -62,7 +62,7 @@ void main() {
     expect(composition.controller.reviewState, 'accepted');
     expect(find.text('succeeded: review_accepted'), findsOneWidget);
     expect(
-      composition.eventStore
+      (composition.eventStore as InMemoryEventStore)
           .readEvents()
           .map((stored) => stored.event.eventType),
       containsAll(<String>[
@@ -90,7 +90,7 @@ void main() {
     expect(composition.controller.reviewState, 'rejected');
     expect(find.text('succeeded: review_rejected'), findsOneWidget);
     expect(
-      composition.eventStore
+      (composition.eventStore as InMemoryEventStore)
           .readEvents()
           .map((stored) => stored.event.eventType),
       containsAll(<String>[
@@ -117,7 +117,10 @@ void main() {
       isNull,
     );
     expect(find.textContaining('先完成或跳过'), findsOneWidget);
-    expect(composition.eventStore.readEvents(), isEmpty);
+    expect(
+      (composition.eventStore as InMemoryEventStore).readEvents(),
+      isEmpty,
+    );
   });
 }
 

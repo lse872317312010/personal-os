@@ -94,7 +94,11 @@ final class ActionFeedbackUseCase {
         type: EventTypes.executionRecorded,
         actor: command.actor,
         correlationId: command.correlationId,
-        subjectRefs: <ObjectRef>[executionRef, taskRef],
+        subjectRefs: _subjectRefs(
+          primary: executionRef,
+          related: taskRef,
+          profile: command.profileId,
+        ),
         sourceRefs: <ObjectRef>[taskRef],
         consentRefs: command.consentRefs,
         sensitivity: command.sensitivity,
@@ -111,7 +115,10 @@ final class ActionFeedbackUseCase {
         actor: command.actor,
         correlationId: command.correlationId,
         causationId: executionEventId,
-        subjectRefs: <ObjectRef>[taskRef],
+        subjectRefs: _subjectRefs(
+          primary: taskRef,
+          profile: command.profileId,
+        ),
         sourceRefs: <ObjectRef>[executionRef],
         consentRefs: command.consentRefs,
         sensitivity: command.sensitivity,
@@ -138,8 +145,7 @@ final class ActionFeedbackUseCase {
       expectedRevision: command.expectedTaskRevision,
     );
     if (command.reason.trim().isEmpty) {
-      throw const FeedbackUseCaseFailure(
-          FeedbackFailureCode.skipReasonRequired);
+      throw const FeedbackUseCaseFailure(FeedbackFailureCode.skipReasonRequired);
     }
     final eventId = _ids.nextId('event');
     await _eventStore.appendAll(<EventEnvelope>[
@@ -148,9 +154,10 @@ final class ActionFeedbackUseCase {
         type: EventTypes.taskSkipped,
         actor: command.actor,
         correlationId: command.correlationId,
-        subjectRefs: <ObjectRef>[
-          ObjectRef(type: 'task', id: command.taskId),
-        ],
+        subjectRefs: _subjectRefs(
+          primary: ObjectRef(type: 'task', id: command.taskId),
+          profile: command.profileId,
+        ),
         consentRefs: command.consentRefs,
         sensitivity: command.sensitivity,
         payload: <String, Object?>{
@@ -177,9 +184,10 @@ final class ActionFeedbackUseCase {
         type: EventTypes.reviewCreated,
         actor: command.actor,
         correlationId: command.correlationId,
-        subjectRefs: <ObjectRef>[
-          ObjectRef(type: 'review', id: EntityId(reviewId)),
-        ],
+        subjectRefs: _subjectRefs(
+          primary: ObjectRef(type: 'review', id: EntityId(reviewId)),
+          profile: command.profileId,
+        ),
         sourceRefs: command.sourceRefs,
         consentRefs: command.consentRefs,
         sensitivity: command.sensitivity,
@@ -212,7 +220,7 @@ final class ActionFeedbackUseCase {
         type: EventTypes.reviewUserReviewed,
         actor: command.actor,
         correlationId: command.correlationId,
-        subjectRefs: <ObjectRef>[reviewRef],
+        subjectRefs: _subjectRefs(primary: reviewRef, profile: command.profileId),
         consentRefs: command.consentRefs,
         sensitivity: command.sensitivity,
         payload: <String, Object?>{
@@ -227,7 +235,7 @@ final class ActionFeedbackUseCase {
         actor: command.actor,
         correlationId: command.correlationId,
         causationId: reviewedId,
-        subjectRefs: <ObjectRef>[reviewRef],
+        subjectRefs: _subjectRefs(primary: reviewRef, profile: command.profileId),
         consentRefs: command.consentRefs,
         sensitivity: command.sensitivity,
         payload: <String, Object?>{
@@ -295,3 +303,13 @@ final class ActionFeedbackUseCase {
     );
   }
 }
+
+List<ObjectRef> _subjectRefs({
+  required ObjectRef primary,
+  ObjectRef? related,
+  EntityId? profile,
+}) => <ObjectRef>[
+      primary,
+      if (related != null) related,
+      if (profile != null) ObjectRef(type: 'profile', id: profile),
+    ];

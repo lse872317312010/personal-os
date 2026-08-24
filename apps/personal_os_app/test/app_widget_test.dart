@@ -5,8 +5,7 @@ import 'package:personal_os_app/src/app.dart';
 import 'package:personal_os_app/src/composition/app_composition.dart';
 
 void main() {
-  testWidgets('vault gate protects the shell and can be relocked',
-      (tester) async {
+  testWidgets('vault gate protects the shell and can be relocked', (tester) async {
     await tester.pumpWidget(
       PersonalOsApp(composition: AppComposition.inMemoryDemo()),
     );
@@ -17,6 +16,8 @@ void main() {
     await tester.tap(find.byKey(const Key('unlock-vault')));
     await tester.pump();
     expect(find.text('今天，从一个小改变开始'), findsOneWidget);
+    expect(find.text('最近观察'), findsOneWidget);
+    expect(find.textContaining('blob://'), findsNothing);
 
     await tester.tap(find.byKey(const Key('lock-vault')));
     await tester.pump();

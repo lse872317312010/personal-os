@@ -40,8 +40,10 @@ final class DefaultVaultSession implements VaultSession {
 
   @override
   Future<void> unlock({required String reason}) async {
-    final grant =
-        await _unlockPort.requestUnlock(UnlockRequest(reason: reason));
+    // A failed re-authentication must not leave the previous capability
+    // usable. This keeps the session fail-closed across retries.
+    _grant = null;
+    final grant = await _unlockPort.requestUnlock(UnlockRequest(reason: reason));
     if (!grant.isValidAt(_clock())) {
       _grant = null;
       throw const SecurityException(SecurityErrorCode.unlockExpired);

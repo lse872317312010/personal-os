@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../composition/app_composition.dart';
 import '../controller/app_controller.dart';
 
 final class VaultLockScreen extends StatelessWidget {
-  const VaultLockScreen({required this.controller, super.key});
+  const VaultLockScreen({required this.controller, required this.mode, super.key});
 
   final AppController controller;
+  final AppExperienceMode mode;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -23,8 +25,10 @@ final class VaultLockScreen extends StatelessWidget {
                     Text('我的 Personal OS',
                         style: Theme.of(context).textTheme.headlineMedium),
                     const SizedBox(height: 12),
-                    const Text(
-                      '当前为离线 MVP：数据只保存在本次运行的本地内存中，不上传云端。尚未接入系统生物识别和硬件密钥。',
+                    Text(
+                      mode == AppExperienceMode.syntheticDemo
+                          ? '当前为离线合成体验：数据只保存在本次运行的内存中，不上传云端。结果不代表真实 AI 分析。'
+                          : '安全保险库当前已锁定。进入前需要可用的系统认证；应用不会使用明文或未加密存储。',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 24),
@@ -32,7 +36,9 @@ final class VaultLockScreen extends StatelessWidget {
                       key: const Key('unlock-vault'),
                       onPressed: controller.unlockVault,
                       icon: const Icon(Icons.lock_open),
-                      label: const Text('进入离线体验'),
+                      label: Text(
+                        mode == AppExperienceMode.syntheticDemo ? '进入合成体验' : '解锁安全保险库',
+                      ),
                     ),
                   ],
                 ),
