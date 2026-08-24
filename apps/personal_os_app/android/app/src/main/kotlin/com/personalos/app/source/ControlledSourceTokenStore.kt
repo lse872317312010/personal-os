@@ -72,10 +72,12 @@ internal class ControlledSourceTokenStore(
         }
     }
 
-    fun release(token: String): Boolean {
-        if (!ControlledSourceMethodChannelContract.isOpaqueToken(token)) return false
-        val entry = entries.remove(token) ?: return false
-        return cleanup(entry)
+    fun release(token: String): ReleaseResult {
+        if (!ControlledSourceMethodChannelContract.isOpaqueToken(token)) {
+            return ReleaseResult.AlreadyAbsent
+        }
+        val entry = entries.remove(token) ?: return ReleaseResult.AlreadyAbsent
+        return if (cleanup(entry)) ReleaseResult.Released else ReleaseResult.CleanupFailed
     }
 
     fun clear() {
@@ -100,6 +102,11 @@ internal class ControlledSourceTokenStore(
         }
     }
 
+    sealed interface ReleaseResult {
+        object Released : ReleaseResult
+        object AlreadyAbsent : ReleaseResult
+        object CleanupFailed : ReleaseResult
+    }
     sealed interface ConsumeResult {
         data class Stored(val blobRef: String) : ConsumeResult
         object Invalid : ConsumeResult
