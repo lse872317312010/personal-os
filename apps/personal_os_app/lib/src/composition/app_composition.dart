@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_device_security/device_security.dart';
@@ -40,6 +41,17 @@ final class AppComposition {
       ],
     );
   }
+
+  /// The runtime composition used by the shipped application.
+  ///
+  /// Android is the primary vault platform, so it must exercise the native
+  /// authenticated vault path by default. Other platforms keep the synthetic
+  /// composition until they have an equivalent secure adapter. Tests and
+  /// previews should continue to request [inMemoryDemo] explicitly.
+  factory AppComposition.forCurrentPlatform() =>
+      defaultTargetPlatform == TargetPlatform.android
+          ? AppComposition.secureVault()
+          : AppComposition.inMemoryDemo();
 
   /// Secure composition. The model remains a synthetic fixture by design;
   /// this factory only wires native authentication and encrypted persistence.
@@ -155,3 +167,4 @@ final class _SequentialIds implements IdGenerator {
   @override
   String nextId(String namespace) => '$namespace-${++_next}';
 }
+
