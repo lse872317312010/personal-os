@@ -16,6 +16,28 @@ internal class NativeVaultBlobSink(
     private val resolver: ContentResolver,
     private val vault: NativeVaultChannel,
 ) : SourceBlobSink {
+    override fun deleteBlob(blobRef: String): BlobDeleteResult {
+        if (!ControlledSourceMethodChannelContract.isOpaqueBlobRef(blobRef)) {
+            return BlobDeleteResult.Invalid
+        }
+        return try {
+            vault.deleteBlobFromCurrentSession(blobRef)
+            BlobDeleteResult.Deleted
+        } catch (failure: NativeVaultFailure) {
+            when (failure.failureCode) {
+                NativeVaultFailureCode.VAULT_EVENT_INVALID ->
+                    BlobDeleteResult.Invalid
+                NativeVaultFailureCode.VAULT_LOCKED,
+                NativeVaultFailureCode.VAULT_SESSION_INVALID,
+                NativeVaultFailureCode.UNAVAILABLE,
+                -> BlobDeleteResult.Unavailable
+                else -> BlobDeleteResult.Failed
+            }
+        } catch (_: Throwable) {
+            BlobDeleteResult.Failed
+        }
+    }
+
     override fun ingest(uri: Uri, opaqueToken: String): BlobSinkResult {
         val source = ResolverNativeBlobSource(resolver, uri, opaqueToken)
         return try {

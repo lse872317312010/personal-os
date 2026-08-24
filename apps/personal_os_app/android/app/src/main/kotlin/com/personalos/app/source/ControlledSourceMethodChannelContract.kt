@@ -15,6 +15,7 @@ object ControlledSourceMethodChannelContract {
     const val METHOD_CAPTURE_PHOTO = "capturePhoto"
     const val METHOD_CONSUME = "consume"
     const val METHOD_RELEASE = "release"
+    const val METHOD_DELETE_BLOB = "deleteBlob"
 
     const val KEY_PHOTO_PICKER = "photoPicker"
     const val KEY_CAMERA = "camera"
@@ -30,6 +31,7 @@ object ControlledSourceMethodChannelContract {
     const val ERROR_CONSUMED = "source.consumed"
     const val ERROR_READ_FAILED = "source.read_failed"
     const val ERROR_WRITE_FAILED = "source.write_failed"
+    const val ERROR_DELETE_FAILED = "source.delete_failed"
 
     fun isOpaqueToken(value: Any?): Boolean =
         value is String && Regex("^[A-Za-z0-9_-]{16,128}$").matches(value)
@@ -60,7 +62,8 @@ object ControlledSourceMethodChannelContract {
             ERROR_EXPIRED,
             ERROR_CONSUMED,
             ERROR_READ_FAILED,
-            ERROR_WRITE_FAILED -> code
+            ERROR_WRITE_FAILED,
+            ERROR_DELETE_FAILED -> code
             else -> ERROR_UNAVAILABLE
         })
 }

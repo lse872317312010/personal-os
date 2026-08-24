@@ -38,6 +38,21 @@ internal class ControlledSourceChannel(
                     }
                 }
 
+                ControlledSourceMethodChannelContract.METHOD_DELETE_BLOB -> {
+                    val blobRef = (call.arguments as? Map<*, *>)?.get(
+                        ControlledSourceMethodChannelContract.KEY_BLOB_REF,
+                    ) as? String
+                    if (blobRef == null) {
+                        result.error(
+                            ControlledSourceMethodChannelContract.ERROR_INVALID_RESPONSE,
+                            null,
+                            null,
+                        )
+                    } else {
+                        picker.deleteBlob(blobRef, result)
+                    }
+                }
+
                 ControlledSourceMethodChannelContract.METHOD_RELEASE -> {
                     val token = (call.arguments as? Map<*, *>)?.get(
                         ControlledSourceMethodChannelContract.KEY_TOKEN,

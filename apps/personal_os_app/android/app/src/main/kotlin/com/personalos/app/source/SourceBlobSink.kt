@@ -11,6 +11,16 @@ import android.net.Uri
  */
 internal interface SourceBlobSink {
     fun ingest(uri: Uri, opaqueToken: String): BlobSinkResult
+
+    /** Deletes only an opaque blob reference; the native sink owns its storage. */
+    fun deleteBlob(blobRef: String): BlobDeleteResult
+}
+
+internal sealed interface BlobDeleteResult {
+    object Deleted : BlobDeleteResult
+    object Invalid : BlobDeleteResult
+    object Unavailable : BlobDeleteResult
+    object Failed : BlobDeleteResult
 }
 
 internal sealed interface BlobSinkResult {
@@ -26,4 +36,6 @@ internal sealed interface BlobSinkResult {
  */
 internal object UnavailableSourceBlobSink : SourceBlobSink {
     override fun ingest(uri: Uri, opaqueToken: String): BlobSinkResult = BlobSinkResult.Unavailable
+
+    override fun deleteBlob(blobRef: String): BlobDeleteResult = BlobDeleteResult.Unavailable
 }

@@ -15,6 +15,9 @@ internal interface NativeVaultDatabase : AutoCloseable {
     /** Writes from a native-owned stream and returns only an opaque blob reference. */
     fun writeBlob(source: NativeBlobSource): String
 
+    /** Deletes an opaque blob reference; missing references are an idempotent success. */
+    fun deleteBlob(blobRef: String)
+
     fun readEventsByProfile(profileId: String, limit: Int): List<Map<String, Any?>>
 
     fun readEventsBySubject(subjectType: String, subjectId: String, limit: Int): List<Map<String, Any?>>
@@ -56,6 +59,7 @@ internal class SqlCipherVaultDatabase private constructor(
         private const val SCHEMA_VERSION = 3
         private const val PREVIOUS_SCHEMA_VERSION = 2
         private const val MAX_BLOB_TOKEN_LENGTH = 512
+        private const val MAX_BLOB_REF_LENGTH = 136
         private const val MAX_BLOB_BYTES = 50 * 1024 * 1024
         private const val BLOB_READ_BUFFER_SIZE = 32 * 1024
 
@@ -267,6 +271,23 @@ internal class SqlCipherVaultDatabase private constructor(
         }
     }
 
+    override fun deleteBlob(blobRef: String) = synchronized(lock) {
+        ensureOpen()
+        validateBlobReference(blobRef)
+        try {
+            // DELETE is intentionally idempotent: an already discarded blob is
+            // a successful retry, while the active session remains mandatory.
+            database.delete(
+                "vault_blobs",
+                "blob_ref = ?",
+                arrayOf(blobRef),
+            )
+            Unit
+        } catch (_: Throwable) {
+            throw NativeVaultFailure(NativeVaultFailureCode.TRANSACTION_FAILED)
+        }
+    }
+
     private fun readBlobBytes(stream: InputStream): ByteArray {
         val output = ByteArrayOutputStream()
         val buffer = ByteArray(BLOB_READ_BUFFER_SIZE)
@@ -291,6 +312,16 @@ internal class SqlCipherVaultDatabase private constructor(
             token.length > MAX_BLOB_TOKEN_LENGTH ||
             token != token.trim() ||
             !token.matches(Regex("[A-Za-z0-9._-]+"))
+        ) {
+            throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+        }
+    }
+
+    private fun validateBlobReference(blobRef: String) {
+        if (blobRef.isBlank() ||
+            blobRef.length > MAX_BLOB_REF_LENGTH ||
+            blobRef != blobRef.trim() ||
+            !blobRef.matches(Regex("blob://[A-Za-z0-9-]{16,128}"))
         ) {
             throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
         }

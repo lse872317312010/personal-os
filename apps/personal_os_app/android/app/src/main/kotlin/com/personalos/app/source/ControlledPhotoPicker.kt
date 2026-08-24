@@ -108,6 +108,35 @@ internal class ControlledPhotoPicker(
         }
     }
 
+    fun deleteBlob(blobRef: String, result: MethodChannel.Result) {
+        if (!ControlledSourceMethodChannelContract.isOpaqueBlobRef(blobRef)) {
+            result.error(
+                ControlledSourceMethodChannelContract.ERROR_INVALID_RESPONSE,
+                null,
+                null,
+            )
+            return
+        }
+        when (blobSink.deleteBlob(blobRef)) {
+            BlobDeleteResult.Deleted -> result.success(null)
+            BlobDeleteResult.Invalid -> result.error(
+                ControlledSourceMethodChannelContract.ERROR_INVALID_RESPONSE,
+                null,
+                null,
+            )
+            BlobDeleteResult.Unavailable -> result.error(
+                ControlledSourceMethodChannelContract.ERROR_UNAVAILABLE,
+                null,
+                null,
+            )
+            BlobDeleteResult.Failed -> result.error(
+                ControlledSourceMethodChannelContract.ERROR_DELETE_FAILED,
+                null,
+                null,
+            )
+        }
+    }
+
     fun release(token: String, result: MethodChannel.Result) {
         tokenStore.release(token)
         result.success(null)

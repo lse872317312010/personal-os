@@ -353,6 +353,18 @@ internal class NativeVaultChannel(
         return writeBlobFromNativeSource(sessionId, source)
     }
 
+    /** Deletes only within the currently authenticated native vault session. */
+    internal fun deleteBlobFromCurrentSession(blobRef: String) {
+        if (disposed.get()) {
+            throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
+        }
+        val sessionId = activeSessionId
+            ?: throw NativeVaultFailure(NativeVaultFailureCode.VAULT_LOCKED)
+        sessions.withActive(sessionId) { database ->
+            database.deleteBlob(blobRef)
+        }
+    }
+
     private fun appendEvents(call: MethodCall, result: MethodChannel.Result) {
         val sessionId = requiredStringArgument(call, "sessionId")
         val arguments = call.arguments as? Map<*, *>
