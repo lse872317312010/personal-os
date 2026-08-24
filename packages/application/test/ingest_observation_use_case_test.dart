@@ -20,7 +20,7 @@ void main() {
     consentRef: 'consent:appearance-v1',
   );
 
-  IngestObservationUseCase _useCase(_Ingestion ingestion, _Store store) =>
+  IngestObservationUseCase _buildUseCase(_Ingestion ingestion, _Store store) =>
       IngestObservationUseCase(
         ingestion: ingestion,
         recordObservation: RecordObservationUseCase(
@@ -30,7 +30,7 @@ void main() {
         ),
       );
 
-  IngestObservationCommand _command(
+  IngestObservationCommand _buildCommand(
     Stream<List<int>> bytes, {
     Sensitivity sensitivity = Sensitivity.d3,
   }) =>
@@ -49,8 +49,8 @@ void main() {
   test('ingests first and records only the returned opaque ref', () async {
     final ingestion = _Ingestion();
     final store = _Store();
-    final result = await _useCase(ingestion, store).execute(
-      _command(Stream<List<int>>.value(<int>[1, 2, 3])),
+    final result = await _buildUseCase(ingestion, store).execute(
+      _buildCommand(Stream<List<int>>.value(<int>[1, 2, 3])),
     );
 
     expect(ingestion.calls, 1);
@@ -78,7 +78,7 @@ void main() {
     final store = _Store();
     final ingestion = _Ingestion()..failure = const _SafeIngestionFailure();
     await expectLater(
-      _useCase(ingestion, store).execute(_command(_listeningStream())),
+      _buildUseCase(ingestion, store).execute(_buildCommand(_listeningStream())),
       throwsA(isA<_SafeIngestionFailure>()),
     );
     expect(ingestion.calls, 1);
@@ -96,7 +96,7 @@ void main() {
           ids: _Ids(),
           clock: _Clock(),
         ),
-      ).execute(_command(Stream<List<int>>.multi((controller) {
+      ).execute(_buildCommand(Stream<List<int>>.multi((controller) {
         listened = true;
         controller.close();
       }))),
@@ -114,7 +114,7 @@ void main() {
     final store = _Store();
     final ingestion = _Ingestion()..failure = const _SafeIngestionFailure();
     var listened = false;
-    final command = _command(
+    final command = _buildCommand(
       Stream<List<int>>.multi((controller) {
         listened = true;
         controller.add(<int>[1]);
@@ -123,7 +123,7 @@ void main() {
       sensitivity: Sensitivity.d4,
     );
     await expectLater(
-      _useCase(ingestion, store).execute(command),
+      _buildUseCase(ingestion, store).execute(command),
       throwsA(isA<_SafeIngestionFailure>()),
     );
     expect(listened, isFalse);
@@ -134,7 +134,7 @@ void main() {
     final ingestion = _Ingestion()..ref = BlobRef('/tmp/leaked-path');
     final store = _Store();
     await expectLater(
-      _useCase(ingestion, store).execute(_command(Stream<List<int>>.empty())),
+      _buildUseCase(ingestion, store).execute(_buildCommand(Stream<List<int>>.empty())),
       throwsA(isA<ObservationUseCaseFailure>()),
     );
     expect(ingestion.calls, 1);
@@ -145,7 +145,7 @@ void main() {
     final ingestion = _Ingestion();
     final store = _Store()..failure = StateError('adapter details');
     await expectLater(
-      _useCase(ingestion, store).execute(_command(Stream<List<int>>.empty())),
+      _buildUseCase(ingestion, store).execute(_buildCommand(Stream<List<int>>.empty())),
       throwsA(isA<ObservationUseCaseFailure>().having(
         (error) => error.code,
         'code',
@@ -160,7 +160,7 @@ void main() {
     final ingestion = _Ingestion()..discardFailure = StateError('sql path');
     final store = _Store()..failure = StateError('raw append details');
     await expectLater(
-      _useCase(ingestion, store).execute(_command(Stream<List<int>>.empty())),
+      _buildUseCase(ingestion, store).execute(_buildCommand(Stream<List<int>>.empty())),
       throwsA(isA<ObservationUseCaseFailure>()
           .having((error) => error.code, 'code',
               ObservationFailureCode.appendFailed)
@@ -175,17 +175,15 @@ void main() {
 
 }
 
-Stream<List<int>> _listeningStream() => Stream<List<int>>.multi((controller) {
-      controller.add(<int>[1]);
-      controller.close();
-    });
+Stream<List<int>> _listeningStream() =>
+    Stream<List<int>>.fromIterable(<List<int>>[<int>[1]]);
 
 final class _Ingestion implements BlobIngestionContract, BlobIngestionRollback {
   int calls = 0;
   int discardCalls = 0;
   BlobRef ref = BlobRef('blob://opaque-1');
-  Object? failure;
-  Object? discardFailure;
+  Exception? failure;
+  Exception? discardFailure;
 
   @override
   Future<BlobRef> ingest({
@@ -245,7 +243,7 @@ final class _Clock implements Clock {
 
 final class _Store implements EventStore {
   final List<EventEnvelope> events = <EventEnvelope>[];
-  Object? failure;
+  Exception? failure;
 
   @override
   Future<void> appendAll(List<EventEnvelope> incoming) async {
