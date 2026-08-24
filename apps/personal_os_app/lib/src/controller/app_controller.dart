@@ -358,6 +358,7 @@ final class AppController extends ChangeNotifier {
         _consentGranted = false;
       }
     } on Object {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
       _errorCode = 'consent_persistence_failed';
       _consentGranted = false;
     }
@@ -389,6 +390,9 @@ final class AppController extends ChangeNotifier {
 
     _submission = SubmissionStatus.running;
     _errorCode = null;
+    // A new secure attempt invalidates any prior in-memory result. Keeping it
+    // would let a failed fail-closed analysis render as the previous success.
+    _result = null;
     final epoch = _lifecycleEpoch;
     final correlationId = _correlation('appearance');
     notifyListeners();
@@ -449,6 +453,10 @@ final class AppController extends ChangeNotifier {
       if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
       _submission = SubmissionStatus.failed;
       _errorCode = error.code;
+    } on SecurityException catch (error) {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _submission = SubmissionStatus.failed;
+      _errorCode = error.code.wireValue;
     } on Object {
       if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
       _submission = SubmissionStatus.failed;
@@ -481,6 +489,9 @@ final class AppController extends ChangeNotifier {
 
     _submission = SubmissionStatus.running;
     _errorCode = null;
+    // See analyzeBlobReference: a failed secure attempt must not retain the
+    // claims from an earlier successful attempt.
+    _result = null;
     final epoch = _lifecycleEpoch;
     OpaqueSourceToken? token;
     notifyListeners();
@@ -523,6 +534,10 @@ final class AppController extends ChangeNotifier {
       if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
       _submission = SubmissionStatus.failed;
       _errorCode = error.code;
+    } on SecurityException catch (error) {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _submission = SubmissionStatus.failed;
+      _errorCode = error.code.wireValue;
     } on ControlledSourceException catch (error) {
       if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
       _submission = SubmissionStatus.failed;
