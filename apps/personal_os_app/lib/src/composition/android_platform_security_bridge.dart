@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/services.dart';
 import 'package:personal_os_device_security/device_security.dart';
 import 'package:personal_os_security_api/security_api.dart';

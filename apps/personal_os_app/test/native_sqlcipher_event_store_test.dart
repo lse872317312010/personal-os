@@ -19,7 +19,7 @@ void main() {
   });
 
   tearDown(() {
-    channel.setMockMethodCallHandler(null);
+    _setChannelHandler(channel, null);
   });
 
   test('appendAll is one strict JSON batch and reads complete envelopes', () async {
@@ -27,9 +27,11 @@ void main() {
     store.attachNativeSession(PlatformVaultSession(id: 'native-session'));
     final event = _event();
     storedJson = EventEnvelopeJsonCodec.encodeString(event);
-    channel.setMockMethodCallHandler((call) async {
+    _setChannelHandler(channel, (call) async {
       calls.add(call);
-      if (call.method == 'appendEvents') return null;
+      if (call.method == 'appendEvents') {
+        return null;
+      }
       if (call.method == 'readEventById') return <String, Object?>{
         'eventId': 'event-1',
         'eventJson': storedJson,
@@ -81,7 +83,7 @@ void main() {
       observationRevision: 1,
     );
     final matching = _event(id: 'event-matching', observationRevision: 2);
-    channel.setMockMethodCallHandler((call) async {
+    _setChannelHandler(channel, (call) async {
       calls.add(call);
       if (call.method == 'readEventsBySubject') {
         final arguments = call.arguments as Map<Object?, Object?>;
@@ -116,7 +118,7 @@ void main() {
     final store = NativeSqlCipherEventStore(channel: channel);
     store.attachNativeSession(PlatformVaultSession(id: 'native-session'));
     var channelCalls = 0;
-    channel.setMockMethodCallHandler((call) async {
+    _setChannelHandler(channel, (call) async {
       channelCalls += 1;
       if (call.method == 'appendEvents') return null;
       return <Object?>[
@@ -149,7 +151,7 @@ void main() {
       )),
     );
 
-    channel.setMockMethodCallHandler((call) async => <Object?>[
+    _setChannelHandler(channel, (call) async => <Object?>[
           <String, Object?>{
             'eventId': 'event-1',
             'eventJson': 'not-json',
@@ -167,7 +169,7 @@ void main() {
       () async {
     final store = NativeSqlCipherEventStore(channel: channel);
     store.attachNativeSession(PlatformVaultSession(id: 'native-session'));
-    channel.setMockMethodCallHandler((_) async {
+    _setChannelHandler(channel, (_) async {
       throw PlatformException(
         code: 'security.provider_unavailable',
         message: 'raw SQLCipher path and exception',
@@ -187,7 +189,7 @@ void main() {
       () async {
     final store = NativeSqlCipherEventStore(channel: channel);
     store.attachNativeSession(PlatformVaultSession(id: 'native-session'));
-    channel.setMockMethodCallHandler((call) async {
+    _setChannelHandler(channel, (call) async {
       if (call.method == 'appendEvents') {
         throw PlatformException(
           code: 'security.vault_event_conflict',
@@ -235,7 +237,7 @@ void main() {
       bridge: bridge,
       eventStore: store,
     );
-    channel.setMockMethodCallHandler((call) async {
+    _setChannelHandler(channel, (call) async {
       calls.add(call);
       if (call.method == 'appendEvents') return null;
       return null;
@@ -259,6 +261,14 @@ void main() {
       throwsA(isA<PersistenceException>()),
     );
   });
+}
+
+void _setChannelHandler(
+  MethodChannel channel,
+  Future<Object?> Function(MethodCall)? handler,
+) {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockMethodCallHandler(channel, handler);
 }
 
 EventEnvelope _event({

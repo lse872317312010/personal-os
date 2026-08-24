@@ -2,7 +2,6 @@ import 'package:flutter/services.dart';
 import 'package:personal_os_device_security/device_security.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_events/events.dart';
-import 'package:personal_os_security_api/security_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 
 /// App-private EventStore adapter for the native SQLCipher session.
@@ -81,7 +80,7 @@ final class NativeSqlCipherEventStore implements EventStore {
     // Native filters by subject, while this adapter performs the final
     // envelope-reference check below. Ask native for the full bounded page so
     // an unrelated earlier row cannot consume the caller's post-filter limit.
-    final nativeLimit = _maxNativeRead;
+    const nativeLimit = _maxNativeRead;
     final method = subject.type == 'profile'
         ? 'readEventsByProfile'
         : 'readEventsBySubject';
@@ -122,8 +121,7 @@ final class NativeSqlCipherEventStore implements EventStore {
       failure: const PersistenceException.readFailed(),
     );
     if (value == null) return null;
-    if (value is! Map) throw const PersistenceException.schemaViolation();
-    return _decodeRow(value);
+    return _decodeRow(_asStringObjectMap(value));
   }
 
   static const _maxNativeRead = 1000;
@@ -165,15 +163,20 @@ final class NativeSqlCipherEventStore implements EventStore {
       throw const PersistenceException.schemaViolation();
     }
     try {
-      return value.map<Map<String, Object?>>((row) {
-        final map = row as Map<Object?, Object?>;
-        return <String, Object?>{
-          for (final entry in map.entries) entry.key.toString(): entry.value,
-        };
-      }).toList(growable: false);
+      return value
+          .map<Map<String, Object?>>(_asStringObjectMap)
+          .toList(growable: false);
     } on Object {
       throw const PersistenceException.schemaViolation();
     }
+  }
+
+  Map<String, Object?> _asStringObjectMap(Object? value) {
+    if (value is! Map) throw const PersistenceException.schemaViolation();
+    return <String, Object?>{
+      for (final entry in value.entries)
+        entry.key.toString(): entry.value,
+    };
   }
 
   EventEnvelope _decodeRow(Map<String, Object?> row) {

@@ -134,23 +134,22 @@ final class AppController extends ChangeNotifier {
 
   Future<void> _unlockSecureVault() async {
     final epoch = ++_lifecycleEpoch;
+    final vaultSession = _vaultSession!;
+    final coordinator = _sessionCoordinator;
+    final secureVault = _secureVault;
     try {
-      await _vaultSession!.unlock(reason: 'Open Personal OS vault');
-      final session = _sessionCoordinator != null
-          ? await _sessionCoordinator!.open(
-              grant: _vaultSession!.requireGrant(),
-            )
-          : await _secureVault!.open(
-              grant: _vaultSession!.requireGrant(),
-            );
+      await vaultSession.unlock(reason: 'Open Personal OS vault');
+      final session = coordinator != null
+          ? await coordinator.open(grant: vaultSession.requireGrant())
+          : await secureVault!.open(grant: vaultSession.requireGrant());
       if (!session.isActive) {
         throw const SecurityException(SecurityErrorCode.providerUnavailable);
       }
       if (epoch != _lifecycleEpoch) {
-        if (_sessionCoordinator != null) {
-          await _sessionCoordinator!.close(session);
+        if (coordinator != null) {
+          await coordinator.close(session);
         } else {
-          await _secureVault!.close(session);
+          await secureVault!.close(session);
         }
         return;
       }
@@ -162,12 +161,12 @@ final class AppController extends ChangeNotifier {
       if (epoch != _lifecycleEpoch) return;
       _vaultUnlocked = false;
       _errorCode = error.code.wireValue;
-      await _vaultSession!.lock();
+      await vaultSession.lock();
     } on Object {
       if (epoch != _lifecycleEpoch) return;
       _vaultUnlocked = false;
       _errorCode = SecurityErrorCode.providerUnavailable.wireValue;
-      await _vaultSession!.lock();
+      await vaultSession.lock();
     }
     notifyListeners();
   }
@@ -178,10 +177,11 @@ final class AppController extends ChangeNotifier {
   /// the consent lifecycle is event-backed, a recreated controller remains
   /// denied by default.
   Future<void> bootstrap() async {
-    if (_bootstrapped || _sessionQuery == null) return;
+    final query = _sessionQuery;
+    if (_bootstrapped || query == null) return;
     final epoch = _lifecycleEpoch;
     try {
-      final view = await _sessionQuery!.execute(
+      final view = await query.execute(
         GetAppearanceHistoryQuery(profileId: _profileId),
       );
       if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
@@ -270,11 +270,13 @@ final class AppController extends ChangeNotifier {
   }
 
   Future<void> _closeSecureVault(OpaqueVaultSession session) async {
+    final coordinator = _sessionCoordinator;
+    final secureVault = _secureVault;
     try {
-      if (_sessionCoordinator != null) {
-        await _sessionCoordinator!.close(session);
+      if (coordinator != null) {
+        await coordinator.close(session);
       } else {
-        await _secureVault!.close(session);
+        await secureVault!.close(session);
       }
     } catch (_) {
       // The capability was already removed locally; never expose a close
