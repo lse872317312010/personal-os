@@ -130,7 +130,7 @@ Future<AppComposition> _readyComposition(WidgetTester tester) async {
   await tester.pumpWidget(PersonalOsApp(composition: composition));
   await tester.tap(find.byKey(const Key('unlock-vault')));
   await tester.pump();
-  composition.controller.setConsent(true);
+  await composition.controller.setConsent(true);
   await composition.controller.analyzeBlobReference(
     blobReference: 'blob://vault/test-portrait',
     observationContext: 'front',
@@ -140,3 +140,4 @@ Future<AppComposition> _readyComposition(WidgetTester tester) async {
   await tester.pump();
   return composition;
 }
+
