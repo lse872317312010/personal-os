@@ -4,3 +4,4 @@ export 'src/blob_cryptography_port.dart';
 export 'src/blob_engine.dart';
 export 'src/blob_ingestion_contract.dart';
 export 'src/ciphertext_blob_repository.dart';
+export 'src/source_blob_ingestion_contract.dart';
