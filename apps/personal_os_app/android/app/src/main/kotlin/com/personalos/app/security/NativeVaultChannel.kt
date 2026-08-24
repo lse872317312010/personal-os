@@ -334,6 +334,8 @@ internal class NativeVaultChannel(
      * provider token and stream on the native side; this method is never
      * reachable through a MethodChannel call.
      */
+    internal fun currentSessionId(): String? = activeSessionId?.takeIf(sessions::isActive)
+
     internal fun writeBlobFromNativeSource(
         sessionId: String,
         source: NativeBlobSource,
