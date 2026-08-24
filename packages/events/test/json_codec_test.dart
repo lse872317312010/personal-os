@@ -172,7 +172,7 @@ void main() {
       expect(frozen, [
         <String, Object?>{'value': 'before'}
       ]);
-      expect(() => frozen.clear(), throwsUnsupportedError);
+      expect(frozen.clear, throwsUnsupportedError);
       expect(
         () => (frozen.single as Map<String, Object?>)['value'] = 'mutation',
         throwsUnsupportedError,
