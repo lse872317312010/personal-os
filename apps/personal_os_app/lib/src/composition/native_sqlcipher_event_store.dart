@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:personal_os_device_security/device_security.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_events/events.dart';
+import 'package:personal_os_security_api/security_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 
 /// App-private EventStore adapter for the native SQLCipher session.
@@ -16,6 +17,17 @@ final class NativeSqlCipherEventStore implements EventStore {
 
   final MethodChannel _channel;
   PlatformVaultSession? _nativeSession;
+  void Function(SecurityException error)? _sessionInvalidatedHandler;
+
+  /// Installs the lifecycle callback owned by the session coordinator.
+  ///
+  /// Only stable security codes cross this boundary; native exception text,
+  /// paths, aliases, and other details are never forwarded.
+  void setSessionInvalidatedHandler(
+    void Function(SecurityException error) handler,
+  ) {
+    _sessionInvalidatedHandler = handler;
+  }
 
   /// Called only by [NativeSqlCipherSessionCoordinator].
   void attachNativeSession(PlatformVaultSession session) {
@@ -145,7 +157,12 @@ final class NativeSqlCipherEventStore implements EventStore {
     try {
       return await _channel.invokeMethod<Object?>(method, arguments);
     } on PlatformException catch (error) {
-      throw _mapNativeFailure(error.code, failure);
+      final mapped = _mapNativeFailure(error.code, failure);
+      final securityFailure = _sessionFailure(error.code);
+      if (securityFailure != null) {
+        _notifySessionInvalidated(securityFailure);
+      }
+      throw mapped;
     } on MissingPluginException {
       throw failure;
     } on Object {
@@ -219,6 +236,24 @@ PersistenceException _codecReadException(EventCodecException error) =>
         ? const PersistenceException.d4PersistenceForbidden()
         : const PersistenceException.schemaViolation();
 
+SecurityException? _sessionFailure(String code) => switch (code) {
+      'security.vault_locked' =>
+        const SecurityException(SecurityErrorCode.vaultLocked),
+      'security.unlock_expired' =>
+        const SecurityException(SecurityErrorCode.unlockExpired),
+      _ => null,
+    };
+
+void _notifySessionInvalidated(SecurityException error) {
+  final handler = _sessionInvalidatedHandler;
+  if (handler == null) return;
+  try {
+    handler(error);
+  } on Object {
+    // Invalidation remains fail-closed if the lifecycle observer fails.
+  }
+}
+
 PersistenceException _mapNativeFailure(
   String code,
   PersistenceException operationFailure,
@@ -232,9 +267,6 @@ PersistenceException _mapNativeFailure(
       return const PersistenceException.schemaViolation();
     case 'security.vault_transaction_failed':
       return const PersistenceException.transactionFailed();
-    case 'security.vault_locked':
-    case 'security.unlock_expired':
-      return operationFailure;
     default:
       return operationFailure;
   }

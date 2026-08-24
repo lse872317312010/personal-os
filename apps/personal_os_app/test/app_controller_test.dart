@@ -7,7 +7,9 @@ import 'package:personal_os_model_fixture/model_fixture.dart';
 import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
 import 'package:personal_os_policy/policy.dart';
 import 'package:personal_os_policy_application/policy_application.dart';
+import 'package:personal_os_security_api/security_api.dart';
 
+import 'package:personal_os_app/src/composition/native_sqlcipher_session_coordinator.dart';
 import 'package:personal_os_app/src/controller/app_controller.dart';
 
 void main() {
@@ -182,6 +184,39 @@ void main() {
     expect(controller.reviewId, isNull);
   });
 
+  test('native session expiry clears protected state and re-unlocks cleanly',
+      () async {
+    final coordinator = _FakeSecureSessionCoordinator();
+    final vaultSession = _FakeVaultSession();
+    final controller = _controller(
+      _CountingGateway(),
+      withSessionQuery: false,
+      vaultSession: vaultSession,
+      sessionCoordinator: coordinator,
+    );
+
+    controller.unlockVault();
+    await Future<void>.delayed(Duration.zero);
+    await controller.setConsent(true);
+    await controller.analyzeBlobReference(
+      blobReference: 'blob://vault/one',
+      observationContext: 'front',
+    );
+    expect(controller.result, isNotNull);
+
+    coordinator.invalidate(const SecurityErrorCode.unlockExpired);
+
+    expect(controller.vaultUnlocked, isFalse);
+    expect(controller.result, isNull);
+    expect(controller.consentGranted, isFalse);
+    expect(controller.destination.name, 'home');
+    expect(controller.errorCode, SecurityErrorCode.unlockExpired.wireValue);
+    expect(vaultSession.isUnlocked, isFalse);
+
+    controller.unlockVault();
+    await Future<void>.delayed(Duration.zero);
+    expect(controller.vaultUnlocked, isTrue);
+  });
   test('repeated bootstrap is a no-op after the first projection', () async {
     final controller = _controller(
       _CountingGateway(),
@@ -235,6 +270,8 @@ AppController _controller(
   InMemoryEventStore? store,
   bool withSessionQuery = false,
   bool withObservation = false,
+  VaultSession? vaultSession,
+  SecureSessionCoordinator? sessionCoordinator,
 }) {
   final eventStore = store ?? InMemoryEventStore();
   final ids = _Ids();
@@ -288,6 +325,8 @@ AppController _controller(
       ids: ids,
       clock: const _Clock(),
     ),
+    vaultSession: vaultSession,
+    sessionCoordinator: sessionCoordinator,
     actor: ActorRef(
       actorId: 'me',
       actorType: ActorType.user,
@@ -324,4 +363,64 @@ final class _Clock implements Clock {
   const _Clock();
   @override
   DateTime now() => DateTime.utc(2026, 8, 20);
+}
+
+final class _FakeVaultSession implements VaultSession {
+  VaultSessionState _state = VaultSessionState.locked;
+
+  @override
+  VaultSessionState get state => _state;
+
+  @override
+  Future<void> unlock({required String reason}) async {
+    _state = VaultSessionState.unlocked;
+  }
+
+  @override
+  Future<void> lock() async {
+    _state = VaultSessionState.locked;
+  }
+
+  @override
+  UnlockGrant requireGrant({DateTime? at}) => UnlockGrant.opaque(
+        id: 'fake-ticket',
+        expiresAt: DateTime.utc(2099, 1, 1),
+      );
+}
+
+final class _FakeSecureSessionCoordinator
+    implements SecureSessionCoordinator {
+  void Function(SecurityException error)? _handler;
+  _FakeOpaqueSession? _active;
+
+  @override
+  set onSessionInvalidated(void Function(SecurityException error) handler) {
+    _handler = handler;
+  }
+
+  @override
+  Future<OpaqueVaultSession> open({required UnlockGrant grant}) async {
+    final session = _FakeOpaqueSession();
+    _active = session;
+    return session;
+  }
+
+  @override
+  Future<void> close(OpaqueVaultSession session) async {
+    (session as _FakeOpaqueSession).active = false;
+    if (identical(_active, session)) _active = null;
+  }
+
+  void invalidate(SecurityErrorCode code) {
+    _active?.active = false;
+    _active = null;
+    _handler?.call(SecurityException(code));
+  }
+}
+
+final class _FakeOpaqueSession implements OpaqueVaultSession {
+  bool active = true;
+
+  @override
+  bool get isActive => active;
 }
