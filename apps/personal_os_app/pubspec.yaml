@@ -31,6 +31,8 @@ dependencies:
     path: ../../adapters/policy_application
   personal_os_security_api:
     path: ../../packages/security_api
+  personal_os_source_api:
+    path: ../../packages/source_api
   personal_os_storage_api:
     path: ../../packages/storage_api
 
