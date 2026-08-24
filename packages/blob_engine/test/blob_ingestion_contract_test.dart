@@ -38,7 +38,7 @@ void main() {
       (
         consent: access.consentRef,
         sensitivity: Sensitivity.d3,
-        mediaType: 'secret/path',
+        mediaType: 'image/jpeg;secret',
         code: 'invalid_media_type'
       ),
     ]) {
