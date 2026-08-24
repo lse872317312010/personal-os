@@ -126,10 +126,21 @@ final class _CaptureScreenState extends State<CaptureScreen> {
 
 String _errorMessage(String code) => switch (code) {
       'consent_required' => '请先勾选本次分析授权。',
+      'consent_persistence_failed' => '授权状态未能保存，请解锁后重试。',
       'blob_reference_required' => '资料引用格式无效，请使用安全会话提供的引用。',
       'vault_locked' => '本地保险库已锁定，请重新进入。',
       'source_unavailable' => '暂时无法选择照片，请稍后重试。',
       'source_denied' => '照片选择未获允许。',
+      'source_cancelled' => '已取消选择资料。',
+      'source_expired' => '资料选择已过期，请重新选择。',
+      'source_consumed' => '资料已使用，请重新选择。',
+      'source_release_failed' => '安全资料会话未能完整关闭，请重试。',
+      'security.vault_locked' => '本地保险库已锁定，请重新进入。',
+      'security.unlock_cancelled' => '已取消解锁。',
+      'security.unlock_denied' => '解锁未获授权。',
+      'security.unlock_unavailable' => '当前无法使用解锁验证。',
+      'security.unlock_expired' => '解锁会话已过期，请重新进入。',
+      'security.provider_unavailable' => '安全存储暂时不可用，请稍后重试。',
       'd4_persistence_forbidden' => '该资料不允许持久化。',
       _ => '暂时无法生成（$code），请重试。',
     };
