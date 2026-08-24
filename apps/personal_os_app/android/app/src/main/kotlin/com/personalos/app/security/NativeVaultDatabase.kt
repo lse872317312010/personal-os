@@ -221,7 +221,7 @@ internal class SqlCipherVaultDatabase private constructor(
             // a no-op and cannot cause a second encrypted row to be written.
             existingBlobReference(token)?.let { existing ->
                 database.setTransactionSuccessful()
-                return@ synchronized existing
+                return@synchronized existing
             }
 
             val bytes = source.openStream().use { stream ->
@@ -244,7 +244,7 @@ internal class SqlCipherVaultDatabase private constructor(
             // Closing the source before commit makes release failure fail closed.
             source.close()
             database.setTransactionSuccessful()
-            return@ synchronized blobReference
+            return@synchronized blobReference
         } catch (failure: NativeVaultFailure) {
             throw failure
         } catch (_: Throwable) {
