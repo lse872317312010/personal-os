@@ -19,16 +19,17 @@ void main() {
     expect(find.text('内置合成示例'), findsOneWidget);
     expect(find.textContaining('不会读取相册'), findsOneWidget);
 
-    // Lazy sliver controls must be built before interaction.
     await tester.scrollUntilVisible(
       find.byKey(const Key('analysis-consent')),
       300,
+      scrollable: find.byType(ListView).first,
     );
     await tester.tap(find.byKey(const Key('analysis-consent')));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('analyze-reference')),
       300,
+      scrollable: find.byType(ListView).first,
     );
     await tester.tap(find.byKey(const Key('analyze-reference')));
     await tester.pumpAndSettle();
@@ -64,6 +65,7 @@ void main() {
     await tester.scrollUntilVisible(
       find.byKey(const Key('analyze-reference')),
       300,
+      scrollable: find.byType(ListView).first,
     );
     await tester.tap(find.byKey(const Key('analyze-reference')));
     await tester.pump();
