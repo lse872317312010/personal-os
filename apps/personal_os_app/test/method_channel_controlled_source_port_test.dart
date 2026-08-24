@@ -33,19 +33,20 @@ void main() {
   test(
     'captures through the camera method without exposing metadata',
     () async {
-    var calls = 0;
-    _respond((call) async {
-      expect(call.method, 'capturePhoto');
-      calls++;
-      return <String, Object?>{'token': 'opaque_camera_token_123'};
-    });
+      var calls = 0;
+      _respond((call) async {
+        expect(call.method, 'capturePhoto');
+        calls++;
+        return <String, Object?>{'token': 'opaque_camera_token_123'};
+      });
 
-    final port = MethodChannelControlledSourcePort(channel: _channel);
-    final token = await port.capturePhoto();
+      final port = MethodChannelControlledSourcePort(channel: _channel);
+      final token = await port.capturePhoto();
 
-    expect(token.value, 'opaque_camera_token_123');
-    expect(calls, 1);
-  });
+      expect(token.value, 'opaque_camera_token_123');
+      expect(calls, 1);
+    },
+  );
 
   test('rejects metadata and malformed tokens', () async {
     _respond((call) async {
