@@ -140,8 +140,19 @@ internal class KeystoreTicketCodec(
             val key = keyStore.getKey(AUTH_KEY_ALIAS, null) as? SecretKey ?: return "unavailable"
             val keyInfo = SecretKeyFactory.getInstance(key.algorithm, KEYSTORE)
                 .getKeySpec(key, KeyInfo::class.java)
-            @Suppress("DEPRECATION")
-            val insideSecureHardware = keyInfo.isInsideSecureHardware()
+            val insideSecureHardware = if (android.os.Build.VERSION.SDK_INT >=
+                android.os.Build.VERSION_CODES.S
+            ) {
+                val securityLevel = keyInfo.getSecurityLevel()
+                securityLevel == KeyProperties.SECURITY_LEVEL_TRUSTED_ENVIRONMENT ||
+                    securityLevel == KeyProperties.SECURITY_LEVEL_STRONGBOX ||
+                    securityLevel == KeyProperties.SECURITY_LEVEL_UNKNOWN_SECURE
+            } else {
+                @Suppress("DEPRECATION")
+                KeyInfo::class.java
+                    .getMethod("isInsideSecureHardware")
+                    .invoke(keyInfo) as Boolean
+            }
             if (insideSecureHardware) "trustedEnvironment" else "software"
         } catch (_: Throwable) {
             "unavailable"
