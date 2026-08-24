@@ -15,7 +15,7 @@ void main() {
     await tester.pump();
 
     await tester.tap(find.text('开始首次分析'));
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.text('内置合成示例'), findsOneWidget);
     expect(find.textContaining('不会读取相册'), findsOneWidget);
 
