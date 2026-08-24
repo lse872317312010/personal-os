@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:personal_os_application/application.dart';
+import 'package:personal_os_blob_engine/blob_engine.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_events/events.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
@@ -18,6 +19,32 @@ void main() {
     purpose: 'appearance-analysis',
     consentRef: 'consent:appearance-v1',
   );
+
+  IngestObservationUseCase _useCase(_Ingestion ingestion, _Store store) =>
+      IngestObservationUseCase(
+        ingestion: ingestion,
+        recordObservation: RecordObservationUseCase(
+          eventStore: store,
+          ids: _Ids(),
+          clock: _Clock(),
+        ),
+      );
+
+  IngestObservationCommand _command(
+    Stream<List<int>> bytes, {
+    Sensitivity sensitivity = Sensitivity.d3,
+  }) =>
+      IngestObservationCommand(
+        bytes: bytes,
+        mediaType: 'image/jpeg',
+        sensitivity: sensitivity,
+        access: access,
+        profileId: EntityId('profile-1'),
+        observationContext: 'profile appearance capture',
+        consentRef: consent,
+        actor: actor,
+        correlationId: 'corr-observation',
+      );
 
   test('ingests first and records only the returned opaque ref', () async {
     final ingestion = _Ingestion();
@@ -146,31 +173,6 @@ void main() {
     expect(store.events, isEmpty);
   });
 
-  IngestObservationUseCase _useCase(_Ingestion ingestion, _Store store) =>
-      IngestObservationUseCase(
-        ingestion: ingestion,
-        recordObservation: RecordObservationUseCase(
-          eventStore: store,
-          ids: _Ids(),
-          clock: _Clock(),
-        ),
-      );
-
-  IngestObservationCommand _command(
-    Stream<List<int>> bytes, {
-    Sensitivity sensitivity = Sensitivity.d3,
-  }) =>
-      IngestObservationCommand(
-        bytes: bytes,
-        mediaType: 'image/jpeg',
-        sensitivity: sensitivity,
-        access: access,
-        profileId: EntityId('profile-1'),
-        observationContext: 'profile appearance capture',
-        consentRef: consent,
-        actor: actor,
-        correlationId: 'corr-observation',
-      );
 }
 
 Stream<List<int>> _listeningStream() => Stream<List<int>>.multi((controller) {
