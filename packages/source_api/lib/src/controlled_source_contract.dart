@@ -9,6 +9,7 @@ enum ControlledSourceFailureCode {
   invalidResponse,
   sourceExpired,
   sourceConsumed,
+  sourceWriteFailed,
 }
 
 /// A source handle that is intentionally opaque to Dart callers.
@@ -54,6 +55,7 @@ abstract interface class ControlledSourcePort {
   Future<ControlledSourceCapabilities> capabilities();
   Future<OpaqueSourceToken> pickPhoto();
   Future<OpaqueSourceToken> capturePhoto();
+  Future<String> ingestToBlob(OpaqueSourceToken token);
   Future<void> release(OpaqueSourceToken token);
 }
 
@@ -102,6 +104,12 @@ final class FakeControlledSourcePort implements ControlledSourcePort {
       );
     }
     return OpaqueSourceToken('fake_camera_token_01');
+  }
+
+  @override
+  Future<String> ingestToBlob(OpaqueSourceToken token) async {
+    _throwIfConfigured();
+    return 'blob://fake-source-00000001';
   }
 
   @override
