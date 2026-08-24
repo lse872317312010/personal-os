@@ -44,7 +44,7 @@ void main() {
       );
 
   Future<PolicyVerdict> authorize(ConsentGrant? stored) async =>
-      AppearancePolicyAdapter(
+      await AppearancePolicyAdapter(
         consents: _Repository(stored),
         clock: _FixedClock(now),
       ).authorizeAnalysis(
