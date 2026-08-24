@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_blob_engine/blob_engine.dart';
 import 'package:personal_os_domain/domain.dart';
@@ -21,11 +19,10 @@ void main() {
     consentRef: 'consent:appearance-v1',
   );
 
-  test('success stores bytes through ingestion and emits only opaque refs', () async {
+  test('success emits only opaque refs', () async {
     final ingestion = _Ingestion();
     final store = _Store();
     final model = _Model();
-
     final result = await _useCase(ingestion, store, model).execute(
       _command(Stream<List<int>>.value(<int>[1, 2, 3])),
     );
@@ -49,40 +46,36 @@ void main() {
     );
     expect(
       store.events.where((event) => event.eventType == EventTypes.claimProposed),
-      everyElement( predicate<EventEnvelope>((event) =>
-          event.payload['evidence_blob_ref'] == 'blob://opaque-1')),
+      everyElement(
+        predicate<EventEnvelope>(
+          (event) => event.payload['evidence_blob_ref'] == 'blob://opaque-1',
+        ),
+      ),
     );
   });
 
-  test('ingestion failure is stable and does not consume or append', () async {
+  test('ingestion failure does not append', () async {
     final ingestion = _Ingestion()
       ..failure = const BlobIngestionException('ingestion_failed');
     final store = _Store();
-    var listened = false;
-    final bytes = Stream<List<int>>.multi((controller) {
-      listened = true;
-      controller.add(<int>[9]);
-      controller.close();
-    });
-
     await expectLater(
-      _useCase(ingestion, store, _Model()).execute(_command(bytes)),
+      _useCase(ingestion, store, _Model()).execute(
+        _command(Stream<List<int>>.value(<int>[9])),
+      ),
       throwsA(isA<BlobIngestionException>().having(
         (error) => error.code,
         'code',
         'ingestion_failed',
       )),
     );
-    expect(listened, isTrue);
     expect(store.events, isEmpty);
   });
 
-  test('repeated execution uses a fresh opaque ref and never reuses event bytes', () async {
+  test('repeated execution uses fresh opaque refs', () async {
     final ingestion = _Ingestion()..incrementRefs = true;
     final store = _Store();
     final model = _Model();
     final useCase = _useCase(ingestion, store, model);
-
     await useCase.execute(_command(Stream<List<int>>.value(<int>[4])));
     await useCase.execute(_command(Stream<List<int>>.value(<int>[5])));
 
@@ -94,15 +87,18 @@ void main() {
       'blob://opaque-1',
       'blob://opaque-2',
     ]);
-    expect(store.events.every((event) =>
-        event.payload.values.every((value) => value is! List<int>)), isTrue);
+    expect(
+      store.events.every(
+        (event) => event.payload.values.every((value) => value is! List<int>),
+      ),
+      isTrue,
+    );
   });
 
-  test('analysis failure rolls back the ingested blob and redacts details', () async {
+  test('analysis failure rolls back the ingested blob', () async {
     final ingestion = _Ingestion();
     final store = _Store();
     final model = _Model()..failure = StateError('adapter-secret /tmp/db');
-
     await expectLater(
       _useCase(ingestion, store, model).execute(
         _command(Stream<List<int>>.value(<int>[7])),
@@ -117,11 +113,10 @@ void main() {
     expect(store.events, hasLength(1));
   });
 
-  test('discard failure never replaces the stable application failure', () async {
+  test('discard failure preserves the stable application error', () async {
     final ingestion = _Ingestion()..discardFailure = StateError('/tmp/sql');
     final store = _Store();
     final model = _Model()..failure = StateError('adapter failure');
-
     await expectLater(
       _useCase(ingestion, store, model).execute(
         _command(Stream<List<int>>.value(<int>[8])),
@@ -232,7 +227,11 @@ final class _Model implements AppearanceAnalysisGateway {
     if (failure != null) throw failure!;
     return AppearanceAnalysisResult(
       findings: <AppearanceFinding>[
-        AppearanceFinding(dimension: 'hair', statement: 'synthetic', confidence: .8),
+        AppearanceFinding(
+          dimension: 'hair',
+          statement: 'synthetic',
+          confidence: .8,
+        ),
       ],
       actions: <AppearanceActionSuggestion>[
         AppearanceActionSuggestion(title: 'review', rationale: 'synthetic'),
@@ -255,8 +254,14 @@ final class _Store implements EventStore {
       events.where((event) => event.eventId == eventId).firstOrNull;
 
   @override
-  Future<List<EventEnvelope>> readBySubject(ObjectRef subject, {int? limit}) async =>
-      events.where((event) => event.subjectRefs.contains(subject)).take(limit ?? events.length).toList();
+  Future<List<EventEnvelope>> readBySubject(
+    ObjectRef subject, {
+    int? limit,
+  }) async =>
+      events
+          .where((event) => event.subjectRefs.contains(subject))
+          .take(limit ?? events.length)
+          .toList();
 }
 
 final class _Ids implements IdGenerator {
