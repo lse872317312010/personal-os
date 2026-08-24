@@ -1,10 +1,10 @@
 import 'package:flutter/services.dart';
 import 'package:personal_os_source_api/source_api.dart';
 
-/// Flutter composition-boundary adapter for the native controlled-source port.
+/// Flutter adapter for the native controlled-source channel.
 ///
-/// Bytes, paths, URIs, provider metadata, and native exception details never
-/// enter Dart. The source remains a native-owned opaque capability.
+/// The adapter carries only opaque tokens and opaque blob references. URI,
+/// path, provider metadata, bytes, and native exception details stay native.
 final class MethodChannelControlledSourcePort implements ControlledSourcePort {
   MethodChannelControlledSourcePort({
     MethodChannel? channel,
@@ -14,8 +14,9 @@ final class MethodChannelControlledSourcePort implements ControlledSourcePort {
   static const _capabilities = 'capabilities';
   static const _pickPhoto = 'pickPhoto';
   static const _capturePhoto = 'capturePhoto';
-  static const _release = 'release';
   static const _consume = 'consume';
+  static const _deleteBlob = 'deleteBlob';
+  static const _release = 'release';
   static const _photoPicker = 'photoPicker';
   static const _camera = 'camera';
   static const _token = 'token';
@@ -60,11 +61,7 @@ final class MethodChannelControlledSourcePort implements ControlledSourcePort {
 
   @override
   Future<String> ingestToBlob(OpaqueSourceToken token) async {
-    if (_released.contains(token.value) || !_issued.contains(token.value)) {
-      throw const ControlledSourceException(
-        ControlledSourceFailureCode.invalidResponse,
-      );
-    }
+    _requireIssued(token);
     try {
       final map = _map(await _invoke<dynamic>(
         _consume,
@@ -76,84 +73,7 @@ final class MethodChannelControlledSourcePort implements ControlledSourcePort {
         );
       }
       final value = map[_blobRef] as String;
-      if (!RegExp(r'^blob://[A-Za-z0-9-]{16,128}
-    if (_released.contains(token.value)) return;
-    if (!_issued.contains(token.value)) {
-      throw const ControlledSourceException(
-        ControlledSourceFailureCode.invalidResponse,
-      );
-    }
-    try {
-      final response = await _invoke<dynamic>(
-        _release,
-        <String, Object?>{_token: token.value},
-      );
-      if (response != null) {
-        throw const ControlledSourceException(
-          ControlledSourceFailureCode.invalidResponse,
-        );
-      }
-      _markReleased(token);
-    } on ControlledSourceException catch (error) {
-      if (error.code == ControlledSourceFailureCode.sourceExpired ||
-          error.code == ControlledSourceFailureCode.sourceConsumed) {
-        _markReleased(token);
-      }
-      rethrow;
-    }
-  }
-
-  Future<OpaqueSourceToken> _acquire(String method) async {
-    final map = _map(await _invoke<dynamic>(method));
-    if (map.length != 1 || map[_token] is! String) {
-      throw const ControlledSourceException(
-        ControlledSourceFailureCode.invalidResponse,
-      );
-    }
-    try {
-      final token = OpaqueSourceToken(map[_token] as String);
-      _issued.add(token.value);
-      return token;
-    } on FormatException {
-      throw const ControlledSourceException(
-        ControlledSourceFailureCode.invalidResponse,
-      );
-    }
-  }
-
-  Future<T?> _invoke<T>(String method, [Object? arguments]) async {
-    try {
-      return await _channel.invokeMethod<T>(method, arguments);
-    } on PlatformException catch (error) {
-      throw ControlledSourceException(
-        _codes[error.code] ?? ControlledSourceFailureCode.unavailable,
-      );
-    } on MissingPluginException {
-      throw const ControlledSourceException(
-        ControlledSourceFailureCode.unavailable,
-      );
-    } on TypeError {
-      throw const ControlledSourceException(
-        ControlledSourceFailureCode.invalidResponse,
-      );
-    }
-  }
-
-  Map<Object?, Object?> _map(Object? value) {
-    if (value is! Map<Object?, Object?>) {
-      throw const ControlledSourceException(
-        ControlledSourceFailureCode.invalidResponse,
-      );
-    }
-    return value;
-  }
-
-  void _markReleased(OpaqueSourceToken token) {
-    _issued.remove(token.value);
-    _released.add(token.value);
-  }
-}
-).hasMatch(value)) {
+      if (!RegExp(r'^blob://[A-Za-z0-9-]{16,128}$').hasMatch(value)) {
         throw const ControlledSourceException(
           ControlledSourceFailureCode.invalidResponse,
         );
@@ -170,13 +90,27 @@ final class MethodChannelControlledSourcePort implements ControlledSourcePort {
   }
 
   @override
-  Future<void> release(OpaqueSourceToken token) async {
-    if (_released.contains(token.value)) return;
-    if (!_issued.contains(token.value)) {
+  Future<void> deleteBlob(String blobRef) async {
+    if (!RegExp(r'^blob://[A-Za-z0-9-]{16,128}$').hasMatch(blobRef)) {
       throw const ControlledSourceException(
         ControlledSourceFailureCode.invalidResponse,
       );
     }
+    final response = await _invoke<dynamic>(
+      _deleteBlob,
+      <String, Object?>{_blobRef: blobRef},
+    );
+    if (response != null) {
+      throw const ControlledSourceException(
+        ControlledSourceFailureCode.invalidResponse,
+      );
+    }
+  }
+
+  @override
+  Future<void> release(OpaqueSourceToken token) async {
+    if (_released.contains(token.value)) return;
+    _requireIssued(token);
     try {
       final response = await _invoke<dynamic>(
         _release,
@@ -215,6 +149,14 @@ final class MethodChannelControlledSourcePort implements ControlledSourcePort {
     }
   }
 
+  void _requireIssued(OpaqueSourceToken token) {
+    if (_released.contains(token.value) || !_issued.contains(token.value)) {
+      throw const ControlledSourceException(
+        ControlledSourceFailureCode.invalidResponse,
+      );
+    }
+  }
+
   Future<T?> _invoke<T>(String method, [Object? arguments]) async {
     try {
       return await _channel.invokeMethod<T>(method, arguments);
@@ -229,6 +171,10 @@ final class MethodChannelControlledSourcePort implements ControlledSourcePort {
     } on TypeError {
       throw const ControlledSourceException(
         ControlledSourceFailureCode.invalidResponse,
+      );
+    } on Object {
+      throw const ControlledSourceException(
+        ControlledSourceFailureCode.unavailable,
       );
     }
   }
