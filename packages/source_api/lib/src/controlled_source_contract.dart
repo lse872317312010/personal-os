@@ -56,6 +56,7 @@ abstract interface class ControlledSourcePort {
   Future<OpaqueSourceToken> pickPhoto();
   Future<OpaqueSourceToken> capturePhoto();
   Future<String> ingestToBlob(OpaqueSourceToken token);
+  Future<void> deleteBlob(String blobRef);
   Future<void> release(OpaqueSourceToken token);
 }
 
@@ -110,6 +111,11 @@ final class FakeControlledSourcePort implements ControlledSourcePort {
   Future<String> ingestToBlob(OpaqueSourceToken token) async {
     _throwIfConfigured();
     return 'blob://fake-source-00000001';
+  }
+
+  @override
+  Future<void> deleteBlob(String blobRef) async {
+    _throwIfConfigured();
   }
 
   @override
