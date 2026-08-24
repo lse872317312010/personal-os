@@ -235,14 +235,14 @@ void main() {
       final initial = OpaqueSyncCursor.initial();
       final relay = _FakeTransport()..page = _page([envelope]);
       final worker = _worker(relay: relay, crypto: crypto, store: store);
-      final result = (await worker.pullPage(cursor: initial)).items.single;
+      final page = await worker.pullPage(cursor: initial);
+      final result = page.items.single;
 
       expect(result.reasonCode, SyncFailureReason.payloadDecodeFailed);
-      expect(result.cursor, isNull);
+      expect(page.cursor, initial);
       expect(crypto.openCalls, 1);
       expect(store.transactions, isEmpty);
       expect(worker.lastReceivedSequence('device-peer'), -1);
-      expect((await worker.pullPage(cursor: initial)).cursor, initial);
     });
 
     test('a rejected envelope rolls back earlier prepared envelopes and cursor',
