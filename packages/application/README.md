@@ -13,3 +13,8 @@ The first vertical slice is `AnalyzeAppearanceUseCase`:
 No Flutter, Android, filesystem, SQLite, HTTP, or model-vendor type belongs in
 this package. Adapters implement the ports at the composition root.
 
+Blob-backed observations use `IngestObservationUseCase`: bytes cross the
+encrypted ingestion boundary first, and only the resulting opaque `BlobRef`
+is recorded in the event stream. Failed event appends compensate by discarding
+the ingested blob when the adapter supports rollback.
+
