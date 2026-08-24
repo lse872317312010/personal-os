@@ -76,6 +76,10 @@ internal class ControlledSourceChannel(
         }
     }
 
+    fun onPicked(uri: android.net.Uri?) {
+        picker.onPicked(uri)
+    }
+
     fun dispose() {
         picker.dispose()
     }
