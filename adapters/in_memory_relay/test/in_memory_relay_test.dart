@@ -1,31 +1,3 @@
-          (error) => error.reasonCode,
-          'reasonCode',
-          RelayRejectionReason.accountMismatch,
-        ),
-      ),
-    );
-    expect(relay.storedEnvelopeCount, 0);
-  });
-
-  test('package boundary has no event/domain dependency or business schema', () {
-    final pubspec = File('pubspec.yaml').readAsStringSync();
-    final implementation = File(
-      'lib/src/in_memory_relay.dart',
-    ).readAsStringSync();
-    expect(pubspec, isNot(contains('personal_os_events')));
-    expect(pubspec, isNot(contains('personal_os_domain')));
-    expect(implementation, isNot(contains('EventEnvelope')));
-    for (final forbidden in [
-      'event_' 'type', // ignore: no_adjacent_strings_in_list
-      'object_' 'id', // ignore: no_adjacent_strings_in_list
-      'sensitivity',
-      'consent',
-      'appearance_' 'analysis', // ignore: no_adjacent_strings_in_list
-    ]) {
-      expect(implementation.toLowerCase(), isNot(contains(forbidden)));
-    }
-  });
-}
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
