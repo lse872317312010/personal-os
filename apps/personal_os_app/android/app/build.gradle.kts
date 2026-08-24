@@ -1,12 +1,11 @@
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
     namespace = "com.personalos.app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -14,8 +13,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+    kotlin {
+        compilerOptions {
+            jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+        }
     }
 
     defaultConfig {
@@ -34,6 +35,6 @@ flutter {
 
 dependencies {
     implementation("androidx.biometric:biometric:1.1.0")
-    implementation("net.zetetic:sqlcipher-android:4.17.0@aar")
+    implementation("net.zetetic:sqlcipher-android:4.18.0@aar")
     implementation("androidx.sqlite:sqlite:2.7.0")
 }
