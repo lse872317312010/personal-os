@@ -6,6 +6,7 @@ import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
 import 'package:personal_os_in_memory_policy/in_memory_policy.dart';
 import 'package:personal_os_model_fixture/model_fixture.dart';
+import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
 import 'package:personal_os_policy/policy.dart';
 import 'package:personal_os_policy_application/policy_application.dart';
 import 'package:personal_os_security_api/security_api.dart';
@@ -56,8 +57,7 @@ final class AppComposition {
           ? AppComposition.secureVault()
           : AppComposition.inMemoryDemo();
 
-  /// Secure composition. The model remains a synthetic fixture by design;
-  /// this factory only wires native authentication and encrypted persistence.
+  /// Secure composition never falls back to a synthetic model gateway.
   factory AppComposition.secureVault({
     PlatformSecurityBridge? securityBridge,
     MethodChannel? channel,
@@ -79,6 +79,7 @@ final class AppComposition {
       sessionCoordinator: coordinator,
       sourcePort: sourcePort,
       sourceBlobIngestion: sourceBlobIngestion,
+      modelGateway: const _UnavailableSecureModelGateway(),
     );
   }
 
@@ -90,6 +91,7 @@ final class AppComposition {
     SecureSessionCoordinator? sessionCoordinator,
     ControlledSourcePort? sourcePort,
     SourceBlobIngestionPort? sourceBlobIngestion,
+    AppearanceAnalysisGateway? modelGateway,
   }) {
     final clock = _SystemClock();
     final policyClock = _SystemPolicyClock();
@@ -103,9 +105,10 @@ final class AppComposition {
     final ids = _SequentialIds();
     final useCase = AnalyzeAppearanceUseCase(
       eventStore: eventStore,
-      modelGateway: const FixtureAppearanceAnalysisGateway(
-        behavior: FixtureAppearanceBehavior.syntheticSuccess,
-      ),
+      modelGateway: modelGateway ??
+          const FixtureAppearanceAnalysisGateway(
+            behavior: FixtureAppearanceBehavior.syntheticSuccess,
+          ),
       policy: AppearancePolicyAdapter(
         consents: policyConsentRepository,
         clock: policyClock,
@@ -188,4 +191,14 @@ final class _SequentialIds implements IdGenerator {
 
   @override
   String nextId(String namespace) => '$namespace-${++_next}';
+}
+
+
+final class _UnavailableSecureModelGateway implements AppearanceAnalysisGateway {
+  const _UnavailableSecureModelGateway();
+
+  @override
+  Future<AppearanceAnalysisResult> analyze(AppearanceAnalysisInput input) async {
+    throw StateError('secure model adapter unavailable');
+  }
 }
