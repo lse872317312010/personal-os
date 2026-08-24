@@ -86,7 +86,7 @@ class ControlledSourceTokenStoreTest {
         )
         val token = store.issue(Uri.parse("content://private/provider/5"), "session-1")
 
-        assertTrue(store.release(token))
+        assertEquals(ControlledSourceTokenStore.ReleaseResult.Released, store.release(token))
         assertEquals(
             ControlledSourceTokenStore.ConsumeResult.Consumed,
             store.consume(token, "session-1", sink(Uri.parse("content://private/provider/5")) {
@@ -95,6 +95,24 @@ class ControlledSourceTokenStoreTest {
         )
     }
 
+    @Test
+    fun releaseAfterConsumeIsAlreadyAbsentAndSucceeds() {
+        val store = ControlledSourceTokenStore(
+            nowMillis = { 10L },
+            tokenFactory = { "opaque_token_123456" },
+        )
+        val token = store.issue(Uri.parse("content://private/provider/6"), "session-1")
+        val sink = sink(Uri.parse("content://private/provider/6")) {
+            BlobSinkResult.Stored("blob://12345678-1234-1234-123456789012")
+        }
+
+        store.consume(token, "session-1", sink)
+
+        assertEquals(
+            ControlledSourceTokenStore.ReleaseResult.AlreadyAbsent,
+            store.release(token),
+        )
+    }
     @Test
     fun writeFailureIsStableAndTokenCannotBeRetried() {
         val store = ControlledSourceTokenStore(
