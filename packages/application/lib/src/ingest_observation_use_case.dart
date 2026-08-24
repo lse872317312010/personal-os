@@ -48,13 +48,13 @@ final class IngestObservationUseCase {
   final BlobIngestionContract _ingestion;
   final RecordObservationUseCase _recordObservation;
 
-  Future<RecordObservationResult> execute(
-      IngestObservationCommand command) async {
+  Future<RecordObservationResult> execute(IngestObservationCommand command) async {
     if (_ingestion is! BlobIngestionRollback) {
       throw const ObservationUseCaseFailure(
         ObservationFailureCode.rollbackUnavailable,
       );
     }
+    final rollback = _ingestion as BlobIngestionRollback;
     final blobRef = await _ingestion.ingest(
       bytes: command.bytes,
       mediaType: command.mediaType,
@@ -75,15 +75,13 @@ final class IngestObservationUseCase {
         ),
       );
     } catch (_) {
-      final rollback = _ingestion;
-      if (rollback is BlobIngestionRollback) {
-        try {
-          await rollback.discard(ref: blobRef, access: command.access);
-        } catch (_) {
-          // Preserve the stable append failure. Never leak rollback details.
-        }
+      try {
+        await rollback.discard(ref: blobRef, access: command.access);
+      } catch (_) {
+        // Preserve the stable append failure. Never leak rollback details.
       }
       rethrow;
     }
   }
 }
+
