@@ -281,15 +281,15 @@ void main() {
     final implementation = File(
       'lib/src/in_memory_relay.dart',
     ).readAsStringSync();
-    expect(pubspec, isNot(contains('personal_os_' + 'events')));
-    expect(pubspec, isNot(contains('personal_os_' + 'domain')));
-    expect(implementation, isNot(contains('Event' + 'Envelope')));
+    expect(pubspec, isNot(contains('personal_os_events')));
+    expect(pubspec, isNot(contains('personal_os_domain')));
+    expect(implementation, isNot(contains('EventEnvelope')));
     for (final forbidden in [
-      'event_' + 'type',
-      'object_' + 'id',
+      'event_type',
+      'object_id',
       'sensitivity',
       'consent',
-      'appearance_' + 'analysis',
+      'appearance_analysis',
     ]) {
       expect(implementation.toLowerCase(), isNot(contains(forbidden)));
     }
