@@ -26,16 +26,19 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: android-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  verify-build-release:
+  verify-build:
+    name: Verify and package Android debug APK
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout
@@ -59,11 +62,35 @@ jobs:
       - name: Test and build debug APK
         run: bash tool/android_mvp/build_debug.sh
 
-      - name: Prepare release assets
+      - name: Prepare and verify release assets
+        shell: bash
         run: |
+          set -Eeuo pipefail
+          apk=apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.apk
+          provenance=apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.provenance.json
+          test -s "$apk"
+          test -s "$provenance"
           mkdir -p release
-          cp apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.apk release/personal-os-latest-debug.apk
-          cp apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.provenance.json release/personal-os-latest-debug.provenance.json
+          cp "$apk" release/personal-os-latest-debug.apk
+          cp "$provenance" release/personal-os-latest-debug.provenance.json
+          sha256sum release/personal-os-latest-debug.apk > release/personal-os-latest-debug.apk.sha256
+          APK_SHA256="$(awk '{print $1}' release/personal-os-latest-debug.apk.sha256)" \
+          PROVENANCE_PATH="release/personal-os-latest-debug.provenance.json" \
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          provenance = json.loads(Path(os.environ["PROVENANCE_PATH"]).read_text(encoding="utf-8"))
+          expected_sha = os.environ["APK_SHA256"]
+          expected_commit = os.environ["GITHUB_SHA"]
+          if provenance.get("apk_sha256") != expected_sha:
+              raise SystemExit("provenance apk_sha256 does not match the packaged APK")
+          if provenance.get("github_sha") != expected_commit:
+              raise SystemExit("provenance github_sha does not match GITHUB_SHA")
+          if not provenance.get("app_version"):
+              raise SystemExit("provenance app_version is empty")
+          PY
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
@@ -73,8 +100,37 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish rolling GitHub Release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  publish-release:
+    name: Publish rolling GitHub Release
+    needs: verify-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download verified assets
+        uses: actions/download-artifact@v4
+        with:
+          name: personal-os-android-debug-${{ github.sha }}
+          path: release
+
+      - name: Verify downloaded assets
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -s release/personal-os-latest-debug.apk
+          test -s release/personal-os-latest-debug.apk.provenance.json
+          test -s release/personal-os-latest-debug.apk.sha256
+          sha256sum --check release/personal-os-latest-debug.apk.sha256
+
+      - name: Publish rolling release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
