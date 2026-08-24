@@ -50,7 +50,8 @@ final class IngestObservationUseCase {
   final BlobIngestionContract _ingestion;
   final RecordObservationUseCase _recordObservation;
 
-  Future<RecordObservationResult> execute(IngestObservationCommand command) async {
+  Future<RecordObservationResult> execute(
+      IngestObservationCommand command) async {
     final blobRef = await _ingestion.ingest(
       bytes: command.bytes,
       mediaType: command.mediaType,
@@ -83,4 +84,3 @@ final class IngestObservationUseCase {
     }
   }
 }
-

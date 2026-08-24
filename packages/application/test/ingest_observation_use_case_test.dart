@@ -34,17 +34,20 @@ void main() {
       'observation_context': 'profile appearance capture',
     });
     expect(result.eventId, 'event-1');
-    expect(store.events.single.payload.keys, everyElement(isNot(anyOf(
-      'path',
-      'uri',
-      'raw_bytes',
-      'bytes',
-      'content',
-      'plaintext',
-    ))));
+    expect(
+        store.events.single.payload.keys,
+        everyElement(isNot(anyOf(
+          'path',
+          'uri',
+          'raw_bytes',
+          'bytes',
+          'content',
+          'plaintext',
+        ))));
   });
 
-  test('fails closed when ingestion rejects input and does not append', () async {
+  test('fails closed when ingestion rejects input and does not append',
+      () async {
     final store = _Store();
     final ingestion = _Ingestion()..failure = const _SafeIngestionFailure();
     await expectLater(
@@ -107,9 +110,12 @@ void main() {
     await expectLater(
       _useCase(ingestion, store).execute(_command(Stream<List<int>>.empty())),
       throwsA(isA<ObservationUseCaseFailure>()
-          .having((error) => error.code, 'code', ObservationFailureCode.appendFailed)
-          .having((error) => error.toString(), 'safe', isNot(contains('sql path')))
-          .having((error) => error.toString(), 'safe', isNot(contains('raw append details')))),
+          .having((error) => error.code, 'code',
+              ObservationFailureCode.appendFailed)
+          .having(
+              (error) => error.toString(), 'safe', isNot(contains('sql path')))
+          .having((error) => error.toString(), 'safe',
+              isNot(contains('raw append details')))),
     );
     expect(ingestion.discardCalls, 1);
     expect(store.events, isEmpty);
@@ -128,7 +134,8 @@ void main() {
   IngestObservationCommand _command(
     Stream<List<int>> bytes, {
     Sensitivity sensitivity = Sensitivity.d3,
-  }) => IngestObservationCommand(
+  }) =>
+      IngestObservationCommand(
         bytes: bytes,
         mediaType: 'image/jpeg',
         sensitivity: sensitivity,
@@ -209,10 +216,10 @@ final class _Store implements EventStore {
   }
 
   @override
-  Future<List<EventEnvelope>> readBySubject(ObjectRef subject, {int? limit}) async =>
+  Future<List<EventEnvelope>> readBySubject(ObjectRef subject,
+          {int? limit}) async =>
       const <EventEnvelope>[];
 
   @override
   Future<EventEnvelope?> readById(String eventId) async => null;
 }
-
