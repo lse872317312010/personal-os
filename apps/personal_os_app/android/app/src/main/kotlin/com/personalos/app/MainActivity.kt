@@ -8,6 +8,7 @@ import com.personalos.app.security.NativeVaultChannel
 import com.personalos.app.source.ControlledCameraCapture
 import com.personalos.app.source.ControlledPhotoPicker
 import com.personalos.app.source.ControlledSourceTokenStore
+import com.personalos.app.source.NativeVaultBlobSink
 import com.personalos.app.source.ControlledSourceChannel
 import com.personalos.app.source.ControlledSourceMethodChannelContract
 import io.flutter.embedding.android.FlutterFragmentActivity
