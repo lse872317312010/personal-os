@@ -133,7 +133,7 @@ void main() {
       )),
     );
     expect(ingestion.discarded, [BlobRef('blob://opaque-source-1')]);
-    expect(store.events, hasLength(1));
+    expect(store.events, isEmpty);
   });
 }
 
