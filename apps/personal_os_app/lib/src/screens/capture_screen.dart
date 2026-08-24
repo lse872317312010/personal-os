@@ -5,8 +5,7 @@ import '../controller/app_controller.dart';
 import 'observation_history_card.dart';
 
 final class CaptureScreen extends StatefulWidget {
-  const CaptureScreen(
-      {required this.controller, required this.mode, super.key});
+  const CaptureScreen({required this.controller, required this.mode, super.key});
 
   final AppController controller;
   final AppExperienceMode mode;
@@ -36,23 +35,20 @@ final class _CaptureScreenState extends State<CaptureScreen> {
         const SizedBox(height: 8),
         Card(
           child: ListTile(
-            leading: Icon(Icons.science_outlined),
+            leading: const Icon(Icons.science_outlined),
             title: Text(
-              widget.mode == AppExperienceMode.syntheticDemo
-                  ? '内置合成示例'
-                  : '安全保险库资料',
+              widget.mode == AppExperienceMode.syntheticDemo ? '内置合成示例' : '安全保险库资料',
             ),
             subtitle: Text(
               widget.mode == AppExperienceMode.syntheticDemo
                   ? '不会读取相册、不会联网；结果仅用于验证产品流程'
                   : '资料只通过安全保险库引用；不会把原始内容交给 UI',
             ),
-            trailing: Icon(Icons.check_circle),
+            trailing: const Icon(Icons.check_circle),
           ),
         ),
         const SizedBox(height: 16),
-        ObservationHistoryCard(
-            controller: widget.controller, mode: widget.mode),
+        ObservationHistoryCard(controller: widget.controller, mode: widget.mode),
         const SizedBox(height: 16),
         TextField(
           key: const Key('blob-reference'),
@@ -117,3 +113,4 @@ String _errorMessage(String code) => switch (code) {
       'vault_locked' => '本地保险库已锁定，请重新进入。',
       _ => '暂时无法生成（$code），请重试。',
     };
+
