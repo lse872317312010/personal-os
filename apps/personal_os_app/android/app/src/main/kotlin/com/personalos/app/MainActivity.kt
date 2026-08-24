@@ -41,6 +41,7 @@ class MainActivity : FlutterFragmentActivity() {
         )
         val handler = ControlledSourceChannel(source, photoPickerLauncher)
         sourceHandler = handler
+        vault.onSessionInvalidated = handler::retireTokens
         sourceChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
             ControlledSourceMethodChannelContract.CHANNEL_NAME,
