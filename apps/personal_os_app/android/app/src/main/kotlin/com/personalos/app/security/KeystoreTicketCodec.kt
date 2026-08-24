@@ -140,7 +140,9 @@ internal class KeystoreTicketCodec(
             val key = keyStore.getKey(AUTH_KEY_ALIAS, null) as? SecretKey ?: return "unavailable"
             val keyInfo = SecretKeyFactory.getInstance(key.algorithm, KEYSTORE)
                 .getKeySpec(key, KeyInfo::class.java)
-            if (keyInfo.isInsideSecureHardware) "trustedEnvironment" else "software"
+            @Suppress("DEPRECATION")
+            val insideSecureHardware = keyInfo.isInsideSecureHardware()
+            if (insideSecureHardware) "trustedEnvironment" else "software"
         } catch (_: Throwable) {
             "unavailable"
         }
