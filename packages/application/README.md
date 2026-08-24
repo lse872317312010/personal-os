@@ -16,5 +16,6 @@ this package. Adapters implement the ports at the composition root.
 Blob-backed observations use `IngestObservationUseCase`: bytes cross the
 encrypted ingestion boundary first, and only the resulting opaque `BlobRef`
 is recorded in the event stream. Failed event appends compensate by discarding
-the ingested blob when the adapter supports rollback.
+the ingested blob. Adapters without a rollback capability are rejected before
+the input stream is consumed.
 
