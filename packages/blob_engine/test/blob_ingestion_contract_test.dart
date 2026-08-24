@@ -173,13 +173,17 @@ final class _RecordingStore implements BlobStore {
       const Stream<List<int>>.empty();
 
   @override
-  Future<BlobMetadata> metadata(BlobRef ref,
-          {required BlobAccessContext access}) =>
+  Future<BlobMetadata> metadata(
+    BlobRef ref, {
+    required BlobAccessContext access,
+  }) =>
       throw UnimplementedError();
 
   @override
-  Future<BlobDeleteResult> delete(BlobRef ref,
-      {required BlobAccessContext access}) async {
+  Future<BlobDeleteResult> delete(
+    BlobRef ref, {
+    required BlobAccessContext access,
+  }) async {
     deleteCalls++;
     deletedRefs.add(ref);
     return deleteResult;
