@@ -18,15 +18,16 @@ internal class ControlledSourceTokenStore(
         val uri: Uri,
         val expiresAtMillis: Long,
         val sessionId: String,
+        val cleanup: (() -> Boolean)? = null,
     )
 
     private val entries = ConcurrentHashMap<String, Entry>()
 
-    fun issue(uri: Uri, sessionId: String): String {
+    fun issue(uri: Uri, sessionId: String, cleanup: (() -> Boolean)? = null): String {
         var token: String
         do {
             token = tokenFactory()
-        } while (entries.putIfAbsent(token, Entry(uri, nowMillis() + ttlMillis, sessionId)) != null)
+        } while (entries.putIfAbsent(token, Entry(uri, nowMillis() + ttlMillis, sessionId, cleanup)) != null)
         return token
     }
 
@@ -40,36 +41,49 @@ internal class ControlledSourceTokenStore(
         }
         val entry = entries.remove(token) ?: return ConsumeResult.Consumed
         if (nowMillis() >= entry.expiresAtMillis) {
+            cleanup(entry)
             return ConsumeResult.Expired
         }
         if (entry.sessionId != sessionId) {
+            cleanup(entry)
             return ConsumeResult.SessionMismatch
         }
         return try {
-            when (val outcome = sink.ingest(entry.uri, token)) {
-                is BlobSinkResult.Stored -> {
-                    if (!ControlledSourceMethodChannelContract.isOpaqueBlobRef(outcome.blobRef)) {
-                        ConsumeResult.WriteFailed
-                    } else {
-                        ConsumeResult.Stored(outcome.blobRef)
+            val outcome = sink.ingest(entry.uri, token)
+            if (!cleanup(entry)) {
+                ConsumeResult.CleanupFailed
+            } else {
+                when (outcome) {
+                    is BlobSinkResult.Stored -> {
+                        if (!ControlledSourceMethodChannelContract.isOpaqueBlobRef(outcome.blobRef)) ConsumeResult.WriteFailed
+                        else ConsumeResult.Stored(outcome.blobRef)
                     }
+                    BlobSinkResult.ReadFailed -> ConsumeResult.ReadFailed
+                    BlobSinkResult.WriteFailed -> ConsumeResult.WriteFailed
+                    BlobSinkResult.Unavailable -> ConsumeResult.Unavailable
                 }
-                BlobSinkResult.ReadFailed -> ConsumeResult.ReadFailed
-                BlobSinkResult.WriteFailed -> ConsumeResult.WriteFailed
-                BlobSinkResult.Unavailable -> ConsumeResult.Unavailable
             }
         } catch (_: Throwable) {
+            cleanup(entry)
             ConsumeResult.WriteFailed
         }
     }
 
     fun release(token: String): Boolean {
         if (!ControlledSourceMethodChannelContract.isOpaqueToken(token)) return false
-        return entries.remove(token) != null
+        val entry = entries.remove(token) ?: return false
+        return cleanup(entry)
     }
 
     fun clear() {
+        entries.values.forEach { cleanup(it) }
         entries.clear()
+    }
+
+    private fun cleanup(entry: Entry): Boolean = try {
+        entry.cleanup?.invoke() ?: true
+    } catch (_: Throwable) {
+        false
     }
 
     sealed interface ConsumeResult {
@@ -81,6 +95,7 @@ internal class ControlledSourceTokenStore(
         object ReadFailed : ConsumeResult
         object WriteFailed : ConsumeResult
         object Unavailable : ConsumeResult
+        object CleanupFailed : ConsumeResult
     }
 
     companion object {
