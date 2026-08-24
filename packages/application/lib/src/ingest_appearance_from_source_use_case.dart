@@ -134,6 +134,7 @@ final class IngestAppearanceFromSourceUseCase {
         AppearanceFailureCode.analysisFailed,
       );
     }
+  }
 
   Future<void> _discardSafely(
     BlobRef ref,
