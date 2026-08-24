@@ -37,6 +37,7 @@ class MainActivity : FlutterFragmentActivity() {
         val source = ControlledPhotoPicker(
             resolver = contentResolver,
             blobSink = NativeVaultBlobSink(contentResolver, vault),
+            currentSessionId = vault::currentSessionId,
         )
         val handler = ControlledSourceChannel(source, photoPickerLauncher)
         sourceHandler = handler
