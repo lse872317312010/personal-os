@@ -467,6 +467,23 @@ final class AppController extends ChangeNotifier {
 
   Future<void> pickPhotoAndAnalyze({
     required String observationContext,
+  }) =>
+      _analyzeSourceAndAnalyze(
+        acquire: () => _sourcePort!.pickPhoto(),
+        observationContext: observationContext,
+      );
+
+  Future<void> capturePhotoAndAnalyze({
+    required String observationContext,
+  }) =>
+      _analyzeSourceAndAnalyze(
+        acquire: () => _sourcePort!.capturePhoto(),
+        observationContext: observationContext,
+      );
+
+  Future<void> _analyzeSourceAndAnalyze({
+    required Future<OpaqueSourceToken> Function() acquire,
+    required String observationContext,
   }) async {
     if (!_vaultUnlocked) {
       _fail('vault_locked');
@@ -496,7 +513,7 @@ final class AppController extends ChangeNotifier {
     OpaqueSourceToken? token;
     notifyListeners();
     try {
-      token = await source.pickPhoto();
+      token = await acquire();
       final consentRef = ObjectRef(
         type: 'consent',
         id: EntityId('local-appearance-consent'),
