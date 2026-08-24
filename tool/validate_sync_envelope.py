@@ -84,8 +84,8 @@ def validate_envelope(value: Any) -> dict[str, Any]:
     missing = REQUIRED_FIELDS - set(value)
     if missing:
         _fail(f"missing fields: {sorted(missing)}")
-    if value["protocol_version"] != 1:
-        _fail("protocol_version must equal 1")
+    if not _is_int(value["protocol_version"]) or value["protocol_version"] != 1:
+        _fail("protocol_version must be integer 1")
     _uuid_v4(value["envelope_id"])
     _require_text(value["account_pseudonym"], "account_pseudonym")
     _require_text(value["sender_device_id"], "sender_device_id")

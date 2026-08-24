@@ -65,6 +65,8 @@ class ValidatorTest(unittest.TestCase):
 
     def test_versions_and_sequence(self):
         with self.assertRaises(ValueError):
+            validator.validate_envelope(envelope(protocol_version=True))
+        with self.assertRaises(ValueError):
             validator.validate_envelope(envelope(protocol_version=2))
         with self.assertRaises(ValueError):
             validator.validate_envelope(
