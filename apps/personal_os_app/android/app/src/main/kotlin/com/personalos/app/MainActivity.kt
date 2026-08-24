@@ -66,7 +66,7 @@ class MainActivity : FlutterFragmentActivity() {
             currentSessionId = vault::currentSessionId,
         )
         cameraCapture = camera
-        val handler = ControlledSourceChannel(source, camera)
+        val handler = ControlledSourceChannel(source, camera, photoPickerLauncher)
         sourceHandler = handler
         vault.onSessionInvalidated = handler::retireTokens
         sourceChannel = MethodChannel(
