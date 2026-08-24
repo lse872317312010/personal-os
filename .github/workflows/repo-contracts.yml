@@ -4,6 +4,18 @@ on:
   pull_request:
     paths:
       - "adapters/sqlite_vault/**"
+      - "adapters/**/pubspec.yaml"
+      - "architecture/adapter_classification.json"
+      - "apps/personal_os_app/lib/**"
+      - "packages/**/lib/**"
+      - "tool/check_persistence_boundary.py"
+      - "tool/tests/test_check_persistence_boundary.py"
+      - "adapters/**/pubspec.yaml"
+      - "architecture/adapter_classification.json"
+      - "apps/personal_os_app/lib/**"
+      - "packages/**/lib/**"
+      - "tool/check_persistence_boundary.py"
+      - "tool/tests/test_check_persistence_boundary.py"
       - "architecture/RECOVERY_PROTOCOL.md"
       - "evidence/android/**"
       - "fixtures/recovery/**"
