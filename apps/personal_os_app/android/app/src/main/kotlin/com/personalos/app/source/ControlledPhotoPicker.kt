@@ -76,6 +76,8 @@ internal class ControlledPhotoPicker(
     ) {
         val sessionId = currentSessionId()
         if (sessionId == null) {
+            // A token without a live vault session can never be safely retried.
+            tokenStore.release(token)
             result.error(
                 ControlledSourceMethodChannelContract.ERROR_SESSION_INVALID,
                 null,
@@ -165,6 +167,10 @@ internal class ControlledPhotoPicker(
     fun release(token: String, result: MethodChannel.Result) {
         tokenStore.release(token)
         result.success(null)
+    }
+
+    fun retireTokens() {
+        tokenStore.clear()
     }
 
     fun dispose() {
