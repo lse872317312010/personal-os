@@ -7,6 +7,7 @@ import io.flutter.plugin.common.MethodChannel
 
 internal class ControlledSourceChannel(
     private val picker: ControlledPhotoPicker,
+    private val camera: ControlledCameraCapture,
     private val launcher: ActivityResultLauncher<PickVisualMediaRequest>,
 ) : MethodChannel.MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -16,7 +17,7 @@ internal class ControlledSourceChannel(
                     result.success(
                         mapOf(
                             ControlledSourceMethodChannelContract.KEY_PHOTO_PICKER to true,
-                            ControlledSourceMethodChannelContract.KEY_CAMERA to false,
+                            ControlledSourceMethodChannelContract.KEY_CAMERA to true,
                         ),
                     )
 
@@ -68,12 +69,7 @@ internal class ControlledSourceChannel(
                     }
                 }
 
-                ControlledSourceMethodChannelContract.METHOD_CAPTURE_PHOTO ->
-                    result.error(
-                        ControlledSourceMethodChannelContract.ERROR_UNAVAILABLE,
-                        null,
-                        null,
-                    )
+                ControlledSourceMethodChannelContract.METHOD_CAPTURE_PHOTO -> camera.capture(result)
 
                 else ->
                     result.error(
@@ -95,11 +91,19 @@ internal class ControlledSourceChannel(
         picker.onPicked(uri)
     }
 
+    fun onPermissionResult(granted: Boolean) {
+        camera.onPermissionResult(granted)
+    }
+
+    fun onCaptured(success: Boolean) {
+        camera.onCaptured(success)
+    }
     fun retireTokens() {
         picker.retireTokens()
     }
 
     fun dispose() {
         picker.dispose()
+        camera.dispose()
     }
 }
