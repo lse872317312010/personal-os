@@ -37,6 +37,7 @@ internal class NativeVaultChannel(
     private val pendingDatabaseCalls = ConcurrentHashMap.newKeySet<PendingDatabaseCall>()
     private var activeAuthentication: ActiveAuthentication? = null
     @Volatile private var activeSessionId: String? = null
+    internal var onSessionInvalidated: (() -> Unit)? = null
 
     private data class ActiveAuthentication(
         val result: MethodChannel.Result,
@@ -105,6 +106,7 @@ internal class NativeVaultChannel(
         preparationExecutor.shutdownNow()
         tickets.clear()
         activeSessionId = null
+        onSessionInvalidated?.invoke()
         sessions.closeAll()
     }
 
@@ -433,6 +435,7 @@ internal class NativeVaultChannel(
             sessions.close(sessionId)
             if (activeSessionId == sessionId) {
                 activeSessionId = null
+                onSessionInvalidated?.invoke()
             }
             null
         }
