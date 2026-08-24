@@ -19,6 +19,9 @@ application composition boundaries are intended to support Windows and iOS.
   is not compiled or runtime-verified in the current environment;
 - observation history is rendered from profile-scoped stored events in the
   mobile shell;
+- secure Android composition exposes a controlled system Photo Picker. The
+  native side keeps the selected `Uri`, reads it into the native Vault blob
+  sink, and returns only an opaque token/`BlobRef` across the channel;
 - fail-before-model checks for locked Vault, missing consent, and non-`blob://`
   inputs;
 - shared `FixtureAppearanceAnalysisGateway.syntheticSuccess` behavior for
@@ -28,9 +31,16 @@ application composition boundaries are intended to support Windows and iOS.
   `ActionFeedbackUseCase`, sharing the analysis event store;
 - stable success/failure codes rendered by Task and Review screens.
 
-The capture UI accepts a `blob://` reference. It does not request file bytes,
-open a filesystem path, call SQLite, or persist an original photograph. A later
-Vault adapter owns encrypted blob ingestion and returns the reference.
+The capture UI has two distinct paths. The legacy/reference path accepts a
+manually supplied opaque `blob://` reference and never reads bytes. On Android
+secure composition, the user-visible Photo Picker path is:
+
+`Photo Picker Uri → native opaque source token → native Vault blob sink → opaque BlobRef → RecordObservation → AnalyzeAppearanceUseCase`
+
+The Uri, stream, paths, provider metadata, and blob bytes remain native; Dart
+receives only opaque values. This is an implemented contract and wiring path,
+not a runtime or production proof. Camera capture is not implemented: the
+native capability reports `camera: false` and `capturePhoto` is unavailable.
 
 ## Boundary rules
 
@@ -48,8 +58,10 @@ Vault adapter owns encrypted blob ingestion and returns the reference.
    integration tests, SQLCipher production behavior, and crash/cold-start
    recovery are not verified here. Consent events in the demo prove the
    lifecycle contract only.
-7. `adapters/model_fixture` is a deterministic demo/test adapter. It does not
-   open the blob, inspect a person, or provide production AI analysis.
+7. `adapters/model_fixture` is still the model gateway in the current
+   composition. It is deterministic synthetic behavior; it does not open the
+   blob, inspect a person, or provide production AI analysis. The native blob
+   path therefore proves boundary wiring only, not real photo understanding.
 
 The composition root exposes `AppExperienceMode`. Android uses `secureVault` at
 runtime; `syntheticDemo` remains available through an explicit factory for
@@ -87,16 +99,8 @@ See `tool/android_mvp/README.md` for the USB-debugging and HyperOS checklist.
 The scripts do not collect device IDs, logcat, bug reports, screenshots, or
 phone files.
 
-## Controlled Android source entry
-
-The Android host registers the system Photo Picker through
-`ActivityResultContracts.PickVisualMedia`. It requests no media or storage
-permission. The selected `Uri` remains in the native resolver boundary; Dart
-receives only a random opaque token. Native token ownership is one-shot,
-five-minute bounded, and explicitly releasable. Native consume checks resolver
-readability and returns only stable error codes. This contract does not expose
-bytes, paths, URIs, provider metadata, aliases, or raw exceptions and does not
-implement camera capture or AI analysis.
+The controlled source path is not a Camera implementation and has no claim of
+Redmi or production behavior until the corresponding evidence is recorded.
 
 ## Verification status
 
@@ -115,4 +119,3 @@ flutter analyze
 flutter test
 flutter build apk --debug
 ```
-

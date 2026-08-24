@@ -1,44 +1,36 @@
 # B2-02 Controlled Source Entry
 
-Status: contract-only, unverified
+Status: implemented wiring, runtime/device unverified
 
-Base: PR #38 head b898a975ba4ea6242a7e8ccd98f3a953dab5a1ee
+Base: `main` at `bddbecd2ba8b10a6427c8661d402f5d8c8c2865a`
 
-This dependent PR defines the smallest boundary for local media acquisition:
+The Android secure composition now implements the controlled source boundary:
 
-- system Photo Picker is the preferred native entry;
-- camera is an explicitly separate capability;
-- no READ_MEDIA_IMAGES, READ_EXTERNAL_STORAGE, or storage permission is added;
-- native code owns picker/camera URIs, temporary files, provider handles, and
-  cleanup;
-- Dart receives only a bounded opaque source token or a stable allowlisted error;
-- raw exceptions, paths, URIs, MIME-provider metadata, and camera output details
-  must not cross the MethodChannel;
-- AI/model invocation is out of scope.
+- system Photo Picker is the native entry and requests no media/storage
+  permission;
+- the selected `Uri` stays native and becomes a short-lived opaque token;
+- native consumption streams through the native Vault blob sink and returns an
+  opaque `BlobRef` only;
+- Dart records the observation and invokes the existing analysis use case with
+  that reference;
+- raw bytes, paths, URIs, provider metadata, and exception details do not
+  cross the MethodChannel.
 
-The Kotlin file in this PR is a protocol and sanitizer test seam. It is not
-registered in MainActivity yet, so this PR does not claim a working Android
-picker or camera implementation. Registration and native lifecycle handling
-must be a later PR with Android API-level tests and exact-commit device evidence.
+This is a code contract and wiring claim only. Camera remains unavailable:
+the current capability reports `camera: false` and `capturePhoto` fails closed.
+Android API-level, runtime, Redmi, offline, and exact-commit device evidence
+are still pending. The current model gateway is a deterministic synthetic
+fixture, not production AI or proof that a person was analyzed.
 
 ## Method contract
 
 | Method | Request | Success | Failure |
 |---|---|---|---|
-| capabilities | none | {photoPicker: bool, camera: bool} | source.unavailable |
-| pickPhoto | none | {token: opaque} | allowlisted source.* |
-| capturePhoto | none | {token: opaque} | allowlisted source.* |
-| release | {token: opaque} | null | allowlisted source.* |
+| capabilities | none | `{photoPicker: bool, camera: bool}` | `source.unavailable` |
+| pickPhoto | none | `{token: opaque}` | allowlisted `source.*` |
+| capturePhoto | none | unavailable in current implementation | allowlisted `source.*` |
+| consume | `{token: opaque}` | `{blobRef: opaque}` | allowlisted `source.*` |
+| release | `{token: opaque}` | null | allowlisted `source.*` |
 
-The token is a native capability handle, not a URI or file path. It must expire
-or be released natively, and it must never be persisted as a durable user-data
-reference.
-
-## Not implemented
-
-- actual ActivityResultContracts/GetContent/MediaStore Photo Picker registration;
-- camera capture and FileProvider lifecycle;
-- native token registry and expiry;
-- conversion from the opaque token into encrypted Blob ingestion;
-- real Android, Redmi Turbo, permission, or offline evidence;
-- AI or model execution.
+The token is a native capability handle, not a URI or file path. It expires or
+is released natively and is never persisted as a durable user-data reference.

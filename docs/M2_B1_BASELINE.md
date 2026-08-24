@@ -17,11 +17,11 @@
 
 - 已有纯 Dart domain/events/application 包、in-memory EventStore 和 Flutter 中文离线合成闭环；
 - 已有 adapter 边界、D4 拒绝、事件冲突和 evidence ledger 的基础防线；
-- 默认 synthetic Composition 仍把解锁、Consent、分析结果、任务状态和复盘状态保存在进程内；secure 注入路径具备 opaque session 边界，并已接入 native durable Vault/event-store 实现，但尚未取得运行时验证；
+- Android runtime 默认选择 secure Composition，具备 opaque session 边界并已接入 native durable Vault/event-store 实现；synthetic Composition 仍作为显式测试/预览工厂保留。两条路径均尚未取得完整运行时验证；
 - Android Keystore 用户认证 primitive、native SQLCipher 数据库与 event JSON 存储、secure Dart event-store/session coordinator 已接入 secure composition；这些是代码实现状态，不是运行时或生产验证结论；
 - mobile shell 已提供 profile-scoped observation history UI；展示的是事件存储中的观察记录，不等于真实照片已导入或模型分析已完成；
 - 当前环境没有 Dart、Flutter、Android SDK/Gradle 的可执行验证记录，因此上述 native/Dart 路径未编译、未运行集成测试，未取得 APK 或设备证据；
-- 仍未完成真实照片 ingestion、加密 Blob adapter、冷启动/重启恢复演练和 Redmi Turbo 真机证据；因此当前版本不能升级为 `DOGFOOD_READY`。
+- controlled Photo Picker→native blob sink→opaque `BlobRef`→observation→analysis wiring is now present on the Android secure path; however it is not runtime- or device-verified. Camera remains unavailable, and the model gateway remains synthetic. 冷启动/重启恢复演练和 Redmi Turbo 真机证据仍未完成；因此当前版本不能升级为 `DOGFOOD_READY`。
 
 ## 本轮模拟 Agent 结果
 
@@ -66,8 +66,8 @@ Android 原生侧已加入私有 MethodChannel、稳定错误映射、AndroidX
 BiometricPrompt、Keystore user-authenticated HMAC ticket primitive，以及
 native SQLCipher database/event JSON storage。Dart 侧已接入 secure event store
 和 session coordinator；`openVault` 仍保持 fail-closed，不会降级到 plaintext
-SQLite/in-memory Vault。默认 demo Composition 仍明确使用 synthetic/in-memory
-adapter，secure path 必须显式选择。
+SQLite/in-memory Vault。Android runtime 已选择 secure path；synthetic/in-memory
+adapter 只通过显式 demo/test factory 使用。
 
 相关提交：`2086bdc`、`03ff463`、`c913bbe`、`8990825`、`7600976`、`2062714`、`c35bd9e`、`c66842f`、`13e2b79`、`fdbc6af`、`5181b14`、`01fb014`、`0404112`、`06d937e`。
 
@@ -95,7 +95,7 @@ adapter，secure path 必须显式选择。
 - `40c9bbe`：新增 `RecordObservationUseCase`，把已有 opaque `blob://` 引用记录为 profile-scoped observation 事件；强制 user actor、Consent、D3 上限和原子 append，不读取文件、不接触原始 bytes。
 - `3a3a7a1`：Debug APK artifact 同时上传非敏感 provenance manifest，绑定 commit、workflow run、应用版本和 APK SHA-256。
 
-这批提交只完成 B2 的数据与安全边界，不能表述为“已经导入照片”。真实 Photo Picker/Camera、加密 Blob adapter 和模型读取仍待平台实现。
+这批提交之后，受控 Photo Picker、native blob sink 和 source-to-analysis application wiring 已实现；可以表述为“代码路径已接入”，不能表述为“真实照片导入或 AI 分析已验证”。Camera capture 仍未实现，native/runtime/Redmi/production evidence 仍待取得。
 
 ### 后续契约加固
 
@@ -111,7 +111,7 @@ adapter，secure path 必须显式选择。
 1. `B1-06 android-native-vault`：在 Android/Kotlin/Flutter 工具链可用后编译验证现有认证 primitive、native SQLCipher database 和 event JSON storage；补 native integration tests，禁止降级。
 2. `B1-07 secure-composition`：在 exact commit 上运行 secure EventStore/session coordinator、锁定/解锁、错误路径和冷启动恢复验证；不能用静态审查替代结果。
 3. `B1-08 redmi-evidence`：只对 exact commit 构建 APK 并执行九场景真机 runbook。
-4. `B2 encrypted-ingestion`：在真实 Android 工具链可用后接入 Photo Picker/Camera → encrypted Blob adapter → 临时文件清理，再接真实本地模型；当前只完成 adapter-neutral contract。
+4. `B2 verification`：在真实 Android 工具链可用后验证 Photo Picker → native encrypted Blob adapter → temporary source cleanup → analysis path；实现 Camera capture 和真实模型仍是后续工作。
 
 当前阻塞：本执行环境没有 `dart`、`flutter` 或 Android SDK，因此 B1-06 只能先保留为待执行验证，不能生成可信 APK、Keystore、SQLCipher 或 Redmi 证据。
 
