@@ -15,7 +15,7 @@ void main() {
 
     expect(session.state, VaultSessionState.locked);
     expect(
-      () => session.requireGrant(),
+      session.requireGrant,
       throwsA(_hasCode(SecurityErrorCode.vaultLocked)),
     );
     await session.unlock(reason: 'Open personal vault');
