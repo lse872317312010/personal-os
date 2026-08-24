@@ -86,5 +86,5 @@ final class PersistenceException implements Exception {
       };
 
   @override
-  String toString() => 'PersistenceException(' + code.wireValue + ')';
+  String toString() => 'PersistenceException(\${code.wireValue})';
 }
