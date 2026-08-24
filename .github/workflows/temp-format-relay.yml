@@ -1,0 +1,26 @@
+name: Temporary relay formatter
+
+on:
+  push:
+    branches:
+      - codex/baseline-format-relay-20260824
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: "3.3.4"
+      - run: dart format adapters/in_memory_relay/test/in_memory_relay_test.dart
+      - name: Commit formatted file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add adapters/in_memory_relay/test/in_memory_relay_test.dart
+          git diff --cached --quiet || git commit -m "test: apply Dart formatter to relay test"
+          git push
