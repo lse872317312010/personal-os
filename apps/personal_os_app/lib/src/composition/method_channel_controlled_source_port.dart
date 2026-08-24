@@ -15,9 +15,11 @@ final class MethodChannelControlledSourcePort implements ControlledSourcePort {
   static const _pickPhoto = 'pickPhoto';
   static const _capturePhoto = 'capturePhoto';
   static const _release = 'release';
+  static const _consume = 'consume';
   static const _photoPicker = 'photoPicker';
   static const _camera = 'camera';
   static const _token = 'token';
+  static const _blobRef = 'blobRef';
 
   static const Map<String, ControlledSourceFailureCode> _codes = {
     'source.cancelled': ControlledSourceFailureCode.cancelled,
@@ -26,6 +28,8 @@ final class MethodChannelControlledSourcePort implements ControlledSourcePort {
     'source.invalid_response': ControlledSourceFailureCode.invalidResponse,
     'source.expired': ControlledSourceFailureCode.sourceExpired,
     'source.consumed': ControlledSourceFailureCode.sourceConsumed,
+    'source.read_failed': ControlledSourceFailureCode.unavailable,
+    'source.write_failed': ControlledSourceFailureCode.sourceWriteFailed,
   };
 
   final MethodChannel _channel;
@@ -53,6 +57,117 @@ final class MethodChannelControlledSourcePort implements ControlledSourcePort {
 
   @override
   Future<OpaqueSourceToken> capturePhoto() => _acquire(_capturePhoto);
+
+  @override
+  Future<String> ingestToBlob(OpaqueSourceToken token) async {
+    if (_released.contains(token.value) || !_issued.contains(token.value)) {
+      throw const ControlledSourceException(
+        ControlledSourceFailureCode.invalidResponse,
+      );
+    }
+    try {
+      final map = _map(await _invoke<dynamic>(
+        _consume,
+        <String, Object?>{_token: token.value},
+      ));
+      if (map.length != 1 || map[_blobRef] is! String) {
+        throw const ControlledSourceException(
+          ControlledSourceFailureCode.invalidResponse,
+        );
+      }
+      final value = map[_blobRef] as String;
+      if (!RegExp(r'^blob://[A-Za-z0-9-]{16,128}
+    if (_released.contains(token.value)) return;
+    if (!_issued.contains(token.value)) {
+      throw const ControlledSourceException(
+        ControlledSourceFailureCode.invalidResponse,
+      );
+    }
+    try {
+      final response = await _invoke<dynamic>(
+        _release,
+        <String, Object?>{_token: token.value},
+      );
+      if (response != null) {
+        throw const ControlledSourceException(
+          ControlledSourceFailureCode.invalidResponse,
+        );
+      }
+      _markReleased(token);
+    } on ControlledSourceException catch (error) {
+      if (error.code == ControlledSourceFailureCode.sourceExpired ||
+          error.code == ControlledSourceFailureCode.sourceConsumed) {
+        _markReleased(token);
+      }
+      rethrow;
+    }
+  }
+
+  Future<OpaqueSourceToken> _acquire(String method) async {
+    final map = _map(await _invoke<dynamic>(method));
+    if (map.length != 1 || map[_token] is! String) {
+      throw const ControlledSourceException(
+        ControlledSourceFailureCode.invalidResponse,
+      );
+    }
+    try {
+      final token = OpaqueSourceToken(map[_token] as String);
+      _issued.add(token.value);
+      return token;
+    } on FormatException {
+      throw const ControlledSourceException(
+        ControlledSourceFailureCode.invalidResponse,
+      );
+    }
+  }
+
+  Future<T?> _invoke<T>(String method, [Object? arguments]) async {
+    try {
+      return await _channel.invokeMethod<T>(method, arguments);
+    } on PlatformException catch (error) {
+      throw ControlledSourceException(
+        _codes[error.code] ?? ControlledSourceFailureCode.unavailable,
+      );
+    } on MissingPluginException {
+      throw const ControlledSourceException(
+        ControlledSourceFailureCode.unavailable,
+      );
+    } on TypeError {
+      throw const ControlledSourceException(
+        ControlledSourceFailureCode.invalidResponse,
+      );
+    }
+  }
+
+  Map<Object?, Object?> _map(Object? value) {
+    if (value is! Map<Object?, Object?>) {
+      throw const ControlledSourceException(
+        ControlledSourceFailureCode.invalidResponse,
+      );
+    }
+    return value;
+  }
+
+  void _markReleased(OpaqueSourceToken token) {
+    _issued.remove(token.value);
+    _released.add(token.value);
+  }
+}
+).hasMatch(value)) {
+        throw const ControlledSourceException(
+          ControlledSourceFailureCode.invalidResponse,
+        );
+      }
+      _markReleased(token);
+      return value;
+    } on ControlledSourceException catch (error) {
+      if (error.code == ControlledSourceFailureCode.sourceExpired ||
+          error.code == ControlledSourceFailureCode.sourceConsumed) {
+        _markReleased(token);
+      }
+      rethrow;
+    }
+  }
 
   @override
   Future<void> release(OpaqueSourceToken token) async {

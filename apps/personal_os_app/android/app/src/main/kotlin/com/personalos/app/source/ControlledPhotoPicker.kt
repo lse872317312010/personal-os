@@ -5,7 +5,6 @@ import android.net.Uri
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /**
@@ -15,6 +14,7 @@ import io.flutter.plugin.common.MethodChannel
 internal class ControlledPhotoPicker(
     private val resolver: ContentResolver,
     private val tokenStore: ControlledSourceTokenStore = ControlledSourceTokenStore(),
+    private val blobSink: SourceBlobSink = UnavailableSourceBlobSink,
 ) {
     private var pendingPick: MethodChannel.Result? = null
 
@@ -64,13 +64,11 @@ internal class ControlledPhotoPicker(
         token: String,
         result: MethodChannel.Result,
     ) {
-        when (tokenStore.consume(token) { uri ->
-            resolver.openInputStream(uri)?.use { stream ->
-                stream.read() >= -1
-            } ?: false
-        }) {
-            ControlledSourceTokenStore.ConsumeResult.Ready ->
-                result.success(mapOf("ready" to true))
+        when (val outcome = tokenStore.consume(token, blobSink)) {
+            is ControlledSourceTokenStore.ConsumeResult.Stored ->
+                result.success(
+                    ControlledSourceMethodChannelContract.safeBlobRefResult(outcome.blobRef),
+                )
             ControlledSourceTokenStore.ConsumeResult.Invalid ->
                 result.error(
                     ControlledSourceMethodChannelContract.ERROR_INVALID_RESPONSE,
@@ -92,6 +90,18 @@ internal class ControlledPhotoPicker(
             ControlledSourceTokenStore.ConsumeResult.ReadFailed ->
                 result.error(
                     ControlledSourceMethodChannelContract.ERROR_READ_FAILED,
+                    null,
+                    null,
+                )
+            ControlledSourceTokenStore.ConsumeResult.WriteFailed ->
+                result.error(
+                    ControlledSourceMethodChannelContract.ERROR_WRITE_FAILED,
+                    null,
+                    null,
+                )
+            ControlledSourceTokenStore.ConsumeResult.Unavailable ->
+                result.error(
+                    ControlledSourceMethodChannelContract.ERROR_UNAVAILABLE,
                     null,
                     null,
                 )

@@ -34,7 +34,10 @@ class MainActivity : FlutterFragmentActivity() {
             NativeVaultChannel.CHANNEL_NAME,
         ).also { it.setMethodCallHandler(vault) }
 
-        val source = ControlledPhotoPicker(contentResolver)
+        val source = ControlledPhotoPicker(
+            resolver = contentResolver,
+            blobSink = NativeVaultBlobSink(contentResolver, vault),
+        )
         val handler = ControlledSourceChannel(source, photoPickerLauncher)
         sourceHandler = handler
         sourceChannel = MethodChannel(
