@@ -9,6 +9,28 @@ change has not been compiled or run on an emulator/device. The code below has
 only received static review in this workspace; no build or test pass is being
 claimed.
 
+## B1-06 static review (2026-08-24)
+
+The review covered `NativeVaultChannel`, `NativeVaultDatabase`,
+`KeystoreTicketCodec`, and `OpaqueVaultSessionRegistry`. No definite code
+defect was found that justified a source change. The reviewed invariants are:
+
+- authentication tickets are process-local, short-lived, and consumed before
+  opening a vault; failed opens do not leave a reusable ticket;
+- session expiry, explicit close, and channel teardown close native database
+  handles; database operations are serialized and the database itself is
+  synchronized;
+- SQLCipher loading, cipher version, foreign keys, WAL, and the exact schema
+  are required; missing or incompatible prerequisites fail closed;
+- append batches are transactional, event retries are idempotent only when the
+  complete event JSON matches, and divergent reuse returns a stable conflict;
+- channel failures expose only fixed wire codes and safe messages.
+
+No Android SDK, Gradle, Kotlin compiler, emulator, or device was available in
+this workspace. Therefore this review did not claim JVM/Kotlin compilation,
+SQLCipher runtime behavior, Keystore behavior, migration execution, or Redmi
+device evidence.
+
 ## Channel contract
 
 `MainActivity` registers the private Flutter `MethodChannel`
@@ -93,3 +115,4 @@ older split-column table is rejected; no lossy migration is attempted.
 The native implementation must remain compatible with the Dart
 `PlatformSecurityBridge` contract before it can be connected to the real
 composition root.
+
