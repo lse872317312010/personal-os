@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-08-24 — Mobile MVP theme preference
+
+- Added volatile in-memory system/light/dark theme selection; it resets on process restart.
+- No persistence, platform permission, or sensitive-data access is involved.
+
 记录项目基线、范围、需求和决策的实质变化。项目尚未进入发布版本阶段。
 
 ## 2026-08-20 — Coding Wave 10
