@@ -17,20 +17,22 @@ internal class ControlledSourceTokenStore(
     private data class Entry(
         val uri: Uri,
         val expiresAtMillis: Long,
+        val sessionId: String,
     )
 
     private val entries = ConcurrentHashMap<String, Entry>()
 
-    fun issue(uri: Uri): String {
+    fun issue(uri: Uri, sessionId: String): String {
         var token: String
         do {
             token = tokenFactory()
-        } while (entries.putIfAbsent(token, Entry(uri, nowMillis() + ttlMillis)) != null)
+        } while (entries.putIfAbsent(token, Entry(uri, nowMillis() + ttlMillis, sessionId)) != null)
         return token
     }
 
     fun consume(
         token: String,
+        sessionId: String,
         sink: SourceBlobSink,
     ): ConsumeResult {
         if (!ControlledSourceMethodChannelContract.isOpaqueToken(token)) {
@@ -39,6 +41,9 @@ internal class ControlledSourceTokenStore(
         val entry = entries.remove(token) ?: return ConsumeResult.Consumed
         if (nowMillis() >= entry.expiresAtMillis) {
             return ConsumeResult.Expired
+        }
+        if (entry.sessionId != sessionId) {
+            return ConsumeResult.SessionMismatch
         }
         return try {
             when (val outcome = sink.ingest(entry.uri, token)) {
@@ -72,6 +77,7 @@ internal class ControlledSourceTokenStore(
         object Invalid : ConsumeResult
         object Expired : ConsumeResult
         object Consumed : ConsumeResult
+        object SessionMismatch : ConsumeResult
         object ReadFailed : ConsumeResult
         object WriteFailed : ConsumeResult
         object Unavailable : ConsumeResult
