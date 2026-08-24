@@ -2,14 +2,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_os_source_api/source_api.dart';
 
+const _channel = MethodChannel('test/personal_os/controlled_source');
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const channel = MethodChannel('test/personal_os/controlled_source');
-
   tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
+        .setMockMethodCallHandler(_channel, null);
   });
 
   test('capabilities accepts only the exact boolean response', () async {
@@ -18,8 +18,9 @@ void main() {
       return <String, Object?>{'photoPicker': true, 'camera': false};
     });
 
-    final result = await MethodChannelControlledSourcePort(channel: channel)
-        .capabilities();
+    final result =
+        await MethodChannelControlledSourcePort(channel: _channel)
+            .capabilities();
 
     expect(result.photoPicker, isTrue);
     expect(result.camera, isFalse);
@@ -33,7 +34,7 @@ void main() {
         });
 
     await expectLater(
-      MethodChannelControlledSourcePort(channel: channel).capabilities(),
+      MethodChannelControlledSourcePort(channel: _channel).capabilities(),
       throwsA(_failure(ControlledSourceFailureCode.invalidResponse)),
     );
   });
@@ -44,7 +45,7 @@ void main() {
         });
 
     await expectLater(
-      MethodChannelControlledSourcePort(channel: channel).pickPhoto(),
+      MethodChannelControlledSourcePort(channel: _channel).pickPhoto(),
       throwsA(_failure(ControlledSourceFailureCode.invalidResponse)),
     );
   });
@@ -58,7 +59,7 @@ void main() {
     });
 
     try {
-      await MethodChannelControlledSourcePort(channel: channel).pickPhoto();
+      await MethodChannelControlledSourcePort(channel: _channel).pickPhoto();
       fail('expected source failure');
     } on ControlledSourceException catch (error) {
       expect(error.code, ControlledSourceFailureCode.denied);
@@ -77,7 +78,7 @@ void main() {
     });
 
     await expectLater(
-      MethodChannelControlledSourcePort(channel: channel).pickPhoto(),
+      MethodChannelControlledSourcePort(channel: _channel).pickPhoto(),
       throwsA(_failure(ControlledSourceFailureCode.unavailable)),
     );
   });
@@ -90,13 +91,16 @@ void main() {
       }
       if (call.method == 'release') {
         releaseCalls++;
-        expect(call.arguments, <String, Object?>{'token': 'opaque_token_123456'});
+        expect(
+          call.arguments,
+          <String, Object?>{'token': 'opaque_token_123456'},
+        );
         return null;
       }
       fail('unexpected method: ${call.method}');
     });
 
-    final port = MethodChannelControlledSourcePort(channel: channel);
+    final port = MethodChannelControlledSourcePort(channel: _channel);
     final token = await port.pickPhoto();
     await port.release(token);
     await port.release(token);
@@ -114,7 +118,7 @@ void main() {
       throw PlatformException(code: 'source.expired');
     });
 
-    final port = MethodChannelControlledSourcePort(channel: channel);
+    final port = MethodChannelControlledSourcePort(channel: _channel);
     final token = await port.pickPhoto();
 
     await expectLater(
@@ -133,7 +137,7 @@ void main() {
       return null;
     });
 
-    final port = MethodChannelControlledSourcePort(channel: channel);
+    final port = MethodChannelControlledSourcePort(channel: _channel);
     await expectLater(
       port.release(OpaqueSourceToken('opaque_token_123456')),
       throwsA(_failure(ControlledSourceFailureCode.invalidResponse)),
@@ -153,5 +157,5 @@ Matcher _failure(ControlledSourceFailureCode code) {
 
 void _respond(Future<Object?> Function(MethodCall call) handler) {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-      .setMockMethodCallHandler(channel, handler);
+      .setMockMethodCallHandler(_channel, handler);
 }
