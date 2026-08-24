@@ -153,7 +153,7 @@ final class RuntimeCoordinator {
     if (_state == RuntimeState.foreground ||
         _state == RuntimeState.background) {
       try {
-        await lock();
+        await _lock();
       } on RuntimeFailure {
         // Continue to the terminal close boundary after best-effort lock.
       }
