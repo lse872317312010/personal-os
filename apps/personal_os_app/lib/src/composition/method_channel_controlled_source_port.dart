@@ -100,7 +100,7 @@ final class MethodChannelControlledSourcePort implements ControlledSourcePort {
     }
   }
 
-  Future<T> _invoke<T>(String method, [Object? arguments]) async {
+  Future<T?> _invoke<T>(String method, [Object? arguments]) async {
     try {
       return await _channel.invokeMethod<T>(method, arguments);
     } on PlatformException catch (error) {
