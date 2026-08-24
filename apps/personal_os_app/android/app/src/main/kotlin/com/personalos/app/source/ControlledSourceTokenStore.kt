@@ -2,7 +2,7 @@ package com.personalos.app.source
 
 import android.net.Uri
 import java.security.SecureRandom
-import java.util.Base64
+import android.util.Base64
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -54,11 +54,11 @@ internal class ControlledSourceTokenStore(
     }
 
     sealed interface ConsumeResult {
-        data object Ready : ConsumeResult
-        data object Invalid : ConsumeResult
-        data object Expired : ConsumeResult
-        data object Consumed : ConsumeResult
-        data object ReadFailed : ConsumeResult
+        object Ready : ConsumeResult
+        object Invalid : ConsumeResult
+        object Expired : ConsumeResult
+        object Consumed : ConsumeResult
+        object ReadFailed : ConsumeResult
     }
 
     companion object {
@@ -67,7 +67,7 @@ internal class ControlledSourceTokenStore(
         private fun newOpaqueToken(): String {
             val bytes = ByteArray(32)
             SecureRandom().nextBytes(bytes)
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+            return Base64.encodeToString(bytes, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
         }
     }
 }
