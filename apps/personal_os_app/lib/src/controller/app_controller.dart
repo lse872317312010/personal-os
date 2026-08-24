@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_security_api/security_api.dart';
+import 'package:personal_os_source_api/source_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 
 import '../composition/native_sqlcipher_session_coordinator.dart';
@@ -35,6 +36,8 @@ final class AppController extends ChangeNotifier {
     VaultSession? vaultSession,
     SecureVaultPort? secureVault,
     SecureSessionCoordinator? sessionCoordinator,
+    ControlledSourcePort? sourcePort,
+    IngestAppearanceFromSourceUseCase? ingestAppearanceFromSource,
   })  : _analyzeAppearance = analyzeAppearance,
         _actionFeedback = actionFeedback,
         _profileId = profileId,
@@ -44,7 +47,9 @@ final class AppController extends ChangeNotifier {
         _recordObservation = recordObservation,
         _vaultSession = vaultSession,
         _secureVault = secureVault,
-        _sessionCoordinator = sessionCoordinator {
+        _sessionCoordinator = sessionCoordinator,
+        _sourcePort = sourcePort,
+        _ingestAppearanceFromSource = ingestAppearanceFromSource {
     if (_sessionCoordinator != null) {
       _sessionCoordinator!.onSessionInvalidated = _handleSessionInvalidated;
     }
@@ -74,6 +79,8 @@ final class AppController extends ChangeNotifier {
   final VaultSession? _vaultSession;
   final SecureVaultPort? _secureVault;
   final SecureSessionCoordinator? _sessionCoordinator;
+  final ControlledSourcePort? _sourcePort;
+  final IngestAppearanceFromSourceUseCase? _ingestAppearanceFromSource;
 
   bool _vaultUnlocked = false;
   bool _consentGranted = false;
@@ -109,6 +116,8 @@ final class AppController extends ChangeNotifier {
   bool get planStarted => _planStarted;
   List<ObservationMetadata> get observations => _observations;
   int get observationCount => _observations.length;
+  bool get sourceAvailable =>
+      _sourcePort != null && _ingestAppearanceFromSource != null;
   ObservationMetadata? get latestObservation =>
       _observations.isEmpty ? null : _observations.first;
   int get completedStep {
@@ -444,6 +453,96 @@ final class AppController extends ChangeNotifier {
       if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
       _submission = SubmissionStatus.failed;
       _errorCode = 'unexpected_failure';
+    }
+    notifyListeners();
+  }
+
+  Future<void> pickPhotoAndAnalyze({
+    required String observationContext,
+  }) async {
+    if (!_vaultUnlocked) {
+      _fail('vault_locked');
+      return;
+    }
+    if (!_consentGranted) {
+      _fail('consent_required');
+      return;
+    }
+    final source = _sourcePort;
+    final ingest = _ingestAppearanceFromSource;
+    if (source == null || ingest == null) {
+      _fail('source_unavailable');
+      return;
+    }
+    if (observationContext.trim().isEmpty) {
+      _fail(ObservationFailureCode.invalidContext);
+      return;
+    }
+
+    _submission = SubmissionStatus.running;
+    _errorCode = null;
+    final epoch = _lifecycleEpoch;
+    OpaqueSourceToken? token;
+    notifyListeners();
+    try {
+      token = await source.pickPhoto();
+      final consentRef = ObjectRef(
+        type: 'consent',
+        id: EntityId('local-appearance-consent'),
+        revision: Revision(_activeConsentRevision),
+      );
+      final result = await ingest.execute(
+        IngestAppearanceFromSourceCommand(
+          source: token,
+          mediaType: 'image/*',
+          access: BlobAccessContext(
+            actorRef: _actor.actorId,
+            purpose: 'appearance-analysis',
+            consentRef: 'consent:${consentRef.id.value}',
+          ),
+          profileId: _profileId,
+          observationContext: observationContext,
+          consentRef: consentRef,
+          actor: _actor,
+          correlationId: _correlation('source-appearance'),
+        ),
+      );
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _result = result.analysis;
+      _submission = SubmissionStatus.succeeded;
+      _destination = AppDestination.claims;
+    } on ObservationUseCaseFailure catch (error) {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _submission = SubmissionStatus.failed;
+      _errorCode = error.code;
+    } on SourceBlobIngestionException catch (error) {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _submission = SubmissionStatus.failed;
+      _errorCode = error.code;
+    } on AppearanceUseCaseFailure catch (error) {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _submission = SubmissionStatus.failed;
+      _errorCode = error.code;
+    } on ControlledSourceException catch (error) {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _submission = SubmissionStatus.failed;
+      _errorCode = switch (error.code) {
+        ControlledSourceFailureCode.cancelled => 'source_unavailable',
+        ControlledSourceFailureCode.denied => 'source_denied',
+        _ => 'source_unavailable',
+      };
+    } on Object {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _submission = SubmissionStatus.failed;
+      _errorCode = 'source_unavailable';
+    } finally {
+      if (token != null) {
+        try {
+          await source.release(token);
+        } catch (_) {
+          // Native expiry and one-shot consume make release best effort.
+        }
+      }
     }
     notifyListeners();
   }

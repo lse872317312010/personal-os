@@ -10,11 +10,14 @@ import 'package:personal_os_policy/policy.dart';
 import 'package:personal_os_policy_application/policy_application.dart';
 import 'package:personal_os_security_api/security_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
+import 'package:personal_os_source_api/source_api.dart';
 
 import '../controller/app_controller.dart';
 import 'android_platform_security_bridge.dart';
 import 'native_sqlcipher_event_store.dart';
 import 'native_sqlcipher_session_coordinator.dart';
+import 'method_channel_controlled_source_port.dart';
+import 'method_channel_source_blob_ingestion_port.dart';
 
 enum AppExperienceMode { syntheticDemo, secureVault }
 
@@ -62,6 +65,9 @@ final class AppComposition {
     final bridge =
         securityBridge ?? AndroidPlatformSecurityBridge(channel: channel);
     final eventStore = NativeSqlCipherEventStore(channel: channel);
+    final sourcePort = MethodChannelControlledSourcePort(channel: channel);
+    final sourceBlobIngestion =
+        MethodChannelSourceBlobIngestionPort(sourcePort);
     final coordinator = NativeSqlCipherSessionCoordinator(
       bridge: bridge,
       eventStore: eventStore,
@@ -71,6 +77,8 @@ final class AppComposition {
       mode: AppExperienceMode.secureVault,
       vaultSession: DefaultVaultSession(DeviceSecureUnlockAdapter(bridge)),
       sessionCoordinator: coordinator,
+      sourcePort: sourcePort,
+      sourceBlobIngestion: sourceBlobIngestion,
     );
   }
 
@@ -80,6 +88,8 @@ final class AppComposition {
     Iterable<ConsentGrant> initialGrants = const <ConsentGrant>[],
     VaultSession? vaultSession,
     SecureSessionCoordinator? sessionCoordinator,
+    ControlledSourcePort? sourcePort,
+    SourceBlobIngestionPort? sourceBlobIngestion,
   }) {
     final clock = _SystemClock();
     final policyClock = _SystemPolicyClock();
@@ -125,6 +135,18 @@ final class AppComposition {
           ids: ids,
           clock: clock,
         ),
+        sourcePort: sourcePort,
+        ingestAppearanceFromSource: sourceBlobIngestion == null
+            ? null
+            : IngestAppearanceFromSourceUseCase(
+                ingestion: sourceBlobIngestion,
+                recordObservation: RecordObservationUseCase(
+                  eventStore: eventStore,
+                  ids: ids,
+                  clock: clock,
+                ),
+                analyzeAppearance: useCase,
+              ),
         actor: ActorRef(
           actorId: 'primary-user',
           actorType: ActorType.user,

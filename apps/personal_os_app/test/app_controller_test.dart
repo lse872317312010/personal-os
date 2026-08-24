@@ -26,6 +26,16 @@ void main() {
     expect(gateway.calls, 0);
   });
 
+  test('source entry stays fail-closed without a source port', () async {
+    final controller = _controller(_CountingGateway())..unlockVault();
+    await controller.setConsent(true);
+
+    await controller.pickPhotoAndAnalyze(observationContext: 'front');
+
+    expect(controller.submission, SubmissionStatus.failed);
+    expect(controller.errorCode, 'source_unavailable');
+  });
+
   test('raw path is rejected before any gateway call', () async {
     final gateway = _CountingGateway();
     final controller = _controller(gateway)..unlockVault();

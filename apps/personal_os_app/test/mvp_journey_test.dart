@@ -18,6 +18,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('内置合成示例'), findsOneWidget);
     expect(find.textContaining('不会读取相册'), findsOneWidget);
+    expect(find.byKey(const Key('pick-photo-analyze')), findsNothing);
 
     await tester.scrollUntilVisible(
       find.byKey(const Key('analysis-consent')),
