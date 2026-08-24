@@ -1,5 +1,6 @@
 import 'package:personal_os_security_api/security_api.dart';
 
+import 'device_secure_unlock.dart';
 import 'platform_security_bridge.dart';
 import 'safe_security_log.dart';
 
@@ -22,8 +23,7 @@ final class DeviceSecureVaultPort implements SecureVaultPort {
   @override
   Future<OpaqueVaultSession> open({required UnlockGrant grant}) async {
     if (!grant.isValidAt(_clock())) {
-      _recordFailure(
-          SecurityOperation.openVault, SecurityErrorCode.unlockExpired);
+      _recordFailure(SecurityOperation.openVault, SecurityErrorCode.unlockExpired);
       throw const SecurityException(SecurityErrorCode.unlockExpired);
     }
 
@@ -51,8 +51,7 @@ final class DeviceSecureVaultPort implements SecureVaultPort {
         ? session
         : null;
     if (value == null || !value.isActive) {
-      _recordFailure(
-          SecurityOperation.closeVault, SecurityErrorCode.vaultLocked);
+      _recordFailure(SecurityOperation.closeVault, SecurityErrorCode.vaultLocked);
       throw const SecurityException(SecurityErrorCode.vaultLocked);
     }
 
@@ -73,8 +72,7 @@ final class DeviceSecureVaultPort implements SecureVaultPort {
     }
   }
 
-  void _recordSuccess(SecurityOperation operation) =>
-      _log.record(SafeSecurityEvent(
+  void _recordSuccess(SecurityOperation operation) => _log.record(SafeSecurityEvent(
         operation: operation,
         outcome: SecurityOperationOutcome.succeeded,
       ));
@@ -99,3 +97,4 @@ final class _DeviceOpaqueVaultSession implements OpaqueVaultSession {
 
   void _invalidate() => _active = false;
 }
+
