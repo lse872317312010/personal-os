@@ -171,10 +171,10 @@ internal class ControlledPhotoPicker(
     }
 
     fun release(token: String, result: MethodChannel.Result) {
-        if (tokenStore.release(token)) {
-            result.success(null)
-        } else {
-            result.error(
+        when (tokenStore.release(token)) {
+            ControlledSourceTokenStore.ReleaseResult.Released,
+            ControlledSourceTokenStore.ReleaseResult.AlreadyAbsent -> result.success(null)
+            ControlledSourceTokenStore.ReleaseResult.CleanupFailed -> result.error(
                 ControlledSourceMethodChannelContract.ERROR_DELETE_FAILED,
                 null,
                 null,
