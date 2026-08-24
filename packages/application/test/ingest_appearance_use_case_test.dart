@@ -32,12 +32,14 @@ void main() {
     expect(model.inputs.single.imageRef, 'blob://opaque-1');
     expect(store.events, hasLength(5));
     for (final event in store.events) {
-      expect(_flatten(event.payload), everyElement(isNot(anyOf(
-        contains('/tmp/'),
-        contains('file://'),
-        contains('raw-image'),
-        contains('adapter-secret'),
-      ))));
+      expect(
+          _flatten(event.payload),
+          everyElement(isNot(anyOf(
+            contains('/tmp/'),
+            contains('file://'),
+            contains('raw-image'),
+            contains('adapter-secret'),
+          ))));
       expect(event.payload.values, everyElement(isNot(isA<List<int>>())));
     }
     expect(
@@ -45,7 +47,8 @@ void main() {
       containsPair('blob_ref', 'blob://opaque-1'),
     );
     expect(
-      store.events.where((event) => event.eventType == EventTypes.claimProposed),
+      store.events
+          .where((event) => event.eventType == EventTypes.claimProposed),
       everyElement(
         predicate<EventEnvelope>(
           (event) => event.payload['evidence_blob_ref'] == 'blob://opaque-1',
@@ -134,7 +137,8 @@ void main() {
     _Ingestion ingestion,
     _Store store,
     _Model model,
-  ) => IngestAppearanceAnalysisUseCase(
+  ) =>
+      IngestAppearanceAnalysisUseCase(
         ingestion: ingestion,
         recordObservation: RecordObservationUseCase(
           eventStore: store,
@@ -222,7 +226,8 @@ final class _Model implements AppearanceAnalysisGateway {
   final List<AppearanceAnalysisInput> inputs = <AppearanceAnalysisInput>[];
 
   @override
-  Future<AppearanceAnalysisResult> analyze(AppearanceAnalysisInput input) async {
+  Future<AppearanceAnalysisResult> analyze(
+      AppearanceAnalysisInput input) async {
     inputs.add(input);
     if (failure != null) throw failure!;
     return AppearanceAnalysisResult(
@@ -285,5 +290,6 @@ final class _Policy implements AppearancePolicyPort {
     required EntityId profileId,
     required List<ObjectRef> consentRefs,
     required Sensitivity sensitivity,
-  }) async => const PolicyVerdict.allow();
+  }) async =>
+      const PolicyVerdict.allow();
 }
