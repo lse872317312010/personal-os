@@ -21,7 +21,7 @@ void main() {
     authoritySource: 'local-session',
   );
 
-  IngestAppearanceFromSourceUseCase _useCase(
+  IngestAppearanceFromSourceUseCase _buildUseCase(
     _SourceIngestion ingestion,
     _Store store,
     _Model model,
@@ -42,7 +42,7 @@ void main() {
         ),
       );
 
-  IngestAppearanceFromSourceCommand _command() =>
+  IngestAppearanceFromSourceCommand _buildCommand() =>
       IngestAppearanceFromSourceCommand(
         source: source,
         mediaType: 'image/jpeg',
@@ -60,7 +60,7 @@ void main() {
     final store = _Store();
     final model = _Model();
 
-    final result = await _useCase(ingestion, store, model).execute(_command());
+    final result = await _buildUseCase(ingestion, store, model).execute(_buildCommand());
 
     expect(result.blobRef, BlobRef('blob://opaque-source-1'));
     expect(ingestion.sources, [source]);
@@ -90,7 +90,7 @@ void main() {
     final store = _Store();
 
     await expectLater(
-      _useCase(ingestion, store, _Model()).execute(_command()),
+      _buildUseCase(ingestion, store, _Model()).execute(_buildCommand()),
       throwsA(isA<SourceBlobIngestionException>().having(
         (error) => error.code,
         'code',
@@ -107,7 +107,7 @@ void main() {
     final store = _Store();
 
     await expectLater(
-      _useCase(ingestion, store, _Model()).execute(_command()),
+      _buildUseCase(ingestion, store, _Model()).execute(_buildCommand()),
       throwsA(isA<SourceBlobIngestionException>().having(
         (error) => error.code,
         'code',
@@ -124,7 +124,7 @@ void main() {
     final model = _Model()..failure = StateError('raw exception /tmp/path');
 
     await expectLater(
-      _useCase(ingestion, store, model).execute(_command()),
+      _buildUseCase(ingestion, store, model).execute(_buildCommand()),
       throwsA(isA<AppearanceUseCaseFailure>().having(
         (error) => error.code,
         'code',
@@ -177,7 +177,7 @@ final class _SourceIngestion implements SourceBlobIngestionPort {
 }
 
 final class _Model implements AppearanceAnalysisGateway {
-  Object? failure;
+  Exception? failure;
   final List<AppearanceAnalysisInput> inputs = <AppearanceAnalysisInput>[];
 
   @override
