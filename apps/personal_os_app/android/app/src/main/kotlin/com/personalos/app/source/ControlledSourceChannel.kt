@@ -1,11 +1,14 @@
 package com.personalos.app.source
 
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.PickVisualMediaRequest
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 internal class ControlledSourceChannel(
     private val picker: ControlledPhotoPicker,
     private val camera: ControlledCameraCapture,
+    private val launcher: ActivityResultLauncher<PickVisualMediaRequest>,
 ) : MethodChannel.MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         try {
