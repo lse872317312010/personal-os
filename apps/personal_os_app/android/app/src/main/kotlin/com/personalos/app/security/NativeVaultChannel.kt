@@ -36,6 +36,7 @@ internal class NativeVaultChannel(
     private val disposed = AtomicBoolean(false)
     private val pendingDatabaseCalls = ConcurrentHashMap.newKeySet<PendingDatabaseCall>()
     private var activeAuthentication: ActiveAuthentication? = null
+    @Volatile private var activeSessionId: String? = null
 
     private data class ActiveAuthentication(
         val result: MethodChannel.Result,
@@ -103,6 +104,7 @@ internal class NativeVaultChannel(
         databaseExecutor.shutdownNow()
         preparationExecutor.shutdownNow()
         tickets.clear()
+        activeSessionId = null
         sessions.closeAll()
     }
 
@@ -316,6 +318,7 @@ internal class NativeVaultChannel(
                 )
                 val sessionId = UUID.randomUUID().toString()
                 sessions.register(sessionId, ticketExpiresAt, database)
+                activeSessionId = sessionId
                 val opened = mapOf("id" to sessionId)
                 database = null
                 opened
@@ -341,6 +344,13 @@ internal class NativeVaultChannel(
         return sessions.withActive(sessionId) { database ->
             database.writeBlob(source)
         }
+    }
+
+    /** Native-only source composition uses the currently authenticated vault. */
+    internal fun writeBlobFromCurrentSession(source: NativeBlobSource): String {
+        val sessionId = activeSessionId
+            ?: throw NativeVaultFailure(NativeVaultFailureCode.VAULT_LOCKED)
+        return writeBlobFromNativeSource(sessionId, source)
     }
 
     private fun appendEvents(call: MethodCall, result: MethodChannel.Result) {
@@ -407,6 +417,9 @@ internal class NativeVaultChannel(
         val sessionId = requiredStringArgument(call, "sessionId")
         enqueueDatabase(result) {
             sessions.close(sessionId)
+            if (activeSessionId == sessionId) {
+                activeSessionId = null
+            }
             null
         }
     }
