@@ -10,7 +10,7 @@ import android.net.Uri
  * never cross the Flutter channel or be persisted in a plaintext temp file.
  */
 internal interface SourceBlobSink {
-    fun ingest(uri: Uri): BlobSinkResult
+    fun ingest(uri: Uri, opaqueToken: String): BlobSinkResult
 }
 
 internal sealed interface BlobSinkResult {
