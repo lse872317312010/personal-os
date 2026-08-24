@@ -51,7 +51,7 @@ final class IngestAppearanceFromSourceUseCase {
   final RecordObservationUseCase _recordObservation;
   final AnalyzeAppearanceUseCase _analyzeAppearance;
 
-  Future<IngestAppearanceAnalysisResult> execute(
+  Future<IngestAppearanceFromSourceResult> execute(
     IngestAppearanceFromSourceCommand command,
   ) async {
     // Reject policy-sensitive requests before the native source can be read.
@@ -72,19 +72,10 @@ final class IngestAppearanceFromSourceUseCase {
       access: command.access,
     );
 
+    var eventCommitted = false;
     try {
-      final observation = await _recordObservation.execute(
-        RecordObservationCommand(
-          profileId: command.profileId,
-          blobRef: blobRef,
-          mediaType: command.mediaType,
-          observationContext: command.observationContext,
-          consentRef: command.consentRef,
-          actor: command.actor,
-          correlationId: command.correlationId,
-          sensitivity: command.sensitivity,
-        ),
-      );
+      // Analyze first so a model/policy failure can discard the new BlobRef
+      // without leaving an observation event that points to deleted data.
       final analysis = await _analyzeAppearance.execute(
         AnalyzeAppearanceCommand(
           profileId: command.profileId,
@@ -98,18 +89,49 @@ final class IngestAppearanceFromSourceUseCase {
           locale: command.locale,
         ),
       );
-      return IngestAppearanceAnalysisResult(
+      eventCommitted = true;
+      final observation = await _recordObservation.execute(
+        RecordObservationCommand(
+          profileId: command.profileId,
+          blobRef: blobRef,
+          mediaType: command.mediaType,
+          observationContext: command.observationContext,
+          consentRef: command.consentRef,
+          actor: command.actor,
+          correlationId: command.correlationId,
+          sensitivity: command.sensitivity,
+        ),
+      );
+      eventCommitted = true;
+      return IngestAppearanceFromSourceResult(
         blobRef: blobRef,
         observation: observation,
         analysis: analysis,
       );
-    } catch (_) {
-      try {
-        await _ingestion.discard(ref: blobRef, access: command.access);
-      } catch (_) {
-        // Preserve only the original stable application failure.
+    } catch (error) {
+      // Once either operation committed, retain the blob for retry; deleting
+      // it would leave persisted events with a dangling reference.
+      if (!eventCommitted) {
+        await _discardSafely(blobRef, command.access);
       }
-      rethrow;
+      if (error is AppearanceUseCaseFailure ||
+          error is ObservationUseCaseFailure) {
+        rethrow;
+      }
+      throw const AppearanceUseCaseFailure(
+        AppearanceFailureCode.analysisFailed,
+      );
     }
+
+  Future<void> _discardSafely(
+    BlobRef ref,
+    BlobAccessContext access,
+  ) async {
+    try {
+      await _ingestion.discard(ref: ref, access: access);
+    } catch (_) {
+      // Preserve the stable failure and never leak adapter details.
+    }
+  }
   }
 }
