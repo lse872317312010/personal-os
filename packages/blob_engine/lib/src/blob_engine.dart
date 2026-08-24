@@ -301,9 +301,9 @@ Stream<Uint8List> _ownedChunks(
 
 Stream<Uint8List> _rangeAndZeroize(
   Stream<Uint8List> source,
-  BlobByteRange? range,
-  {required int expectedLength},
-) async* {
+  BlobByteRange? range, {
+  required int expectedLength,
+}) async* {
   var offset = 0;
   await for (final sourceChunk in source) {
     final owned = Uint8List.fromList(sourceChunk);

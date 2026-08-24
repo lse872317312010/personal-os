@@ -1,4 +1,5 @@
 import 'package:flutter/services.dart';
+import 'package:personal_os_device_security/device_security.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_events/events.dart';
 import 'package:personal_os_security_api/security_api.dart';
@@ -164,11 +165,12 @@ final class NativeSqlCipherEventStore implements EventStore {
       throw const PersistenceException.schemaViolation();
     }
     try {
-      return value.cast<Map>().map<Map<String, Object?>>(
-            (row) => row.map<String, Object?>(
-              (key, value) => MapEntry<String, Object?>(key.toString(), value),
-            ),
-          ).toList(growable: false);
+      return value.map<Map<String, Object?>>((row) {
+        final map = row as Map<Object?, Object?>;
+        return <String, Object?>{
+          for (final entry in map.entries) entry.key.toString(): entry.value,
+        };
+      }).toList(growable: false);
     } on Object {
       throw const PersistenceException.schemaViolation();
     }

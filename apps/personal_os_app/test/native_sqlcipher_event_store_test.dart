@@ -76,11 +76,11 @@ void main() {
     final store = NativeSqlCipherEventStore(channel: channel);
     store.attachNativeSession(PlatformVaultSession(id: 'native-session'));
     final unrelated = _event(
-      'event-unrelated',
+      id: 'event-unrelated',
       observationId: 'observation-2',
       observationRevision: 1,
     );
-    final matching = _event('event-matching', observationRevision: 2);
+    final matching = _event(id: 'event-matching', observationRevision: 2);
     channel.setMockMethodCallHandler((call) async {
       calls.add(call);
       if (call.method == 'readEventsBySubject') {
@@ -128,7 +128,9 @@ void main() {
     });
 
     await expectLater(
-      store.appendAll(<EventEnvelope>[_event('event-d4', Sensitivity.d4)]),
+      store.appendAll(
+        <EventEnvelope>[_event(id: 'event-d4', sensitivity: Sensitivity.d4)],
+      ),
       throwsA(isA<PersistenceException>().having(
         (error) => error.code,
         'code',
@@ -165,7 +167,7 @@ void main() {
       () async {
     final store = NativeSqlCipherEventStore(channel: channel);
     store.attachNativeSession(PlatformVaultSession(id: 'native-session'));
-    await channel.setMockMethodCallHandler((_) async {
+    channel.setMockMethodCallHandler((_) async {
       throw PlatformException(
         code: 'security.provider_unavailable',
         message: 'raw SQLCipher path and exception',
@@ -185,7 +187,7 @@ void main() {
       () async {
     final store = NativeSqlCipherEventStore(channel: channel);
     store.attachNativeSession(PlatformVaultSession(id: 'native-session'));
-    await channel.setMockMethodCallHandler((call) async {
+    channel.setMockMethodCallHandler((call) async {
       if (call.method == 'appendEvents') {
         throw PlatformException(
           code: 'security.vault_event_conflict',
@@ -197,8 +199,8 @@ void main() {
 
     try {
       await store.appendAll(<EventEnvelope>[
-        _event('event-1'),
-        _event('event-2'),
+        _event(id: 'event-1'),
+        _event(id: 'event-2'),
       ]);
       fail('expected PersistenceException');
     } on PersistenceException catch (error) {
@@ -253,16 +255,15 @@ void main() {
         bridge.openedSessionId);
     expect(bridge.closedSessionId, bridge.openedSessionId);
     await expectLater(
-      store.appendAll(<EventEnvelope>[_event('after-close')]),
+      store.appendAll(<EventEnvelope>[_event(id: 'after-close')]),
       throwsA(isA<PersistenceException>()),
     );
   });
 }
 
-EventEnvelope _event([
+EventEnvelope _event({
   String id = 'event-1',
   Sensitivity sensitivity = Sensitivity.d3,
-], {
   String observationId = 'observation-1',
   int? observationRevision,
 }) => EventEnvelope(
