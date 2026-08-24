@@ -177,7 +177,7 @@ final class _SourceIngestion implements SourceBlobIngestionPort {
 }
 
 final class _Model implements AppearanceAnalysisGateway {
-  Exception? failure;
+  Error? failure;
   final List<AppearanceAnalysisInput> inputs = <AppearanceAnalysisInput>[];
 
   @override
