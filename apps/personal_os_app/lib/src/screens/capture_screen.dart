@@ -65,6 +65,17 @@ final class _CaptureScreenState extends State<CaptureScreen> {
             label: const Text('选择照片并分析'),
           ),
           const SizedBox(height: 12),
+          FilledButton.icon(
+            key: const Key('capture-photo-analyze'),
+            onPressed: busy
+                ? null
+                : () => widget.controller.capturePhotoAndAnalyze(
+                      observationContext: _context.text.trim(),
+                    ),
+            icon: const Icon(Icons.camera_alt_outlined),
+            label: const Text('拍照并分析'),
+          ),
+          const SizedBox(height: 12),
         ],
         const SizedBox(height: 16),
         TextField(
