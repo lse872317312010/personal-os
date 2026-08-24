@@ -117,6 +117,34 @@ class ControlledSourceTokenStoreTest {
         )
     }
 
+    @Test
+    fun storedBlobIsRolledBackWhenCameraTempCleanupFails() {
+        var deletedRef: String? = null
+        val blobRef = "blob://12345678-1234-1234-123456789012"
+        val store = ControlledSourceTokenStore(
+            nowMillis = { 10L },
+            tokenFactory = { "opaque_token_123456" },
+        )
+        val token = store.issue(
+            Uri.parse("content://private/provider/camera"),
+            "session-1",
+        ) { false }
+        val sink = object : SourceBlobSink {
+            override fun ingest(value: Uri, opaqueToken: String): BlobSinkResult =
+                BlobSinkResult.Stored(blobRef)
+
+            override fun deleteBlob(value: String): BlobDeleteResult {
+                deletedRef = value
+                return BlobDeleteResult.Deleted
+            }
+        }
+
+        assertEquals(
+            ControlledSourceTokenStore.ConsumeResult.CleanupFailed,
+            store.consume(token, "session-1", sink),
+        )
+        assertEquals(blobRef, deletedRef)
+    }
     private fun sink(uri: Uri, write: (Uri) -> BlobSinkResult): SourceBlobSink =
         object : SourceBlobSink {
             override fun ingest(value: Uri, opaqueToken: String): BlobSinkResult {
