@@ -1,10 +1,13 @@
 package com.personalos.app
 
+import android.net.Uri
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import com.personalos.app.security.NativeVaultChannel
+import com.personalos.app.source.ControlledCameraCapture
 import com.personalos.app.source.ControlledPhotoPicker
+import com.personalos.app.source.ControlledSourceTokenStore
 import com.personalos.app.source.ControlledSourceChannel
 import com.personalos.app.source.ControlledSourceMethodChannelContract
 import io.flutter.embedding.android.FlutterFragmentActivity
@@ -16,6 +19,19 @@ class MainActivity : FlutterFragmentActivity() {
     private var vaultHandler: NativeVaultChannel? = null
     private var sourceChannel: MethodChannel? = null
     private var sourceHandler: ControlledSourceChannel? = null
+    private var cameraCapture: ControlledCameraCapture? = null
+
+    private val cameraPermissionLauncher: ActivityResultLauncher<String> by lazy {
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            cameraCapture?.onPermissionResult(granted)
+        }
+    }
+
+    private val cameraLauncher: ActivityResultLauncher<Uri> by lazy {
+        registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            cameraCapture?.onCaptured(success)
+        }
+    }
 
     private val photoPickerLauncher: ActivityResultLauncher<PickVisualMediaRequest> by lazy {
         registerForActivityResult(
@@ -34,12 +50,23 @@ class MainActivity : FlutterFragmentActivity() {
             NativeVaultChannel.CHANNEL_NAME,
         ).also { it.setMethodCallHandler(vault) }
 
+        val tokenStore = ControlledSourceTokenStore()
+        val blobSink = NativeVaultBlobSink(contentResolver, vault)
         val source = ControlledPhotoPicker(
             resolver = contentResolver,
-            blobSink = NativeVaultBlobSink(contentResolver, vault),
+            tokenStore = tokenStore,
+            blobSink = blobSink,
             currentSessionId = vault::currentSessionId,
         )
-        val handler = ControlledSourceChannel(source, photoPickerLauncher)
+        val camera = ControlledCameraCapture(
+            context = this,
+            tokenStore = tokenStore,
+            permissionLauncher = cameraPermissionLauncher,
+            cameraLauncher = cameraLauncher,
+            currentSessionId = vault::currentSessionId,
+        )
+        cameraCapture = camera
+        val handler = ControlledSourceChannel(source, camera)
         sourceHandler = handler
         vault.onSessionInvalidated = handler::retireTokens
         sourceChannel = MethodChannel(
@@ -57,6 +84,7 @@ class MainActivity : FlutterFragmentActivity() {
         sourceChannel = null
         sourceHandler?.dispose()
         sourceHandler = null
+        cameraCapture = null
         super.cleanUpFlutterEngine(flutterEngine)
     }
 
@@ -65,6 +93,7 @@ class MainActivity : FlutterFragmentActivity() {
         vaultHandler = null
         sourceHandler?.dispose()
         sourceHandler = null
+        cameraCapture = null
         super.onDestroy()
     }
 }
