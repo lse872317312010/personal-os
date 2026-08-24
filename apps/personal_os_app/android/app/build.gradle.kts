@@ -34,6 +34,6 @@ flutter {
 
 dependencies {
     implementation("androidx.biometric:biometric:1.1.0")
-    implementation("net.zetetic:sqlcipher-android:4.18.0@aar")
+    implementation("net.zetetic:sqlcipher-android:4.17.0@aar")
     implementation("androidx.sqlite:sqlite:2.7.0")
 }
