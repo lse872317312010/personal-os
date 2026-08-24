@@ -8,11 +8,11 @@
 
 本次审计以远程 main 的可读取 ref 为准：
 
-- main exact commit：6d23063c5059174240338a6be11d37949fefbab0
-- 观察到远程分支总数：59（含 main），其中 58 个非 main 分支
-- 当前没有开放 PR
+- main exact commit：3cdfa0038afffed20540f42b03aa2484b4379b98
+- 最新快照观察到远程分支总数：61（含 main 和本审计分支）；排除本审计分支后，清理对象为 59 个非 main 分支
+- 当前存在开放 PR #66、#67、#68、#69；这些分支必须保留，直到各自 PR 结论明确
 - 没有执行任何分支删除
-- 仅有 3 个分支可以依据 compare(main, branch) 直接证明与 main 完全相同，列入安全删除清单
+- 最新 compare 快照中没有任何清理对象满足 ahead_by=0；当前没有可直接删除分支
 - 其余分支均保留或列为需要二次确认的删除候选；“存在旧 PR”“PR 已关闭”本身不等于代码已经被 main 覆盖
 
 审计脚本是只读的，不包含删除 ref 的逻辑：
@@ -25,15 +25,18 @@ python3 tool/audit_remote_branches.py --repo lse872317312010/personal-os --forma
 
 ## 可直接证明安全删除
 
-以下分支在本次 compare 中 ahead_by=0、behind_by=0，分支 tip 与 main 完全相同：
+截至最新快照（main = 3cdfa003…），没有可直接证明安全删除的分支。
 
-| 分支 | 证据 | 结论 |
-|---|---|---|
-| codex/p0-android-release-evidence | compare main...branch = identical | 可安全删除 |
-| codex/p0-redmi-dogfood-verification | compare main...branch = identical | 可安全删除 |
-| codex/p0-secure-vault-cold-start | compare main...branch = identical | 可安全删除 |
+原因：此前看似 identical 的 P0 分支在主线更新和后续 Agent 推进后都出现了新差异；最新 compare 结果为：
 
-这些分支没有独立提交可以丢失。删除前仍应重新运行审计脚本，因为远程分支可能被其他 Agent 移动或重新创建。
+| 分支 | compare(main, branch) | 当前结论 |
+|---|---:|---|
+| codex/p0-android-release-evidence | 3 ahead / 2 behind | 保留/待 merged-PR tip 复核 |
+| codex/p0-redmi-dogfood-verification | 9 ahead / 2 behind | 开放 PR #68，保留 |
+| codex/p0-secure-vault-cold-start | 4 ahead / 0 behind | 开放 PR #66，保留 |
+| codex/p0-android-release-evidence-followup | 1 ahead / 0 behind | 开放 PR #67，保留 |
+
+本轮不删除任何分支。只有下一次审计重新证明 branch tip 被 main 完整覆盖，或证明 branch tip 精确等于已合并 PR head，才可进入安全删除清单。
 
 ## 有明确关闭/替代证据的删除候选
 
@@ -118,20 +121,19 @@ python3 tool/audit_remote_branches.py --repo lse872317312010/personal-os --forma
 
 ## PR 与主线真相差异
 
-本次 GitHub 读取到：
+最新读取到的事实：
 
-- PR #65 的记录显示已合并，merge commit 为 3cdfa0038afffed20540f42b03aa2484b4379b98；
-- 但当前可读取的 main ref 仍为 6d23063c…；
-- 当前 main 的 .github/workflows/flutter-android.yml 仍是单 job、顶层 contents: write 的版本；
-- PR #65 描述的 verify/publish 两 job、权限隔离、SHA-256 sidecar 校验没有出现在本次读取到的 main 文件中；
-- 对 main exact commit 查询不到成功的 Actions run；对 PR #65 head 查询到的 Flutter Android run 状态为 in_progress，没有成功结论；
-- 因此当前不能把 APK、Release、provenance 或 Redmi 真机行为写成已验证。
+- main exact commit 为 3cdfa0038afffed20540f42b03aa2484b4379b98。
+- PR #65 已合并，且其权限隔离、verify-build/publish-release 两 job、SHA-256 sidecar 校验已经出现在当前 main workflow 文件。
+- 对 main exact commit 的 Actions 查询没有返回成功 workflow run；因此 workflow 配置已存在，但 APK、provenance、rolling Release 资产仍未取得成功运行证据。
+- 当前开放 PR 为 #66、#67、#68、#69，分别对应 secure vault、Android Release follow-up、Redmi dogfood 和本审计；这些分支均不能删除。
+- 本审计分支本身（codex/p0-repo-truth-and-branch-audit）从清理对象中排除，PR 为 #69。
 
-这可能是 GitHub ref/缓存/合并同步时序问题，但在得到新的 main ref、workflow 内容和成功 run 三者一致的证据前，文档保持 UNVERIFIED/PENDING。
+因此 README/M2 verification 只写“workflow 已配置、运行证据 pending”，没有把 APK、Release、SQLCipher production、冷启动恢复或 Redmi 真机行为写成已验证。
 
 ## 后续清理顺序
 
-1. 以删除时的 tool/audit_remote_branches.py 输出重新确认 3 个 identical 分支。
+1. 以删除时的 tool/audit_remote_branches.py 输出重新确认是否存在 identical 或 main-contained 分支；本快照为 0 个。
 2. 单独确认 #65 的 main ref、workflow 文件、Actions run 和 rolling release 是否一致。
 3. 先处理明确 superseded 的 20 个旧分支，逐个保存 PR 号和 tip SHA，再删除。
 4. 对 B2、Camera、secure-vault 分支做“代码/测试/文档提取审计”，提取后再删除。
