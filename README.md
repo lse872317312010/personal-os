@@ -8,7 +8,7 @@
 
 项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，当前基点是 **M2-B1 · Android Secure Local MVP 实现基线**：Android Keystore 认证 primitive、native SQLCipher database/event JSON storage、secure Dart event-store/session coordinator 和 observation history UI 已接入，但当前环境未编译、未完成运行时验证，也不是可交付的 dogfood 版本。Redmi Turbo、GitHub Actions、SQLCipher production behavior 和冷启动恢复均仍需 exact-commit 证据。
 
-当前唯一开发基点为 `main`（`06d937eff01088e42cc5e43cd57cdaa1c8b1e61c`）。任何并行 Agent 都必须从当前基点创建独立分支，不能继续使用旧 Wave 分支，也不能把 SQLCipher、Keystore、冷启动恢复、GitHub Actions 或 Redmi 真机能力标记为已验证，除非提交了绑定候选 commit 的证据。
+当前唯一开发基点为 `main`（待 PR #38 合并后的 exact commit）。任何并行 Agent 都必须从当前基点创建独立分支，不能继续使用旧 Wave 分支，也不能把 SQLCipher、Keystore、冷启动恢复、GitHub Actions 或 Redmi 真机能力标记为已验证，除非提交了绑定候选 commit 的证据。
 
 ## 首批领域
 

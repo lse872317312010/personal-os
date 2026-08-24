@@ -5,7 +5,7 @@
 ## 唯一基点
 
 - 分支：`main`
-- 当前候选提交：`06d937eff01088e42cc5e43cd57cdaa1c8b1e61c` (`build: pin SQLCipher Android AAR artifact`)
+- 当前候选提交：PR #38 head（GitHub exact commit 绑定后更新）
 - 当前工作树：clean
 - evidence ledger 仍未绑定本轮 exact commit；未经过完整门禁前，不得把它们当作已发布证据
 
@@ -117,7 +117,7 @@ adapter，secure path 必须显式选择。
 
 ## 下一门禁 checklist
 
-- [ ] 在 exact commit `06d937eff01088e42cc5e43cd57cdaa1c8b1e61c` 绑定 Dart/Flutter/Android 工具链版本并完成 format/analyze/test。
+- [ ] 在 PR #38 合并后的 exact commit 绑定 Dart/Flutter/Android 工具链版本并完成 format/analyze/test。
 - [ ] 编译 Android debug APK，并记录 artifact digest；未编译前不得称为 build verified。
 - [ ] 运行 native authentication、SQLCipher database/event JSON storage 与 secure session/event-store integration tests；未运行前不得称为 SQLCipher verified 或 production verified。
 - [ ] 在 Redmi Turbo 执行锁屏、重启、进程终止、权限拒绝和离线恢复 runbook；未取得逐项证据前不得称为 Redmi 或 dogfood verified。
