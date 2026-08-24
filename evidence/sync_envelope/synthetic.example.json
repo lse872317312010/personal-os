@@ -1,0 +1,14 @@
+{
+  "protocol_version": 1,
+  "envelope_id": "2f48b15a-304b-4be5-8ede-16c0666d43bf",
+  "account_pseudonym": "acct-pseudonym-0123456789abcdef",
+  "sender_device_id": "device-redmi-turbo-01",
+  "recipient_epoch": "epoch-2026-08-23",
+  "sequence": {
+    "first": 0,
+    "last": 7
+  },
+  "ciphertext_length": 32,
+  "ciphertext": "EjRWeJq83vASNFZ4mrze8BI0VniavN7wEjRWeJq83vA=",
+  "signature": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=="
+}
