@@ -4,9 +4,10 @@ import 'package:test/test.dart';
 void main() {
   group('PersistenceException', () {
     test('wire values are stable and unique', () {
-      final values = PersistenceErrorCode.values
-          .map((code) => code.wireValue)
-          .toList();
+      final values = <String>[];
+      for (final code in PersistenceErrorCode.values) {
+        values.add(code.wireValue);
+      }
 
       expect(values, hasLength(17));
       expect(values.toSet(), hasLength(values.length));
