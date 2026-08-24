@@ -43,10 +43,10 @@ void main() {
       ),
     ]) {
       var listened = false;
-      final input = Stream<List<int>>.multi((controller) {
+      final input = Stream<List<int>>.multi((controller) async {
         listened = true;
         controller.add(<int>[1]);
-        controller.close();
+        await controller.close();
       });
       final requestAccess = BlobAccessContext(
         actorRef: access.actorRef,
@@ -110,10 +110,10 @@ void main() {
 
     await expectLater(
       ingestion.ingest(
-        bytes: Stream<List<int>>.multi((controller) {
+        bytes: Stream<List<int>>.multi((controller) async {
           controller.add(<int>[1]);
           controller.addError(StateError(secret));
-          controller.close();
+          await controller.close();
         }),
         mediaType: 'image/jpeg',
         sensitivity: Sensitivity.d3,
