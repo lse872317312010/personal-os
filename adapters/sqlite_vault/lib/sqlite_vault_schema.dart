@@ -1,7 +1,7 @@
-import 'package:personal_os_storage_api/storage_api.dart';
-
 /// Driver-neutral SQLite/SQLCipher schema contract for Personal OS.
 library;
+
+import 'package:personal_os_storage_api/storage_api.dart';
 
 final class SqliteVaultSchema {
   const SqliteVaultSchema._();
