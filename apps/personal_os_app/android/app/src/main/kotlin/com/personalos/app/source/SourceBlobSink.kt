@@ -25,5 +25,5 @@ internal sealed interface BlobSinkResult {
  * It deliberately refuses the handoff instead of buffering plaintext.
  */
 internal object UnavailableSourceBlobSink : SourceBlobSink {
-    override fun ingest(uri: Uri): BlobSinkResult = BlobSinkResult.Unavailable
+    override fun ingest(uri: Uri, opaqueToken: String): BlobSinkResult = BlobSinkResult.Unavailable
 }
