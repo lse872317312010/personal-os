@@ -17,30 +17,10 @@ void main() {
     final store = _RecordingStore();
     final ingestion = EncryptedBlobIngestion(store: store, maxBytes: 4);
 
-    for (final request in <({
-      String? consent,
-      Sensitivity sensitivity,
-      String mediaType,
-      String code
-    })>[
-      (
-        consent: null,
-        sensitivity: Sensitivity.d3,
-        mediaType: 'image/jpeg',
-        code: 'consent_required'
-      ),
-      (
-        consent: access.consentRef,
-        sensitivity: Sensitivity.d4,
-        mediaType: 'image/jpeg',
-        code: 'd4_persistence_forbidden'
-      ),
-      (
-        consent: access.consentRef,
-        sensitivity: Sensitivity.d3,
-        mediaType: 'secret/path',
-        code: 'invalid_media_type'
-      ),
+    for (final request in <({String? consent, Sensitivity sensitivity, String mediaType, String code})>[
+      (consent: null, sensitivity: Sensitivity.d3, mediaType: 'image/jpeg', code: 'consent_required'),
+      (consent: access.consentRef, sensitivity: Sensitivity.d4, mediaType: 'image/jpeg', code: 'd4_persistence_forbidden'),
+      (consent: access.consentRef, sensitivity: Sensitivity.d3, mediaType: 'secret/path', code: 'invalid_media_type'),
     ]) {
       var listened = false;
       final input = Stream<List<int>>.multi((controller) {
@@ -101,6 +81,42 @@ void main() {
     );
     expect(store.received, isEmpty);
   });
+
+  test('redacts payload failures and fails closed before returning a ref',
+      () async {
+    final store = _RecordingStore();
+    final ingestion = EncryptedBlobIngestion(store: store, maxBytes: 4);
+    const secret = 'payload path and provider URI';
+
+    await expectLater(
+      ingestion.ingest(
+        bytes: Stream<List<int>>.multi((controller) {
+          controller.add(<int>[1]);
+          controller.addError(StateError(secret));
+          controller.close();
+        }),
+        mediaType: 'image/jpeg',
+        sensitivity: Sensitivity.d3,
+        access: access,
+      ),
+      throwsA(_ingestionError('ingestion_failed')),
+    );
+    expect(store.putCalls, 1);
+    expect(store.returnedRefs, isEmpty);
+  });
+
+  test('discard is safe for missing and repeated refs', () async {
+    final store = _RecordingStore()
+      ..deleteResult = BlobDeleteResult.alreadyAbsent;
+    final ingestion = EncryptedBlobIngestion(store: store, maxBytes: 4);
+    final ref = BlobRef('blob://opaque-ref');
+
+    await ingestion.discard(ref: ref, access: access);
+    await ingestion.discard(ref: ref, access: access);
+
+    expect(store.deleteCalls, 2);
+    expect(store.deletedRefs, [ref, ref]);
+  });
 }
 
 Matcher _ingestionError(String code) => isA<BlobIngestionException>()
@@ -109,7 +125,11 @@ Matcher _ingestionError(String code) => isA<BlobIngestionException>()
 
 final class _RecordingStore implements BlobStore {
   int putCalls = 0;
+  int deleteCalls = 0;
   final List<int> received = <int>[];
+  final List<BlobRef> returnedRefs = <BlobRef>[];
+  final List<BlobRef> deletedRefs = <BlobRef>[];
+  BlobDeleteResult deleteResult = BlobDeleteResult.deleted;
 
   @override
   Future<BlobRef> put({
@@ -122,21 +142,23 @@ final class _RecordingStore implements BlobStore {
     await for (final chunk in bytes) {
       received.addAll(chunk);
     }
-    return BlobRef('opaque-ref');
+    final ref = BlobRef('blob://opaque-ref');
+    returnedRefs.add(ref);
+    return ref;
   }
 
   @override
-  Stream<List<int>> openRead(BlobRef ref,
-          {required BlobAccessContext access, BlobByteRange? range}) =>
+  Stream<List<int>> openRead(BlobRef ref, {required BlobAccessContext access, BlobByteRange? range}) =>
       const Stream<List<int>>.empty();
 
   @override
-  Future<BlobMetadata> metadata(BlobRef ref,
-          {required BlobAccessContext access}) =>
+  Future<BlobMetadata> metadata(BlobRef ref, {required BlobAccessContext access}) =>
       throw UnimplementedError();
 
   @override
-  Future<BlobDeleteResult> delete(BlobRef ref,
-          {required BlobAccessContext access}) =>
-      throw UnimplementedError();
+  Future<BlobDeleteResult> delete(BlobRef ref, {required BlobAccessContext access}) async {
+    deleteCalls++;
+    deletedRefs.add(ref);
+    return deleteResult;
+  }
 }
