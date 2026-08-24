@@ -1,64 +1,96 @@
-name: Flutter Android
+name: Flutter Android APK Release
 
 on:
   pull_request:
+    branches: [main]
     paths:
       - ".github/workflows/flutter-android.yml"
-      - "tool/check_flutter_app.sh"
-      - "tool/android_mvp/**"
+      - "tool/**"
       - "apps/personal_os_app/**"
       - "packages/**"
       - "adapters/**"
+      - "test_contract/**"
+      - "pubspec.yaml"
+      - "analysis_options.yaml"
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - ".github/workflows/flutter-android.yml"
-      - "tool/check_flutter_app.sh"
-      - "tool/android_mvp/**"
+      - "tool/**"
       - "apps/personal_os_app/**"
       - "packages/**"
       - "adapters/**"
+      - "test_contract/**"
+      - "pubspec.yaml"
+      - "analysis_options.yaml"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
-  group: flutter-android-${{ github.workflow }}-${{ github.ref }}
+  group: android-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  verify-and-build:
-    name: Format, analyze, test, and build debug APK
+  verify-build-release:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 40
 
     steps:
-      - name: Check out repository
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Install Flutter 3.24.5
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.24.5"
           channel: stable
           cache: true
 
-      - name: Verify Flutter toolchain
-        run: flutter --version
+      - name: Verify repository contracts
+        run: bash tool/check_contracts.sh
 
-      - name: Check app and build debug APK
+      - name: Verify Dart core
+        run: bash tool/check_dart_core.sh
+
+      - name: Test and build debug APK
         run: bash tool/android_mvp/build_debug.sh
 
-      - name: Upload debug APK and provenance manifest
-        if: success()
+      - name: Prepare release assets
+        run: |
+          mkdir -p release
+          cp apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.apk release/personal-os-latest-debug.apk
+          cp apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.apk.provenance.json release/personal-os-latest-debug.provenance.json
+
+      - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: personal-os-android-debug
-          path: |
-            apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.apk
-            apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.provenance.json
+          name: personal-os-android-debug-${{ github.sha }}
+          path: release/*
           if-no-files-found: error
-          retention-days: 7
-          compression-level: 0
+          retention-days: 14
+
+      - name: Publish rolling GitHub Release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          tag=android-latest
+          git tag --force "$tag" "$GITHUB_SHA"
+          git push --force origin "refs/tags/$tag"
+          notes=$(printf '%s\n\n%s\n%s\n\n%s' \
+            'Automatically tested debug APK from main.' \
+            "Commit: $GITHUB_SHA" \
+            "Workflow: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            'This is a debug build for dogfooding, not a production-signed release.')
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title 'Personal OS latest Android debug' --notes "$notes" --prerelease
+          else
+            gh release create "$tag" --title 'Personal OS latest Android debug' --notes "$notes" --prerelease
+          fi
+          gh release upload "$tag" release/* --clobber
