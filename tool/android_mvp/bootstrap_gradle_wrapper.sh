@@ -27,6 +27,9 @@ flutter create \
 install -m 0755 "$scratch_dir/wrapper_source/android/gradlew" "$android_dir/gradlew"
 install -m 0644 "$scratch_dir/wrapper_source/android/gradlew.bat" "$android_dir/gradlew.bat"
 install -m 0644 \
+  "$scratch_dir/wrapper_source/android/gradle/wrapper/gradle-wrapper.properties" \
+  "$android_dir/gradle/wrapper/gradle-wrapper.properties"
+install -m 0644 \
   "$scratch_dir/wrapper_source/android/gradle/wrapper/gradle-wrapper.jar" \
   "$android_dir/gradle/wrapper/gradle-wrapper.jar"
 

@@ -569,7 +569,9 @@ internal class SqlCipherVaultDatabase private constructor(
             val incoming = JSONObject(incomingEventJson)
             existing.optJSONObject("payload")?.remove("expected_revision")
             incoming.optJSONObject("payload")?.remove("expected_revision")
-            existing.similar(incoming)
+            // EventEnvelopeJsonCodec emits canonical JSON, so equivalent
+            // persisted envelopes have the same normalized representation.
+            existing.toString() == incoming.toString()
         } catch (_: Throwable) {
             false
         }

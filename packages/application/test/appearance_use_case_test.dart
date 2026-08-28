@@ -100,7 +100,8 @@ void main() {
     expect(store.events, isEmpty);
   });
 
-  test('event-store append failure is stable and publishes no events', () async {
+  test('event-store append failure is stable and publishes no events',
+      () async {
     final store = _MemoryEventStore()..failAppend = true;
     final useCase = AnalyzeAppearanceUseCase(
       eventStore: store,

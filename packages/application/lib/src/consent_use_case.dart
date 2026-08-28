@@ -2,8 +2,8 @@ import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_events/events.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 
-import 'consent_commands.dart';
 import 'application_ports.dart';
+import 'consent_commands.dart';
 
 abstract final class ConsentFailureCode {
   static const userActorRequired = 'consent.user_actor_required';

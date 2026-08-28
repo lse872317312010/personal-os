@@ -42,6 +42,14 @@ final class ObjectRef {
   ObjectRef({required String type, required this.id, this.revision})
       : type = _requireNonBlank(type, 'ObjectRef.type');
 
+  factory ObjectRef.fromJson(Map<String, Object?> json) => ObjectRef(
+        type: json['type']! as String,
+        id: EntityId(json['id']! as String),
+        revision: json['revision'] == null
+            ? null
+            : Revision(json['revision']! as int),
+      );
+
   final String type;
   final EntityId id;
   final Revision? revision;
@@ -51,14 +59,6 @@ final class ObjectRef {
         'id': id.value,
         if (revision != null) 'revision': revision!.value,
       };
-
-  factory ObjectRef.fromJson(Map<String, Object?> json) => ObjectRef(
-        type: json['type']! as String,
-        id: EntityId(json['id']! as String),
-        revision: json['revision'] == null
-            ? null
-            : Revision(json['revision']! as int),
-      );
 }
 
 String _requireNonBlank(String value, String label) {

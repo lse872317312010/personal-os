@@ -170,6 +170,16 @@ final class NativeSqlCipherEventStore implements EventStore {
     }
   }
 
+  void _notifySessionInvalidated(SecurityException error) {
+    final handler = _sessionInvalidatedHandler;
+    if (handler == null) return;
+    try {
+      handler(error);
+    } on Object {
+      // Invalidation remains fail-closed if the lifecycle observer fails.
+    }
+  }
+
   Future<List<Map<String, Object?>>> _invokeList(
     String method,
     Map<String, Object?> arguments, {
@@ -244,15 +254,6 @@ SecurityException? _sessionFailure(String code) => switch (code) {
       _ => null,
     };
 
-void _notifySessionInvalidated(SecurityException error) {
-  final handler = _sessionInvalidatedHandler;
-  if (handler == null) return;
-  try {
-    handler(error);
-  } on Object {
-    // Invalidation remains fail-closed if the lifecycle observer fails.
-  }
-}
 
 PersistenceException _mapNativeFailure(
   String code,

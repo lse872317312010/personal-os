@@ -85,6 +85,7 @@ void main() {
             actorId: 'agent-1',
             actorType: ActorType.agent,
             authoritySource: 'delegation',
+            onBehalfOf: 'user-1',
           ),
           correlationId: 'corr',
         ),

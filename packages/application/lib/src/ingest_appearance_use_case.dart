@@ -4,8 +4,6 @@ import 'package:personal_os_storage_api/storage_api.dart';
 
 import 'appearance_commands.dart';
 import 'appearance_use_case.dart';
-import 'application_ports.dart';
-import 'ingest_observation_use_case.dart';
 import 'observation_commands.dart';
 import 'observation_use_case.dart';
 

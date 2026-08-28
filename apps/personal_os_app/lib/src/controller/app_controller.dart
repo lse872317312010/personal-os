@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:personal_os_application/application.dart';
+import 'package:personal_os_blob_engine/blob_engine.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_security_api/security_api.dart';
 import 'package:personal_os_source_api/source_api.dart';
@@ -51,7 +52,7 @@ final class AppController extends ChangeNotifier {
         _sourcePort = sourcePort,
         _ingestAppearanceFromSource = ingestAppearanceFromSource {
     if (_sessionCoordinator != null) {
-      _sessionCoordinator!.onSessionInvalidated = _handleSessionInvalidated;
+      _sessionCoordinator.onSessionInvalidated = _handleSessionInvalidated;
     }
     if (actor.actorType != ActorType.user) {
       throw ArgumentError.value(actor.actorType, 'actor', 'must be user');
@@ -150,6 +151,9 @@ final class AppController extends ChangeNotifier {
     final vaultSession = _vaultSession!;
     final coordinator = _sessionCoordinator;
     final secureVault = _secureVault;
+    if (coordinator != null) {
+      coordinator.onSessionInvalidated = _handleSessionInvalidated;
+    }
     try {
       await vaultSession.unlock(reason: 'Open Personal OS vault');
       final session = coordinator != null
@@ -261,6 +265,10 @@ final class AppController extends ChangeNotifier {
   }
 
   void _handleSessionInvalidated(SecurityException error) {
+    final vaultSession = _vaultSession;
+    if (vaultSession != null) {
+      unawaited(vaultSession.lock());
+    }
     lockVault(errorCode: error.code.wireValue);
   }
 

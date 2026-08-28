@@ -22,18 +22,26 @@ class ThemeSettingsSheet extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              for (final mode in ThemeMode.values)
-                RadioListTile<ThemeMode>(
-                  key: Key('theme-option-${mode.name}'),
-                  value: mode,
-                  groupValue: controller.mode,
-                  onChanged: (value) {
-                    if (value == null) return;
-                    controller.setMode(value);
-                    Navigator.of(context).maybePop();
-                  },
-                  title: Text(_labelFor(mode)),
+              RadioGroup<ThemeMode>(
+                groupValue: controller.mode,
+                onChanged: (value) {
+                  if (value == null) return;
+                  controller.setMode(value);
+                  Navigator.of(context).maybePop();
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    for (final mode in ThemeMode.values)
+                      RadioListTile<ThemeMode>(
+                        key: Key('theme-option-${mode.name}'),
+                        value: mode,
+                        selected: mode == controller.mode,
+                        title: Text(_labelFor(mode)),
+                      ),
+                  ],
                 ),
+              ),
             ],
           ),
         ),
