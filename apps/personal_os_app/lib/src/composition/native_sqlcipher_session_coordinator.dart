@@ -21,7 +21,9 @@ final class NativeSqlCipherSessionCoordinator
     required PlatformSecurityBridge bridge,
     required NativeSqlCipherEventStore eventStore,
   })  : _bridge = bridge,
-        _eventStore = eventStore;
+        _eventStore = eventStore {
+    _eventStore.setSessionInvalidatedHandler(_handleSessionInvalidated);
+  }
 
   final PlatformSecurityBridge _bridge;
   final NativeSqlCipherEventStore _eventStore;

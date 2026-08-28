@@ -11,9 +11,34 @@ void main() {
     authoritySource: 'local-session',
   );
 
+  RecordObservationUseCase _buildUseCase(_Store store) =>
+      RecordObservationUseCase(
+        eventStore: store,
+        ids: _Ids(),
+        clock: _Clock(),
+      );
+
+  final consentRef = ObjectRef(type: 'consent', id: EntityId('consent-1'));
+
+  RecordObservationCommand _buildCommand({
+    BlobRef? blobRef,
+    bool includeConsent = true,
+    Sensitivity sensitivity = Sensitivity.d3,
+  }) =>
+      RecordObservationCommand(
+        profileId: EntityId('profile-1'),
+        blobRef: blobRef ?? BlobRef('blob://vault/photo-1'),
+        mediaType: 'image/jpeg',
+        observationContext: 'profile appearance capture',
+        consentRef: includeConsent ? consentRef : null,
+        actor: actor,
+        correlationId: 'corr-observation',
+        sensitivity: sensitivity,
+      );
+
   test('records one profile-scoped observation with safe payload', () async {
     final store = _Store();
-    final result = await _useCase(store).execute(_command());
+    final result = await _buildUseCase(store).execute(_buildCommand());
 
     expect(result.observationId, 'observation-1');
     expect(
@@ -24,7 +49,7 @@ void main() {
       'observation',
       'profile',
     ]);
-    expect(event.consentRefs.single, _consent);
+    expect(event.consentRefs.single, consentRef);
     expect(event.payload, <String, Object?>{
       'observation_id': 'observation-1',
       'blob_ref': 'blob://vault/photo-1',
@@ -47,7 +72,7 @@ void main() {
   test('rejects D4 before writing', () async {
     final store = _Store();
     await expectLater(
-      _useCase(store).execute(_command(sensitivity: Sensitivity.d4)),
+      _buildUseCase(store).execute(_buildCommand(sensitivity: Sensitivity.d4)),
       throwsA(isA<ObservationUseCaseFailure>().having(
         (error) => error.code,
         'code',
@@ -60,7 +85,7 @@ void main() {
   test('requires a consent reference', () async {
     final store = _Store();
     await expectLater(
-      _useCase(store).execute(_command(includeConsent: false)),
+      _buildUseCase(store).execute(_buildCommand(includeConsent: false)),
       throwsA(isA<ObservationUseCaseFailure>().having(
         (error) => error.code,
         'code',
@@ -73,7 +98,8 @@ void main() {
   test('rejects non-opaque references', () async {
     final store = _Store();
     await expectLater(
-      _useCase(store).execute(_command(blobRef: BlobRef('/tmp/photo.jpg'))),
+      _buildUseCase(store)
+          .execute(_buildCommand(blobRef: BlobRef('/tmp/photo.jpg'))),
       throwsA(isA<ObservationUseCaseFailure>().having(
         (error) => error.code,
         'code',
@@ -87,7 +113,7 @@ void main() {
       () async {
     final store = _Store()..failure = StateError('sql path leaked');
     await expectLater(
-      _useCase(store).execute(_command()),
+      _buildUseCase(store).execute(_buildCommand()),
       throwsA(isA<ObservationUseCaseFailure>()
           .having((error) => error.code, 'code',
               ObservationFailureCode.appendFailed)
@@ -96,30 +122,6 @@ void main() {
     );
     expect(store.batches, isEmpty);
   });
-
-  RecordObservationUseCase _useCase(_Store store) => RecordObservationUseCase(
-        eventStore: store,
-        ids: _Ids(),
-        clock: _Clock(),
-      );
-
-  final _consent = ObjectRef(type: 'consent', id: EntityId('consent-1'));
-
-  RecordObservationCommand _command({
-    BlobRef? blobRef,
-    bool includeConsent = true,
-    Sensitivity sensitivity = Sensitivity.d3,
-  }) =>
-      RecordObservationCommand(
-        profileId: EntityId('profile-1'),
-        blobRef: blobRef ?? BlobRef('blob://vault/photo-1'),
-        mediaType: 'image/jpeg',
-        observationContext: 'profile appearance capture',
-        consentRef: includeConsent ? _consent : null,
-        actor: actor,
-        correlationId: 'corr-observation',
-        sensitivity: sensitivity,
-      );
 }
 
 final class _Ids implements IdGenerator {
@@ -139,7 +141,7 @@ final class _Clock implements Clock {
 
 final class _Store implements EventStore {
   final List<List<EventEnvelope>> batches = <List<EventEnvelope>>[];
-  Object? failure;
+  Error? failure;
 
   @override
   Future<void> appendAll(List<EventEnvelope> events) async {

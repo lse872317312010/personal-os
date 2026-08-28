@@ -274,8 +274,10 @@ void main() {
     expect(invalidation?.code, SecurityErrorCode.unlockExpired);
     expect(session.isActive, isFalse);
     expect(bridge.closedSessionId, bridge.openedSessionId);
-    expect(invalidation.toString(),
-        'SecurityException(' + SecurityErrorCode.unlockExpired.wireValue + ')');
+    expect(
+      invalidation.toString(),
+      'SecurityException(${SecurityErrorCode.unlockExpired.wireValue})',
+    );
     await expectLater(
       store.appendAll(<EventEnvelope>[_event(id: 'after-expiry')]),
       throwsA(isA<PersistenceException>()),

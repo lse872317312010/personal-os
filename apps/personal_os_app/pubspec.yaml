@@ -11,6 +11,8 @@ dependencies:
     sdk: flutter
   personal_os_application:
     path: ../../packages/application
+  personal_os_blob_engine:
+    path: ../../packages/blob_engine
   personal_os_device_security:
     path: ../../adapters/device_security
   personal_os_domain:

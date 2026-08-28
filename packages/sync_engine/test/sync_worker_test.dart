@@ -213,20 +213,33 @@ void main() {
       expect(worker.lastReceivedSequence('device-peer'), -1);
     });
 
-    test('inbound D4 is rejected before the atomic append', () async {
+    test('inbound D4 is rejected by payload decoding before the atomic append',
+        () async {
       final crypto = _FakeCrypto();
       final store = _RecordingStore();
-      final relay = _FakeTransport()
-        ..page = _page([
-          _inbound(
-              crypto, 'd4', 0, [_event('secret', sensitivity: Sensitivity.d4)]),
-        ]);
+      final envelope = _inbound(crypto, 'd4', 0, [_event('fixture-event')]);
+      final legalEvent = EventEnvelopeJsonCodec.encode(_event('secret'));
+      final untrustedEvent = <String, Object?>{
+        ...legalEvent,
+        'sensitivity': 'd4',
+      };
+      crypto.payloads['d4'] = Uint8List.fromList(
+        utf8.encode(
+          jsonEncode(<String, Object?>{
+            'payload_version': 1,
+            'events': [untrustedEvent],
+          }),
+        ),
+      );
+      final initial = OpaqueSyncCursor.initial();
+      final relay = _FakeTransport()..page = _page([envelope]);
       final worker = _worker(relay: relay, crypto: crypto, store: store);
-      final result = (await worker.pullPage(cursor: OpaqueSyncCursor.initial()))
-          .items
-          .single;
+      final page = await worker.pullPage(cursor: initial);
+      final result = page.items.single;
 
-      expect(result.reasonCode, SyncFailureReason.d4SyncForbidden);
+      expect(result.reasonCode, SyncFailureReason.payloadDecodeFailed);
+      expect(page.cursor, initial);
+      expect(crypto.openCalls, 1);
       expect(store.transactions, isEmpty);
       expect(worker.lastReceivedSequence('device-peer'), -1);
     });

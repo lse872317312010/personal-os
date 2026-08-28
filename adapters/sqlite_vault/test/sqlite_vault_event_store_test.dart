@@ -273,6 +273,7 @@ final class FakeSqlExecutor implements SqlExecutor {
       stagedProjections,
       stagedOutbox,
       projectionQueryKeys,
+      writeStages,
       failOnOutbox: failOnOutbox,
     );
     try {
@@ -296,7 +297,8 @@ final class _FakeTransaction implements SqlTransaction {
     this.subjects,
     this.projections,
     this.outbox,
-    this.projectionQueryKeys, {
+    this.projectionQueryKeys,
+    this.writeStages, {
     required this.failOnOutbox,
   });
 
@@ -305,6 +307,7 @@ final class _FakeTransaction implements SqlTransaction {
   final Map<String, SqlRow> projections;
   final Map<String, SqlRow> outbox;
   final List<String> projectionQueryKeys;
+  final List<String> writeStages;
   final bool failOnOutbox;
 
   @override
@@ -354,7 +357,7 @@ final class _FakeTransaction implements SqlTransaction {
         'revision': parameters[0],
         'last_event_id': parameters[1],
         'state_json': parameters[2],
-        'state': jsonDecode(parameters[2]! as String)['state'],
+        'state': _decodedState(parameters[2]! as String),
       };
       return 1;
     }
@@ -443,8 +446,11 @@ SqlRow _projectionRow(List<Object?> p) => <String, Object?>{
       'revision': p[3],
       'last_event_id': p[4],
       'state_json': p[5],
-      'state': jsonDecode(p[5]! as String)['state'],
+      'state': _decodedState(p[5]! as String),
     };
+
+Object? _decodedState(String value) =>
+    (jsonDecode(value) as Map<String, Object?>)['state'];
 
 Map<String, SqlRow> _copyMap(Map<String, SqlRow> source) =>
     source.map((key, value) => MapEntry(key, Map<String, Object?>.of(value)));

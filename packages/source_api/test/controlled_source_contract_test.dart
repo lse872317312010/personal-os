@@ -26,7 +26,7 @@ void main() {
   test('camera is fail-closed when unavailable', () async {
     final fake = FakeControlledSourcePort();
     expect(
-      () => fake.capturePhoto(),
+      fake.capturePhoto,
       throwsA(
         isA<ControlledSourceException>().having(
           (error) => error.code,

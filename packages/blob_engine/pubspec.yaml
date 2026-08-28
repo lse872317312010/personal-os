@@ -11,6 +11,8 @@ dependencies:
     path: ../domain
   personal_os_security_api:
     path: ../security_api
+  personal_os_source_api:
+    path: ../source_api
   personal_os_storage_api:
     path: ../storage_api
 

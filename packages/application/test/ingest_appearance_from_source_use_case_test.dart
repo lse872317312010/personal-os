@@ -21,13 +21,47 @@ void main() {
     authoritySource: 'local-session',
   );
 
+  IngestAppearanceFromSourceUseCase _buildUseCase(
+    _SourceIngestion ingestion,
+    _Store store,
+    _Model model,
+  ) =>
+      IngestAppearanceFromSourceUseCase(
+        ingestion: ingestion,
+        recordObservation: RecordObservationUseCase(
+          eventStore: store,
+          ids: _Ids(),
+          clock: _Clock(),
+        ),
+        analyzeAppearance: AnalyzeAppearanceUseCase(
+          eventStore: store,
+          modelGateway: model,
+          policy: const _Policy(),
+          ids: _Ids(),
+          clock: _Clock(),
+        ),
+      );
+
+  IngestAppearanceFromSourceCommand _buildCommand() =>
+      IngestAppearanceFromSourceCommand(
+        source: source,
+        mediaType: 'image/jpeg',
+        access: access,
+        profileId: EntityId('profile-1'),
+        observationContext: 'profile appearance capture',
+        consentRef: consent,
+        actor: actor,
+        correlationId: 'corr-appearance-source',
+      );
+
   test('success passes only token in and BlobRef into events and analysis',
       () async {
     final ingestion = _SourceIngestion();
     final store = _Store();
     final model = _Model();
 
-    final result = await _useCase(ingestion, store, model).execute(_command());
+    final result =
+        await _buildUseCase(ingestion, store, model).execute(_buildCommand());
 
     expect(result.blobRef, BlobRef('blob://opaque-source-1'));
     expect(ingestion.sources, [source]);
@@ -57,7 +91,7 @@ void main() {
     final store = _Store();
 
     await expectLater(
-      _useCase(ingestion, store, _Model()).execute(_command()),
+      _buildUseCase(ingestion, store, _Model()).execute(_buildCommand()),
       throwsA(isA<SourceBlobIngestionException>().having(
         (error) => error.code,
         'code',
@@ -74,7 +108,7 @@ void main() {
     final store = _Store();
 
     await expectLater(
-      _useCase(ingestion, store, _Model()).execute(_command()),
+      _buildUseCase(ingestion, store, _Model()).execute(_buildCommand()),
       throwsA(isA<SourceBlobIngestionException>().having(
         (error) => error.code,
         'code',
@@ -91,7 +125,7 @@ void main() {
     final model = _Model()..failure = StateError('raw exception /tmp/path');
 
     await expectLater(
-      _useCase(ingestion, store, model).execute(_command()),
+      _buildUseCase(ingestion, store, model).execute(_buildCommand()),
       throwsA(isA<AppearanceUseCaseFailure>().having(
         (error) => error.code,
         'code',
@@ -99,41 +133,8 @@ void main() {
       )),
     );
     expect(ingestion.discarded, [BlobRef('blob://opaque-source-1')]);
-    expect(store.events, hasLength(1));
+    expect(store.events, isEmpty);
   });
-  
-  IngestAppearanceFromSourceUseCase _useCase(
-    _SourceIngestion ingestion,
-    _Store store,
-    _Model model,
-  ) =>
-      IngestAppearanceFromSourceUseCase(
-        ingestion: ingestion,
-        recordObservation: RecordObservationUseCase(
-          eventStore: store,
-          ids: _Ids(),
-          clock: _Clock(),
-        ),
-        analyzeAppearance: AnalyzeAppearanceUseCase(
-          eventStore: store,
-          modelGateway: model,
-          policy: const _Policy(),
-          ids: _Ids(),
-          clock: _Clock(),
-        ),
-      );
-
-  IngestAppearanceFromSourceCommand _command() =>
-      IngestAppearanceFromSourceCommand(
-        source: source,
-        mediaType: 'image/jpeg',
-        access: access,
-        profileId: EntityId('profile-1'),
-        observationContext: 'profile appearance capture',
-        consentRef: consent,
-        actor: actor,
-        correlationId: 'corr-appearance-source',
-      );
 }
 
 Iterable<Object?> _flatten(Object? value) sync* {
@@ -176,7 +177,7 @@ final class _SourceIngestion implements SourceBlobIngestionPort {
 }
 
 final class _Model implements AppearanceAnalysisGateway {
-  Object? failure;
+  Error? failure;
   final List<AppearanceAnalysisInput> inputs = <AppearanceAnalysisInput>[];
 
   @override

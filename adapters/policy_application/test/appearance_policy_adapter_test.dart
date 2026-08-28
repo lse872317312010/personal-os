@@ -43,8 +43,8 @@ void main() {
         status: status,
       );
 
-  Future<PolicyVerdict> authorize(ConsentGrant? stored) =>
-      AppearancePolicyAdapter(
+  Future<PolicyVerdict> authorize(ConsentGrant? stored) async =>
+      await AppearancePolicyAdapter(
         consents: _Repository(stored),
         clock: _FixedClock(now),
       ).authorizeAnalysis(
