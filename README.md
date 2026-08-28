@@ -6,9 +6,9 @@
 
 ## 当前阶段
 
-项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，当前基点是 **M2-B1/B2 · Android Secure Local MVP 实现基线**：Android Keystore 认证 primitive、native SQLCipher database/event JSON storage、secure Dart event-store/session coordinator、受控 Photo Picker 与 Camera→native blob→opaque `BlobRef`→analysis path 和 observation history UI 已接入。GitHub Actions 的 Android workflow 与 rolling Release 逻辑已写入主线文件，但本审计未取得 main exact commit 的成功 Actions run、APK artifact 或 Release 资产证据，因此仍不是可交付的 dogfood 版本。Redmi Turbo、SQLCipher production behavior、冷启动恢复和真实 AI 分析均仍需 exact-commit 证据。
+项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，当前基点是 **M2-B1/B2 · Android Secure Local MVP 实现基线**。P0 build-blocker 修复已进入 main exact commit `8eda400471e51a3137ddde3160073db402e2da5d`；该提交的 [Flutter Android APK Release run #33130602184](https://github.com/lse872317312010/personal-os/actions/runs/33130602184) 于 2026-08-28 成功完成 verify/package 与 rolling Release 发布。对应 [android-latest Release](https://github.com/lse872317312010/personal-os/releases/tag/android-latest) 已包含上传完成且带 GitHub SHA-256 digest 的 APK、`.apk.sha256` 和 provenance JSON。这证明该精确提交的自动化 Android debug APK 构建与发布链成功，不等同于 Redmi Turbo 真机、SQLCipher production behavior、冷启动恢复或真实 AI 分析已验证。
 
-当前唯一开发基点为 `main`（本次审计读取到的 exact commit：`3cdfa0038afffed20540f42b03aa2484b4379b98`）。任何并行 Agent 都必须从当前基点创建独立分支，不能继续使用旧 Wave 分支，也不能把 Android 编译/运行时、SQLCipher、Keystore、冷启动恢复、GitHub Actions、APK/Release 或 Redmi 真机能力标记为已验证，除非提交了绑定候选 commit 的证据。分支审计清单见 [远程分支与仓库真相审计](docs/BRANCH_AUDIT_2026-08-24.md)。
+当前唯一开发基点为 `main`（本次审计读取到的 exact commit：`8eda400471e51a3137ddde3160073db402e2da5d`）。任何并行 Agent 都必须从当前基点创建独立分支，不能继续使用旧 Wave 分支。自动化构建与 Release 结论只绑定上述精确提交；SQLCipher、Keystore、冷启动恢复、Photo Picker/Camera/native blob runtime 与 Redmi 真机能力仍需各自的 exact-commit/device evidence。分支审计清单见 [远程分支与仓库真相审计](docs/BRANCH_AUDIT_2026-08-24.md)。
 
 ## 首批领域
 
@@ -126,13 +126,6 @@ Runtime 编排、恢复契约 CI 与 Redmi Turbo 证据 runbook 见 [Coding Wave
 
 ## 状态
 
-`M2-B1 / native durable-vault implementation present → compiled and evidence-verified pending`
+`M2-B1 / exact-commit Android CI and rolling Release verified → device/runtime verification pending`
 
-当前主线已经完成 M2-B1 的纯 Dart 安全边界、事件恢复/Consent 生命周期、
-native Keystore 认证 primitive、native SQLCipher database/event JSON storage、
-secure Dart event-store/session coordinator、observation history UI、Blob/Sync/Recovery
-契约加固、B2 controlled source/ingestion path、Android fail-closed 原生骨架和证据门禁。
-Android 默认 Composition 已是 secure vault，并接入受控 Photo Picker 与 Camera；Camera 在拍摄时显式请求权限，照片暂存于 app-private cache 的 FileProvider 路径，native 仅传递 opaque token 并写入 native blob sink，清理失败会触发稳定错误并对已写入 blob 回滚；synthetic/in-memory
-仅通过显式 demo/test factory 使用。当前未取得 main exact commit 的 GitHub Actions 成功 run、APK/Release 资产、SQLCipher
-production、冷启动持久化、Photo Picker/Camera/native blob 或 Redmi 真机证据，且模型仍是
-synthetic fixture，不能视为 `DOGFOOD_READY`。PR #65 的合并内容现已出现在 main workflow；Actions 成功运行和 Release 资产仍需 exact-commit 证据，详见分支审计清单。
+当前主线已经完成 M2-B1 的纯 Dart 安全边界、事件恢复/Consent 生命周期、native Keystore 认证 primitive、native SQLCipher database/event JSON storage、secure Dart event-store/session coordinator、observation history UI、Blob/Sync/Recovery 契约加固、B2 controlled source/ingestion path、Android fail-closed 原生骨架和证据门禁。Android 默认 Composition 已是 secure vault，并接入受控 Photo Picker 与 Camera；synthetic/in-memory 仅通过显式 demo/test factory 使用。main exact commit `8eda400471e51a3137ddde3160073db402e2da5d` 的 Android workflow、debug APK、SHA-256 sidecar、provenance JSON 与 rolling Release 已取得成功证据。SQLCipher production、冷启动持久化、Photo Picker/Camera/native blob runtime、Redmi 真机和真实模型仍未验证，因此当前仍不能视为 `DOGFOOD_READY`。
