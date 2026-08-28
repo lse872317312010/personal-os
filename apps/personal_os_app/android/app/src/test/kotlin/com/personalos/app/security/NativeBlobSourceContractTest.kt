@@ -4,7 +4,7 @@ import java.io.ByteArrayInputStream
 import java.io.InputStream
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFailsWith
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -34,7 +34,7 @@ class NativeBlobSourceContractTest {
     @Test
     fun blobReferenceMustBeOpaqueBlobScheme() {
         assertEquals("blob://opaque-id", NativeBlobReference("blob://opaque-id").value)
-        assertFailsWith<IllegalArgumentException> {
+        assertThrows(IllegalArgumentException::class.java) {
             NativeBlobReference("/provider/photo.jpg")
         }
     }
