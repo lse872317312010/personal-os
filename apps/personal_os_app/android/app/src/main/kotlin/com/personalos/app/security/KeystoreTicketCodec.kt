@@ -145,7 +145,9 @@ internal class KeystoreTicketCodec(
             val key = keyStore.getKey(AUTH_KEY_ALIAS, null) as? SecretKey ?: return false
             val keyInfo = SecretKeyFactory.getInstance(key.algorithm, KEYSTORE)
                 .getKeySpec(key, KeyInfo::class.java)
-            keyInfo.isUserAuthenticationRequired
+            KeyInfo::class.java
+                .getMethod("isUserAuthenticationRequired")
+                .invoke(keyInfo) as Boolean
         } catch (_: Throwable) {
             false
         }
