@@ -15,7 +15,7 @@
 - 本审计分支已通过 merge commit `e8d6c67e617925519ca15fd7c59aa8b0096477dc` 纳入 main exact commit `8eda400471e51a3137ddde3160073db402e2da5d`，随后仅刷新本 PR 的 truth docs。
 - 本次没有删除任何分支，也不基于旧快照声明任何分支“可安全删除”。
 
-旧文档中关于 main=`3cdfa003…`、开放 PR #67、Actions/Release pending，以及各分支相对旧 main 的 ahead/behind 数值均已删除；这些事实已被 2026-08-28 的远程状态取代。
+旧快照中的 main、PR、Actions/Release pending 与 ahead/behind 断言均已移除；本文件只保留本次重新读取的远程事实。
 
 ## P0 build-blocker 与 Android Release 证据
 
