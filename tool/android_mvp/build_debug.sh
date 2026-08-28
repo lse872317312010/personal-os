@@ -15,6 +15,10 @@ cd "$app_dir"
 flutter pub get
 flutter analyze
 flutter test
+(
+  cd android
+  ./gradlew testDebugUnitTest
+)
 flutter build apk --debug
 
 apk_path="$app_dir/build/app/outputs/flutter-apk/app-debug.apk"
