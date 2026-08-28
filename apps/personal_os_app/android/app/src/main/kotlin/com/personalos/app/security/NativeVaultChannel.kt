@@ -117,11 +117,14 @@ internal class NativeVaultChannel(
                 BiometricManager.Authenticators.BIOMETRIC_STRONG or
                     BiometricManager.Authenticators.DEVICE_CREDENTIAL,
             )
+        val protectionLevel = tickets.protectionLevel()
         return mapOf(
-            "protectionLevel" to tickets.protectionLevel(),
+            "protectionLevel" to protectionLevel,
             "userAuthenticationAvailable" to strongBiometricAvailable,
             "deviceCredentialAvailable" to deviceCredentialAvailable,
-            "nonExportableKeys" to true,
+            // Do not claim a secure key capability while the Keystore key is
+            // absent or unreadable. Callers must remain fail-closed.
+            "nonExportableKeys" to tickets.hasNonExportableKey(),
             "atomicDeviceRevocation" to false,
         )
     }
@@ -311,6 +314,16 @@ internal class NativeVaultChannel(
         val ticketId = requiredStringArgument(call, "authenticationTicketId")
         val ticketExpiresAt = requiredLongArgument(call, "ticketExpiresAt")
         enqueueDatabase(result) {
+            // A process may expose only one active vault session. Reject a
+            // second open instead of leaving an older SQLCipher handle alive
+            // and changing the source adapter's active-session binding.
+            val currentSession = activeSessionId
+            if (currentSession != null) {
+                if (sessions.isActive(currentSession)) {
+                    throw NativeVaultFailure(NativeVaultFailureCode.VAULT_LOCKED)
+                }
+                activeSessionId = null
+            }
             val databaseKey = tickets.consumeForOpen(ticketId, ticketExpiresAt)
             var database: NativeVaultDatabase? = null
             try {
