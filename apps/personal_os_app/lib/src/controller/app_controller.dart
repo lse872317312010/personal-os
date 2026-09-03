@@ -390,12 +390,14 @@ final class AppController extends ChangeNotifier {
 
   Future<void> _setPersistedConsent(bool granted) async {
     if (granted == _consentGranted) return;
+    final consentLifecycle = _consentLifecycle;
+    if (consentLifecycle == null) return;
     final epoch = _lifecycleEpoch;
     try {
       if (granted) {
         final consentRevision =
             _consentRevision == 0 ? 1 : _consentRevision + 1;
-        final result = await _consentLifecycle.grant(
+        final result = await consentLifecycle.grant(
           GrantConsentCommand(
             profileId: _profileId,
             consentId: 'local-appearance-consent',
@@ -410,7 +412,7 @@ final class AppController extends ChangeNotifier {
         _consentRevision = consentRevision;
         _consentGranted = true;
       } else if (_consentStateRevision > 0) {
-        final result = await _consentLifecycle.revoke(
+        final result = await consentLifecycle.revoke(
           RevokeConsentCommand(
             profileId: _profileId,
             consentId: 'local-appearance-consent',
@@ -443,7 +445,8 @@ final class AppController extends ChangeNotifier {
       return;
     }
     if (granted == _externalProcessingConsentGranted) return;
-    if (_consentLifecycle == null) {
+    final consentLifecycle = _consentLifecycle;
+    if (consentLifecycle == null) {
       _externalProcessingConsentGranted = granted;
       notifyListeners();
       return;
@@ -454,7 +457,7 @@ final class AppController extends ChangeNotifier {
         final consentRevision = _externalConsentRevision == 0
             ? 1
             : _externalConsentRevision + 1;
-        final result = await _consentLifecycle!.grant(
+        final result = await consentLifecycle.grant(
           GrantConsentCommand(
             profileId: _profileId,
             consentId: 'external-processing-consent',
@@ -470,7 +473,7 @@ final class AppController extends ChangeNotifier {
         _externalConsentRevision = consentRevision;
         _externalProcessingConsentGranted = true;
       } else if (_externalConsentStateRevision > 0) {
-        final result = await _consentLifecycle!.revoke(
+        final result = await consentLifecycle.revoke(
           RevokeConsentCommand(
             profileId: _profileId,
             consentId: 'external-processing-consent',
