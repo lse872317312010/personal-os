@@ -127,20 +127,32 @@ final class ConsentLifecycleUseCase {
   Map<String, Object?> _grantPayload(
     GrantConsentCommand command,
     DateTime now,
-  ) =>
-      <String, Object?>{
-        'expected_revision': 0,
-        'consent_id': command.consentId,
-        'consent_revision': command.consentRevision,
-        'subject_id': command.profileId.value,
-        'authorized_actor_id': command.actor.actorId,
-        'purposes': const <String>['appearance_review'],
-        'resources': const <String>['portrait'],
-        'actions': const <String>['derive'],
-        'maximum_sensitivity': Sensitivity.d3.name,
-        'valid_from': now.toIso8601String(),
-        'valid_until': now.add(const Duration(hours: 8)).toIso8601String(),
-      };
+  ) {
+    final (purposes, actions) = switch (command.scope) {
+      ConsentScope.appearanceReview => (
+          const <String>['appearance_review'],
+          const <String>['derive'],
+        ),
+      ConsentScope.externalProcessing => (
+          const <String>['external_processing'],
+          const <String>['transmit'],
+        ),
+    };
+    return <String, Object?>{
+      'expected_revision': 0,
+      'consent_id': command.consentId,
+      'consent_revision': command.consentRevision,
+      'subject_id': command.profileId.value,
+      'authorized_actor_id': command.actor.actorId,
+      'purposes': purposes,
+      'resources': const <String>['portrait'],
+      'actions': actions,
+      'scope': command.scope.name,
+      'maximum_sensitivity': Sensitivity.d3.name,
+      'valid_from': now.toIso8601String(),
+      'valid_until': now.add(const Duration(hours: 8)).toIso8601String(),
+    };
+  }
 
   EventEnvelope _event({
     required Object command,
