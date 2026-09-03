@@ -162,7 +162,13 @@ void main() {
       _buildUseCase(ingestion, store, _Model()).execute(
         _buildCommand(Stream<List<int>>.value(<int>[6])),
       ),
-      throwsA(isA<StateError>()),
+      throwsA(
+        isA<ObservationUseCaseFailure>().having(
+          (error) => error.code,
+          'code',
+          ObservationFailureCode.appendFailed,
+        ),
+      ),
     );
 
     expect(ingestion.discarded, isEmpty);
