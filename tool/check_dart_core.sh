@@ -35,8 +35,19 @@ for package_file in "${PACKAGE_FILES[@]}"; do
 done
 
 echo "Checking Dart formatting"
-dart format --output=none --set-exit-if-changed "${CORE_ROOTS[@]}"
-dart format --output=none --set-exit-if-changed "${CONTRACT_RUNNER}"
+check_format() {
+  if dart format --output=none --set-exit-if-changed "$@"; then
+    return 0
+  fi
+
+  echo "Dart formatting differs; exact formatter patch follows:" >&2
+  dart format "$@" >/dev/null
+  git diff -- "$@" >&2
+  return 1
+}
+
+check_format "${CORE_ROOTS[@]}"
+check_format "${CONTRACT_RUNNER}"
 
 for package_file in "${PACKAGE_FILES[@]}"; do
   package_dir="$(dirname "${package_file}")"
