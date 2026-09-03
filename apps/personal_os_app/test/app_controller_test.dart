@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_os_application/application.dart';
-import 'package:personal_os_blob_engine/blob_engine.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_events/events.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
@@ -69,7 +68,7 @@ void main() {
       gateway,
       store: store,
       withObservation: true,
-      modelCapabilities: _FixedCapabilities(configured: false),
+      modelCapabilities: const _FixedCapabilities(configured: false),
     )..unlockVault();
     await controller.setConsent(true);
 
@@ -833,7 +832,7 @@ final class _BlockingCapabilities
       blocked.complete();
       await release!.future;
     }
-    return const AppearanceModelCapabilities(
+    return AppearanceModelCapabilities(
       configured: true,
       supportedBoundaries: <AppearanceProcessingBoundary>{
         AppearanceProcessingBoundary.onDevice,
