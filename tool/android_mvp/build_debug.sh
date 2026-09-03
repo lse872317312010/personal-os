@@ -10,6 +10,7 @@ command -v flutter >/dev/null 2>&1 || {
   exit 1
 }
 
+bash "$repo_root/tool/verify_dogfood_assets.sh"
 "$tool_dir/bootstrap_gradle_wrapper.sh"
 cd "$app_dir"
 flutter pub get
