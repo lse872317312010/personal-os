@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "commit_sha": "<40-char-candidate-commit>",
+  "apk_sha256": "<64-char-apk-sha256>",
+  "device": {
+    "model": "<for example: Redmi Turbo>",
+    "android_version": "<version>",
+    "build_number": "<system build>"
+  },
+  "toolchain": {
+    "adb_version": "<adb --version>",
+    "flutter_version": "<flutter --version>",
+    "runner": "<local workstation or CI runner>"
+  },
+  "scenarios": [
+    {
+      "id": "RDM-001",
+      "result": "BLOCKED",
+      "observed_at_utc": "<ISO-8601 UTC timestamp>",
+      "notes": "<record exact action, observed UI/error code, and limitation>",
+      "artifacts": []
+    },
+    {
+      "id": "RDM-002",
+      "result": "BLOCKED",
+      "observed_at_utc": "<ISO-8601 UTC timestamp>",
+      "notes": "<do not claim authentication success without observing it>",
+      "artifacts": []
+    },
+    {
+      "id": "RDM-003",
+      "result": "BLOCKED",
+      "observed_at_utc": "<ISO-8601 UTC timestamp>",
+      "notes": "<do not record URI, path, provider, or photo bytes>",
+      "artifacts": []
+    },
+    {
+      "id": "RDM-004",
+      "result": "BLOCKED",
+      "observed_at_utc": "<ISO-8601 UTC timestamp>",
+      "notes": "<cancel/back path result>",
+      "artifacts": []
+    },
+    {
+      "id": "RDM-005",
+      "result": "N/A",
+      "observed_at_utc": "<ISO-8601 UTC timestamp>",
+      "notes": "<if no runtime permission prompt exists, explain why>",
+      "artifacts": []
+    },
+    {
+      "id": "RDM-006",
+      "result": "BLOCKED",
+      "observed_at_utc": "<ISO-8601 UTC timestamp>",
+      "notes": "<Blob/analysis result; keep source opaque>",
+      "artifacts": []
+    },
+    {
+      "id": "RDM-007",
+      "result": "BLOCKED",
+      "observed_at_utc": "<ISO-8601 UTC timestamp>",
+      "notes": "<history result>",
+      "artifacts": []
+    },
+    {
+      "id": "RDM-008",
+      "result": "BLOCKED",
+      "observed_at_utc": "<ISO-8601 UTC timestamp>",
+      "notes": "<force-stop/relaunch result>",
+      "artifacts": []
+    },
+    {
+      "id": "RDM-009",
+      "result": "BLOCKED",
+      "observed_at_utc": "<ISO-8601 UTC timestamp>",
+      "notes": "<lock/session-expiry result>",
+      "artifacts": []
+    }
+  ],
+  "limitations": [
+    "This template is not evidence until completed on the target device.",
+    "Synthetic Flutter tests do not prove Android Keystore, SQLCipher, Photo Picker, or real-model behavior."
+  ]
+}
+
