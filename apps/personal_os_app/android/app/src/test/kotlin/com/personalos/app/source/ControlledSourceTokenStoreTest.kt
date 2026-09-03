@@ -62,12 +62,14 @@ class ControlledSourceTokenStoreTest {
 
     @Test
     fun expiredTokenIsRemovedBeforeRead() {
+        var nowMillis = 500L
         val store = ControlledSourceTokenStore(
-            nowMillis = { 500L },
+            nowMillis = { nowMillis },
             ttlMillis = 100L,
             tokenFactory = { "opaque_token_123456" },
         )
         val token = store.issue(Uri.parse("content://private/provider/3"), "session-1")
+        nowMillis = 600L
 
         assertEquals(
             ControlledSourceTokenStore.ConsumeResult.Expired,
