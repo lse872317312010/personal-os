@@ -2,6 +2,70 @@ import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
 import 'package:test/test.dart';
 
 void main() {
+  group('AppearanceModelCapabilities', () {
+    test('external availability requires configuration and credentials', () {
+      final capabilities = AppearanceModelCapabilities(
+        configured: true,
+        supportedBoundaries: const <AppearanceProcessingBoundary>{
+          AppearanceProcessingBoundary.externalProcessor,
+        },
+        runtimeCredentialReady: true,
+      );
+      expect(capabilities.externalProcessingConfigured, isTrue);
+      expect(capabilities.externalProcessingAvailable, isTrue);
+    });
+
+    test('external configuration is visible before credentials are ready', () {
+      final capabilities = AppearanceModelCapabilities(
+        configured: true,
+        supportedBoundaries: const <AppearanceProcessingBoundary>{
+          AppearanceProcessingBoundary.externalProcessor,
+        },
+        runtimeCredentialReady: false,
+      );
+
+      expect(capabilities.externalProcessingConfigured, isTrue);
+      expect(capabilities.externalProcessingAvailable, isFalse);
+    });
+
+    test('unconfigured gateway cannot advertise a processing boundary', () {
+      expect(
+        () => AppearanceModelCapabilities(
+          configured: false,
+          supportedBoundaries: const <AppearanceProcessingBoundary>{
+            AppearanceProcessingBoundary.onDevice,
+          },
+          runtimeCredentialReady: false,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('on-device gateway cannot advertise external credentials', () {
+      expect(
+        () => AppearanceModelCapabilities(
+          configured: true,
+          supportedBoundaries: const <AppearanceProcessingBoundary>{
+            AppearanceProcessingBoundary.onDevice,
+          },
+          runtimeCredentialReady: true,
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('configured gateway must advertise a processing boundary', () {
+      expect(
+        () => AppearanceModelCapabilities(
+          configured: true,
+          supportedBoundaries: const <AppearanceProcessingBoundary>{},
+          runtimeCredentialReady: false,
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
   group('AppearanceAnalysisInput', () {
     test('accepts valid input with default locale', () {
       final input = AppearanceAnalysisInput(
@@ -11,6 +75,11 @@ void main() {
       expect(input.imageRef, 'blob-abc123');
       expect(input.observationContext, 'front-facing natural light');
       expect(input.locale, 'zh-CN');
+      expect(input.promptVersion, 'appearance-v1');
+      expect(
+        input.processingBoundary,
+        AppearanceProcessingBoundary.onDevice,
+      );
     });
 
     test('accepts explicit locale', () {
@@ -20,6 +89,18 @@ void main() {
         locale: 'en-US',
       );
       expect(input.locale, 'en-US');
+    });
+
+    test('accepts explicit external processing boundary', () {
+      final input = AppearanceAnalysisInput(
+        imageRef: 'blob-1',
+        observationContext: 'ctx',
+        processingBoundary: AppearanceProcessingBoundary.externalProcessor,
+      );
+      expect(
+        input.processingBoundary,
+        AppearanceProcessingBoundary.externalProcessor,
+      );
     });
 
     test('rejects blank imageRef', () {
@@ -36,6 +117,17 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('rejects blank promptVersion', () {
+      expect(
+        () => AppearanceAnalysisInput(
+          imageRef: 'blob-1',
+          observationContext: 'ctx',
+          promptVersion: '  ',
+        ),
+        throwsArgumentError,
+      );
+    });
   });
 
   group('AppearanceFinding', () {
@@ -48,6 +140,7 @@ void main() {
       expect(finding.dimension, 'skin_tone');
       expect(finding.statement, 'warm undertone');
       expect(finding.confidence, 0.82);
+      expect(finding.kind, AppearanceFindingKind.uncertainInference);
     });
 
     test('accepts boundary confidence values', () {
@@ -116,6 +209,28 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('accepts a bounded seven-day offset and confirmation flag', () {
+      final suggestion = AppearanceActionSuggestion(
+        title: 'Compare',
+        rationale: 'Build a baseline',
+        dayOffset: 6,
+        requiresHumanConfirmation: true,
+      );
+      expect(suggestion.dayOffset, 6);
+      expect(suggestion.requiresHumanConfirmation, isTrue);
+    });
+
+    test('rejects an action outside the seven-day window', () {
+      expect(
+        () => AppearanceActionSuggestion(
+          title: 'Compare',
+          rationale: 'Build a baseline',
+          dayOffset: 7,
+        ),
+        throwsArgumentError,
+      );
+    });
   });
 
   group('AppearanceAnalysisResult', () {
@@ -134,6 +249,9 @@ void main() {
       expect(result.findings, hasLength(1));
       expect(result.actions, hasLength(1));
       expect(result.modelTraceRef, 'trace-xyz');
+      expect(result.modelId, 'unspecified-model');
+      expect(result.promptVersion, 'appearance-v1');
+      expect(result.inputSummaryRef, 'unavailable');
     });
 
     test('rejects blank modelTraceRef', () {
@@ -187,6 +305,50 @@ void main() {
       );
       expect(result.findings, isEmpty);
       expect(result.actions, isEmpty);
+    });
+
+    test('accepts structured risk and human-confirmation metadata', () {
+      final result = AppearanceAnalysisResult(
+        findings: const <AppearanceFinding>[],
+        actions: const <AppearanceActionSuggestion>[],
+        modelTraceRef: 'trace-1',
+        modelId: 'provider-model-1',
+        promptVersion: 'appearance-v2',
+        inputSummaryRef: 'audit://input/1',
+        risks: <AppearanceRisk>[
+          AppearanceRisk(code: 'low_light', statement: 'Image is too dark.'),
+        ],
+        humanConfirmations: <AppearanceHumanConfirmation>[
+          AppearanceHumanConfirmation(
+            code: 'confirm_hair_shape',
+            prompt: 'Does this match what you see?',
+          ),
+        ],
+      );
+      expect(result.risks.single.code, 'low_light');
+      expect(result.humanConfirmations.single.code, 'confirm_hair_shape');
+    });
+
+    test('rejects duplicate human-confirmation codes', () {
+      expect(
+        () => AppearanceAnalysisResult(
+          findings: const <AppearanceFinding>[],
+          actions: const <AppearanceActionSuggestion>[],
+          modelTraceRef: 'trace-1',
+          humanConfirmations: <AppearanceHumanConfirmation>[
+            AppearanceHumanConfirmation(code: 'confirm', prompt: 'First?'),
+            AppearanceHumanConfirmation(code: 'confirm', prompt: 'Second?'),
+          ],
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    test('rejects unstable risk codes', () {
+      expect(
+        () => AppearanceRisk(code: 'Low-Light', statement: 'Too dark.'),
+        throwsArgumentError,
+      );
     });
   });
 }
