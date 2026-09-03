@@ -1,5 +1,6 @@
 import 'package:personal_os_blob_engine/blob_engine.dart';
 import 'package:personal_os_domain/domain.dart';
+import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
 
 /// Narrow fail-closed boundary expected from the policy package.
 abstract interface class AppearancePolicyPort {
@@ -8,6 +9,8 @@ abstract interface class AppearancePolicyPort {
     required EntityId profileId,
     required List<ObjectRef> consentRefs,
     required Sensitivity sensitivity,
+    AppearanceProcessingBoundary processingBoundary =
+        AppearanceProcessingBoundary.onDevice,
   });
 }
 
