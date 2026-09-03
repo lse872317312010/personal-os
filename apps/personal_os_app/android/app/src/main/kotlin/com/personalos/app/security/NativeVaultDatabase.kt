@@ -18,6 +18,12 @@ internal interface NativeVaultDatabase : AutoCloseable {
     /** Deletes an opaque blob reference; missing references are an idempotent success. */
     fun deleteBlob(blobRef: String)
 
+    /**
+     * Gives a native-only consumer temporary stream access to one blob.
+     * The backing byte array is zeroed before this call returns.
+     */
+    fun <T> useBlob(blobRef: String, consumer: (InputStream) -> T): T
+
     fun readEventsByProfile(profileId: String, limit: Int): List<Map<String, Any?>>
 
     fun readEventsBySubject(subjectType: String, subjectId: String, limit: Int): List<Map<String, Any?>>
@@ -217,6 +223,7 @@ internal class SqlCipherVaultDatabase private constructor(
         val token = source.opaqueToken
         validateBlobToken(token)
         var transactionOpen = false
+        var ownedBytes: ByteArray? = null
         try {
             database.beginTransaction()
             transactionOpen = true
@@ -231,6 +238,7 @@ internal class SqlCipherVaultDatabase private constructor(
             val bytes = source.openStream().use { stream ->
                 readBlobBytes(stream)
             }
+            ownedBytes = bytes
             if (bytes.isEmpty()) {
                 throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
             }
@@ -268,6 +276,7 @@ internal class SqlCipherVaultDatabase private constructor(
                 // The transaction has already rolled back or committed. No details
                 // cross the native boundary.
             }
+            ownedBytes?.fill(0)
         }
     }
 
@@ -288,23 +297,70 @@ internal class SqlCipherVaultDatabase private constructor(
         }
     }
 
-    private fun readBlobBytes(stream: InputStream): ByteArray {
-        val output = ByteArrayOutputStream()
-        val buffer = ByteArray(BLOB_READ_BUFFER_SIZE)
-        var total = 0
-        while (true) {
-            val count = stream.read(buffer)
-            if (count == -1) break
-            if (count <= 0) {
-                throw NativeVaultFailure(NativeVaultFailureCode.TRANSACTION_FAILED)
-            }
-            total += count
-            if (total > MAX_BLOB_BYTES) {
+    override fun <T> useBlob(
+        blobRef: String,
+        consumer: (InputStream) -> T,
+    ): T = synchronized(lock) {
+        ensureOpen()
+        validateBlobReference(blobRef)
+        var cursor: Cursor? = null
+        val ownedBytes = try {
+            cursor = database.query(
+                "vault_blobs",
+                arrayOf("content"),
+                "blob_ref = ?",
+                arrayOf(blobRef),
+                null,
+                null,
+                null,
+                "1",
+            )
+            if (!cursor.moveToFirst()) {
                 throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
             }
-            output.write(buffer, 0, count)
+            val value = cursor.getBlob(cursor.getColumnIndexOrThrow("content"))
+            if (value.isEmpty() || value.size > MAX_BLOB_BYTES) {
+                throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+            }
+            value
+        } catch (failure: NativeVaultFailure) {
+            throw failure
+        } catch (_: Throwable) {
+            throw NativeVaultFailure(NativeVaultFailureCode.TRANSACTION_FAILED)
+        } finally {
+            try {
+                cursor?.close()
+            } catch (_: Throwable) {
+                // The owned result is still consumed and zeroed below.
+            }
         }
-        return output.toByteArray()
+        // Consumer failures belong to the model boundary and must not be
+        // mislabeled as SQLCipher transaction failures.
+        consumeOwnedBlobBytes(ownedBytes, consumer)
+    }
+
+    private fun readBlobBytes(stream: InputStream): ByteArray {
+        val output = ZeroingByteArrayOutputStream()
+        val buffer = ByteArray(BLOB_READ_BUFFER_SIZE)
+        try {
+            var total = 0
+            while (true) {
+                val count = stream.read(buffer)
+                if (count == -1) break
+                if (count <= 0) {
+                    throw NativeVaultFailure(NativeVaultFailureCode.TRANSACTION_FAILED)
+                }
+                total += count
+                if (total > MAX_BLOB_BYTES) {
+                    throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+                }
+                output.write(buffer, 0, count)
+            }
+            return output.toByteArray()
+        } finally {
+            buffer.fill(0)
+            output.zeroize()
+        }
     }
 
     private fun validateBlobToken(token: String) {
@@ -767,5 +823,12 @@ internal class SqlCipherVaultDatabase private constructor(
             "subject_revision",
             "subject_ordinal",
         )
+    }
+}
+
+private class ZeroingByteArrayOutputStream : ByteArrayOutputStream() {
+    fun zeroize() {
+        buf.fill(0)
+        reset()
     }
 }
