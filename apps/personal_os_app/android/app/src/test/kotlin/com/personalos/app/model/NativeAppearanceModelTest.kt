@@ -14,11 +14,14 @@ class NativeAppearanceModelTest {
     @Test
     fun keepsMediaInsideNativeConsumerAndClosesTheStream() {
         val media = TrackingMediaAccess(byteArrayOf(1, 2, 3))
-        val coordinator = NativeAppearanceModelCoordinator(media) { request, stream ->
-            assertEquals("appearance-v1", request.promptVersion)
-            assertArrayEquals(byteArrayOf(1, 2, 3), stream.readBytes())
-            completeResult()
-        }
+        val coordinator = NativeAppearanceModelCoordinator(
+            mediaAccess = media,
+            transport = NativeAppearanceModelTransport { request, stream ->
+                assertEquals("appearance-v1", request.promptVersion)
+                assertArrayEquals(byteArrayOf(1, 2, 3), stream.readBytes())
+                completeResult()
+            },
+        )
 
         val result = coordinator.analyze(validRequest())
 
@@ -30,8 +33,11 @@ class NativeAppearanceModelTest {
     @Test
     fun rejectsPromptVersionMismatch() {
         val coordinator = NativeAppearanceModelCoordinator(
-            TrackingMediaAccess(byteArrayOf(1)),
-        ) { _, _ -> completeResult(promptVersion = "appearance-v2") }
+            mediaAccess = TrackingMediaAccess(byteArrayOf(1)),
+            transport = NativeAppearanceModelTransport { _, _ ->
+                completeResult(promptVersion = "appearance-v2")
+            },
+        )
 
         val failure = assertThrows(NativeAppearanceModelFailure::class.java) {
             coordinator.analyze(validRequest())
@@ -46,8 +52,11 @@ class NativeAppearanceModelTest {
     @Test
     fun redactsRawAdapterFailure() {
         val coordinator = NativeAppearanceModelCoordinator(
-            TrackingMediaAccess(byteArrayOf(1)),
-        ) { _, _ -> error("api-key=secret provider detail") }
+            mediaAccess = TrackingMediaAccess(byteArrayOf(1)),
+            transport = NativeAppearanceModelTransport { _, _ ->
+                error("api-key=secret provider detail")
+            },
+        )
 
         val failure = assertThrows(NativeAppearanceModelFailure::class.java) {
             coordinator.analyze(validRequest())
