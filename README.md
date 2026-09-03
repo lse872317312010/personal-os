@@ -8,13 +8,13 @@
 
 项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，当前基点是 **M2-B1/B2 · Android Secure Local MVP 实现基线**：Android Keystore 认证 primitive、native SQLCipher database/event JSON storage、secure Dart event-store/session coordinator、受控 Photo Picker 与 Camera→native blob→opaque `BlobRef`→analysis path 和 observation history UI 已接入。
 
-上游 `main` 的 `8eda400471e51a3137ddde3160073db402e2da5d` 已通过 Repository contracts、Linux/Windows Dart core 和 Flutter Android workflow，并生成 `android-latest` APK、SHA-256 与 provenance。该结果只证明构建链和自动测试通过，不代表 Redmi 真机、Android Keystore 生命周期、SQLCipher 冷启动恢复或真实模型分析已经验证。
+`main` 的 `26e68f68e1dc4bb7de12971d074ff2c2f3c73e38` 已通过 Repository contracts、Linux/Windows Dart core、60 项 Flutter tests、52 项 Android JVM tests 和 Flutter Android APK workflow。`android-latest` 标签已精确更新到该提交，构建流程同时校验并发布 APK、SHA-256 与 provenance。该结果只证明构建链和自动测试通过，不代表 Redmi 真机、Android Keystore 生命周期、SQLCipher 冷启动恢复或真实模型调用已经验证。
 
-当前后续开发在本地 `local/offline-progress` 进行，本月不依赖 GitHub Actions。本地加入的 Vault 生命周期加固、dogfood 资产、结构化模型边界、外部处理授权和运行时凭据契约仍需在下一个明确里程碑集中执行 Flutter、Gradle 与真机验证。
+Vault 生命周期加固、dogfood 资产、结构化模型边界、外部处理授权、运行时凭据契约和 build-gated OpenAI Responses adapter 已通过 PR #71 集成。真实 provider 默认关闭，凭据不进入仓库、APK、Flutter channel 或持久化事件；没有显式外部处理授权和每次发送确认时保持 fail-closed。
 
-上游唯一发布基点为 `main`（exact commit：`8eda400471e51a3137ddde3160073db402e2da5d`）。本地离线提交不得被描述为 CI、APK 或真机已验证；恢复远端集成时必须从该上游基点整理成可审查提交，并在一个里程碑节点集中运行 Actions。
+唯一发布基点为 `main`（exact commit：`26e68f68e1dc4bb7de12971d074ff2c2f3c73e38`）。后续开发继续采用本地优先、节点式 Actions 验证；只有与 exact commit 绑定的 CI、APK、provenance 或真机记录才能升级相应验收状态。
 
-固定下载入口：[android-latest Release](https://github.com/lse872317312010/personal-os/releases/tag/android-latest)。已验证 APK SHA-256：`4ebcc8df0d1285294bda887db6b4dd4a256be713ee61064ca75e15b3616ae580`。
+固定下载入口：[android-latest Release](https://github.com/lse872317312010/personal-os/releases/tag/android-latest)。每次构建的精确摘要在同一 Release 的 `personal-os-latest-debug.apk.sha256` 中，`personal-os-latest-debug.provenance.json` 同时记录 commit、workflow run、应用版本和 APK SHA-256；三者不一致时不得安装验收。
 
 ## 首批领域
 
@@ -53,7 +53,7 @@
 - 验证 Keystore、SQLCipher 冷启动、Photo Picker/Camera、Blob 回滚和拒绝路径；
 - 保持 fixture 仅用于离线演示，生产安全模式不得回退 synthetic 输出；
 - 接入真实模型前完成外部处理显式授权、native-only 媒体读取和运行时凭据注入；
-- 到达明确里程碑后再集中运行一次 Actions、生成 APK 和 provenance。
+- 继续本地优先开发，只在明确里程碑集中运行 Actions、生成 APK 和 provenance。
 
 ## 文档入口
 
@@ -132,7 +132,7 @@ Runtime 编排、恢复契约 CI 与 Redmi Turbo 证据 runbook 见 [Coding Wave
 
 ## 状态
 
-`M2-B1/B2 / upstream APK build verified → local security/model work pending milestone verification`
+`M2-B1/B2 / CI + APK build verified → Redmi exact-commit dogfood pending`
 
 当前主线已经完成 M2-B1 的纯 Dart 安全边界、事件恢复/Consent 生命周期、
 native Keystore 认证 primitive、native SQLCipher database/event JSON storage、
@@ -140,4 +140,4 @@ secure Dart event-store/session coordinator、observation history UI、Blob/Sync
 契约加固、B2 controlled source/ingestion path、Android fail-closed 原生骨架和证据门禁。
 Android 默认 Composition 已是 secure vault，并接入受控 Photo Picker 与 Camera；Camera 在拍摄时显式请求权限，照片暂存于 app-private cache 的 FileProvider 路径，native 仅传递 opaque token 并写入 native blob sink，清理失败会触发稳定错误并对已写入 blob 回滚；synthetic/in-memory 仅通过显式 demo/test factory 使用。
 
-上游 Android workflow 与 APK Release 已验证。Redmi 真机、SQLCipher production 行为、冷启动持久化、Keystore 生命周期和真实模型仍未验证。安全模式当前没有真实 transport，必须 fail-closed；本地已加入 native-only 媒体边界、结构化输出、外部处理双重 consent 和一次性凭据租约，但不能视为 `DOGFOOD_READY`。
+Android workflow 与 APK Release 已在 `26e68f68e1dc4bb7de12971d074ff2c2f3c73e38` 验证。Redmi 真机、SQLCipher production 行为、冷启动持久化、Keystore 生命周期和真实 provider 调用仍未验证。安全模式已包含 build-gated OpenAI transport、native-only 媒体边界、结构化输出、外部处理双重 consent 和一次性凭据租约；provider 默认关闭，因此仍不能视为 `DOGFOOD_READY`。
