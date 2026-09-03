@@ -28,7 +28,7 @@ final class FixtureAppearanceAnalysisFailure implements Exception {
 /// fixtures. It accepts only opaque `blob://` references so callers cannot
 /// accidentally pass raw bytes, local paths, or remote URLs.
 final class FixtureAppearanceAnalysisGateway
-    implements AppearanceAnalysisGateway {
+    implements AppearanceAnalysisGateway, AppearanceModelCapabilityGateway {
   const FixtureAppearanceAnalysisGateway({
     this.behavior = FixtureAppearanceBehavior.syntheticSuccess,
     this.failureMessage = 'Synthetic appearance analysis failure.',
@@ -38,10 +38,25 @@ final class FixtureAppearanceAnalysisGateway
   final String failureMessage;
 
   @override
+  Future<AppearanceModelCapabilities> inspectCapabilities() async =>
+      AppearanceModelCapabilities(
+        configured: true,
+        supportedBoundaries: const <AppearanceProcessingBoundary>{
+          AppearanceProcessingBoundary.onDevice,
+        },
+        runtimeCredentialReady: false,
+      );
+
+  @override
   Future<AppearanceAnalysisResult> analyze(
     AppearanceAnalysisInput input,
   ) async {
     _validateBlobRef(input.imageRef);
+    if (input.processingBoundary != AppearanceProcessingBoundary.onDevice) {
+      throw const FixtureAppearanceAnalysisFailure(
+        'Synthetic fixture supports on-device demo requests only.',
+      );
+    }
     final traceRef = _stableTraceRef(input);
 
     return switch (behavior) {
@@ -51,6 +66,7 @@ final class FixtureAppearanceAnalysisGateway
               dimension: 'synthetic_fixture_hair',
               statement: '合成示例：发型轮廓可建立一个可复核的基线。',
               confidence: 0.8,
+              kind: AppearanceFindingKind.observableFact,
             ),
             AppearanceFinding(
               dimension: 'synthetic_fixture_style',
@@ -62,14 +78,34 @@ final class FixtureAppearanceAnalysisGateway
             AppearanceActionSuggestion(
               title: '合成任务：记录一次造型对照',
               rationale: '仅用于验证 Personal OS 行动反馈闭环，不代表真人分析。',
+              dayOffset: 1,
+              requiresHumanConfirmation: true,
             ),
           ],
           modelTraceRef: traceRef,
+          modelId: 'fixture-appearance-v1',
+          promptVersion: input.promptVersion,
+          inputSummaryRef: 'fixture://input/not-inspected',
+          risks: <AppearanceRisk>[
+            AppearanceRisk(
+              code: 'synthetic_only',
+              statement: '这是合成输出，不是对照片中人物的判断。',
+            ),
+          ],
+          humanConfirmations: <AppearanceHumanConfirmation>[
+            AppearanceHumanConfirmation(
+              code: 'confirm_fixture_action',
+              prompt: '是否要把合成建议加入本地演示计划？',
+            ),
+          ],
         ),
       FixtureAppearanceBehavior.emptyResult => AppearanceAnalysisResult(
           findings: const <AppearanceFinding>[],
           actions: const <AppearanceActionSuggestion>[],
           modelTraceRef: traceRef,
+          modelId: 'fixture-appearance-v1',
+          promptVersion: input.promptVersion,
+          inputSummaryRef: 'fixture://input/not-inspected',
         ),
       FixtureAppearanceBehavior.failure =>
         throw FixtureAppearanceAnalysisFailure(failureMessage),
