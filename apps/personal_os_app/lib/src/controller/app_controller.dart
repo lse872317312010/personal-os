@@ -395,7 +395,7 @@ final class AppController extends ChangeNotifier {
       if (granted) {
         final consentRevision =
             _consentRevision == 0 ? 1 : _consentRevision + 1;
-        final result = await _consentLifecycle!.grant(
+        final result = await _consentLifecycle.grant(
           GrantConsentCommand(
             profileId: _profileId,
             consentId: 'local-appearance-consent',
@@ -410,7 +410,7 @@ final class AppController extends ChangeNotifier {
         _consentRevision = consentRevision;
         _consentGranted = true;
       } else if (_consentStateRevision > 0) {
-        final result = await _consentLifecycle!.revoke(
+        final result = await _consentLifecycle.revoke(
           RevokeConsentCommand(
             profileId: _profileId,
             consentId: 'local-appearance-consent',
