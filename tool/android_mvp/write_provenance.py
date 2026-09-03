@@ -29,7 +29,13 @@ def app_version(app_dir: Path) -> str:
     match = VERSION_RE.search(pubspec)
     if not match:
         raise ValueError("pubspec.yaml does not contain a version")
-    return match.group(1)
+    version = match.group(1)
+    build_number = os.environ.get("PERSONAL_OS_BUILD_NUMBER")
+    if not build_number:
+        return version
+    if not build_number.isdigit() or int(build_number) < 1:
+        raise ValueError("PERSONAL_OS_BUILD_NUMBER must be a positive integer")
+    return f"{version.split('+', 1)[0]}+{build_number}"
 
 
 def sha256(path: Path) -> str:
