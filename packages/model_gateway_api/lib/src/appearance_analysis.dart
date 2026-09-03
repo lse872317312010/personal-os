@@ -16,8 +16,9 @@ final class AppearanceModelCapabilities {
     required this.configured,
     required Iterable<AppearanceProcessingBoundary> supportedBoundaries,
     required this.runtimeCredentialReady,
-  }) : supportedBoundaries =
-            Set<AppearanceProcessingBoundary>.unmodifiable(supportedBoundaries) {
+  }) : supportedBoundaries = Set<AppearanceProcessingBoundary>.unmodifiable(
+          supportedBoundaries,
+        ) {
     if (!configured && this.supportedBoundaries.isNotEmpty) {
       throw ArgumentError(
         'an unconfigured gateway cannot advertise processing boundaries',
