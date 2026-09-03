@@ -15,6 +15,7 @@ cd "$app_dir"
 flutter pub get
 flutter analyze
 flutter test
+flutter test --reporter expanded "$repo_root/tests/integration_test/dogfood_flow_test.dart"
 (
   cd android
   ./gradlew testDebugUnitTest
