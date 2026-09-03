@@ -67,6 +67,32 @@ void main() {
     });
   });
 
+  test('external processing grant writes a separate transmit scope', () async {
+    final store = _Store();
+    final useCase = ConsentLifecycleUseCase(
+      eventStore: store,
+      ids: _Ids(),
+      clock: _Clock(),
+    );
+
+    await useCase.grant(
+      GrantConsentCommand(
+        profileId: EntityId('profile-1'),
+        consentId: 'external-processing-consent-1',
+        consentRevision: 1,
+        actor: actor,
+        correlationId: 'corr-external-grant',
+        scope: ConsentScope.externalProcessing,
+      ),
+    );
+
+    final payload = store.events.last.payload;
+    expect(payload['purposes'], <String>['external_processing']);
+    expect(payload['resources'], <String>['portrait']);
+    expect(payload['actions'], <String>['transmit']);
+    expect(payload['scope'], 'externalProcessing');
+  });
+
   test('non-user cannot grant consent', () async {
     final store = _Store();
     final useCase = ConsentLifecycleUseCase(
