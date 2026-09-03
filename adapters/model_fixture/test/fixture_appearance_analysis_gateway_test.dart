@@ -3,10 +3,15 @@ import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
 import 'package:test/test.dart';
 
 void main() {
-  AppearanceAnalysisInput input({String imageRef = 'blob://vault/photo-1'}) =>
+  AppearanceAnalysisInput input({
+    String imageRef = 'blob://vault/photo-1',
+    AppearanceProcessingBoundary processingBoundary =
+        AppearanceProcessingBoundary.onDevice,
+  }) =>
       AppearanceAnalysisInput(
         imageRef: imageRef,
         observationContext: 'fixture test context',
+        processingBoundary: processingBoundary,
       );
 
   test('returns explicit synthetic findings and actions', () async {
@@ -26,6 +31,19 @@ void main() {
     expect(result.actions, hasLength(1));
     expect(result.actions.single.title, startsWith('合成任务：'));
     expect(result.actions.single.rationale, contains('不代表真人分析'));
+  });
+
+  test('advertises only on-device synthetic capability', () async {
+    const gateway = FixtureAppearanceAnalysisGateway();
+
+    final capabilities = await gateway.inspectCapabilities();
+
+    expect(capabilities.configured, isTrue);
+    expect(
+      capabilities.supportedBoundaries,
+      <AppearanceProcessingBoundary>{AppearanceProcessingBoundary.onDevice},
+    );
+    expect(capabilities.externalProcessingAvailable, isFalse);
   });
 
   test('trace reference is stable and does not expose the blob reference',
@@ -73,6 +91,19 @@ void main() {
     expect(result.findings, isEmpty);
     expect(result.actions, isEmpty);
     expect(result.modelTraceRef, startsWith('fixture://appearance/'));
+  });
+
+  test('does not simulate an external processor request', () async {
+    const gateway = FixtureAppearanceAnalysisGateway();
+
+    await expectLater(
+      gateway.analyze(
+        input(
+          processingBoundary: AppearanceProcessingBoundary.externalProcessor,
+        ),
+      ),
+      throwsA(isA<FixtureAppearanceAnalysisFailure>()),
+    );
   });
 
   test('failure behavior throws the configured fixture failure', () async {
