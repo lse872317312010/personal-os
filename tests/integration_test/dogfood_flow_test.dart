@@ -102,7 +102,7 @@ void main() {
       observationContext: 'front, daylight',
     );
     expect(cancelledController.submission, SubmissionStatus.failed);
-    expect(cancelledController.errorCode, 'source_unavailable');
+    expect(cancelledController.errorCode, 'source_cancelled');
     expect(cancelled.ingestion.tokens, isEmpty);
 
     final denied = _DogfoodHarness();
@@ -147,7 +147,10 @@ void main() {
     expect(controller.errorCode, AppearanceFailureCode.analysisFailed);
     expect(harness.ingestion.tokens, hasLength(1));
     expect(harness.ingestion.discarded, hasLength(1));
-    expect(harness.ingestion.discarded.single.value, startsWith('blob://'));
+    expect(
+      harness.ingestion.discarded.single,
+      BlobRef('blob://dogfood-encrypted-0001'),
+    );
   });
 }
 
@@ -322,4 +325,3 @@ final class _Clock implements Clock {
   @override
   DateTime now() => DateTime.utc(2026, 8, 20);
 }
-
