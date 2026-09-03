@@ -19,7 +19,17 @@ flutter test
   cd android
   ./gradlew testDebugUnitTest
 )
-flutter build apk --debug
+build_number="${PERSONAL_OS_BUILD_NUMBER:-${GITHUB_RUN_NUMBER:-}}"
+build_args=(apk --debug)
+if [[ -n "$build_number" ]]; then
+  if [[ ! "$build_number" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Build number must be a positive integer." >&2
+    exit 1
+  fi
+  build_args+=("--build-number=$build_number")
+  export PERSONAL_OS_BUILD_NUMBER="$build_number"
+fi
+flutter build "${build_args[@]}"
 
 apk_path="$app_dir/build/app/outputs/flutter-apk/app-debug.apk"
 manifest_path="$app_dir/build/app/outputs/flutter-apk/app-debug.provenance.json"
