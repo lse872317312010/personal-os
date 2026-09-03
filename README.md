@@ -8,11 +8,11 @@
 
 项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，当前基点是 **M2-B1/B2 · Android Secure Local MVP 实现基线**：Android Keystore 认证 primitive、native SQLCipher database/event JSON storage、secure Dart event-store/session coordinator、受控 Photo Picker 与 Camera→native blob→opaque `BlobRef`→analysis path 和 observation history UI 已接入。
 
-`main` 的 `26e68f68e1dc4bb7de12971d074ff2c2f3c73e38` 已通过 Repository contracts、Linux/Windows Dart core、60 项 Flutter tests、52 项 Android JVM tests 和 Flutter Android APK workflow。`android-latest` 标签已精确更新到该提交，构建流程同时校验并发布 APK、SHA-256 与 provenance。该结果只证明构建链和自动测试通过，不代表 Redmi 真机、Android Keystore 生命周期、SQLCipher 冷启动恢复或真实模型调用已经验证。
+`main` 已通过 Repository contracts、Linux/Windows Dart core、60 项 Flutter tests、5 项非真机 dogfood journey tests、52 项 Android JVM tests 和 Flutter Android APK workflow。`android-latest` 始终由成功的 main workflow 更新，构建流程同时校验并发布 APK、SHA-256 与 provenance。该结果只证明构建链和自动测试通过，不代表 Redmi 真机、Android Keystore 生命周期、SQLCipher 冷启动恢复或真实模型调用已经验证。
 
-Vault 生命周期加固、dogfood 资产、结构化模型边界、外部处理授权、运行时凭据契约和 build-gated OpenAI Responses adapter 已通过 PR #71 集成。真实 provider 默认关闭，凭据不进入仓库、APK、Flutter channel 或持久化事件；没有显式外部处理授权和每次发送确认时保持 fail-closed。
+Vault 生命周期加固、结构化模型边界、外部处理授权、运行时凭据契约和 build-gated OpenAI Responses adapter 已通过 PR #71 集成；Redmi dogfood 资产与 CI journey gate 已通过 PR #73 集成。真实 provider 默认关闭，凭据不进入仓库、APK、Flutter channel 或持久化事件；没有显式外部处理授权和每次发送确认时保持 fail-closed。
 
-唯一发布基点为 `main`（exact commit：`26e68f68e1dc4bb7de12971d074ff2c2f3c73e38`）。后续开发继续采用本地优先、节点式 Actions 验证；只有与 exact commit 绑定的 CI、APK、provenance 或真机记录才能升级相应验收状态。
+唯一发布基点为 `main`；当前 rolling candidate 的 exact commit 必须从 `android-latest` provenance 读取，避免文档中的静态 SHA 随后续合并失效。后续开发继续采用本地优先、节点式 Actions 验证；只有与 exact commit 绑定的 CI、APK、provenance 或真机记录才能升级相应验收状态。
 
 固定下载入口：[android-latest Release](https://github.com/lse872317312010/personal-os/releases/tag/android-latest)。每次构建的精确摘要在同一 Release 的 `personal-os-latest-debug.apk.sha256` 中，`personal-os-latest-debug.provenance.json` 同时记录 commit、workflow run、应用版本和 APK SHA-256；三者不一致时不得安装验收。
 
@@ -61,6 +61,7 @@ Vault 生命周期加固、dogfood 资产、结构化模型边界、外部处理
 - [M0 退出评审](docs/M0_EXIT_REVIEW.md)
 - [MVP 冻结范围](docs/MVP_SCOPE.md)
 - [MVP 验收标准](docs/ACCEPTANCE_CRITERIA.md)
+- [Redmi 真机 Dogfood Runbook](docs/REDMI_DOGFOOD_RUNBOOK.md)
 - [发展路线与里程碑](docs/ROADMAP.md)
 - [需求基线草案](docs/REQUIREMENTS.md)
 - [端到端用户场景](docs/USE_CASES.md)
@@ -140,4 +141,4 @@ secure Dart event-store/session coordinator、observation history UI、Blob/Sync
 契约加固、B2 controlled source/ingestion path、Android fail-closed 原生骨架和证据门禁。
 Android 默认 Composition 已是 secure vault，并接入受控 Photo Picker 与 Camera；Camera 在拍摄时显式请求权限，照片暂存于 app-private cache 的 FileProvider 路径，native 仅传递 opaque token 并写入 native blob sink，清理失败会触发稳定错误并对已写入 blob 回滚；synthetic/in-memory 仅通过显式 demo/test factory 使用。
 
-Android workflow 与 APK Release 已在 `26e68f68e1dc4bb7de12971d074ff2c2f3c73e38` 验证。Redmi 真机、SQLCipher production 行为、冷启动持久化、Keystore 生命周期和真实 provider 调用仍未验证。安全模式已包含 build-gated OpenAI transport、native-only 媒体边界、结构化输出、外部处理双重 consent 和一次性凭据租约；provider 默认关闭，因此仍不能视为 `DOGFOOD_READY`。
+Android workflow、非真机 dogfood journey gate 与 APK Release 已验证；rolling candidate 的 exact commit 记录在 Release provenance 中。Redmi 真机、SQLCipher production 行为、冷启动持久化、Keystore 生命周期和真实 provider 调用仍未验证。安全模式已包含 build-gated OpenAI transport、native-only 媒体边界、结构化输出、外部处理双重 consent 和一次性凭据租约；provider 默认关闭，因此仍不能视为 `DOGFOOD_READY`。
