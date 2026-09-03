@@ -157,11 +157,11 @@ final class AppComposition {
               ),
         modelCapabilities:
             resolvedModelGateway is AppearanceModelCapabilityGateway
-                ? resolvedModelGateway
+                ? resolvedModelGateway as AppearanceModelCapabilityGateway
                 : null,
         modelCredentials:
             resolvedModelGateway is AppearanceModelCredentialGateway
-                ? resolvedModelGateway
+                ? resolvedModelGateway as AppearanceModelCredentialGateway
                 : null,
         actor: ActorRef(
           actorId: 'primary-user',
