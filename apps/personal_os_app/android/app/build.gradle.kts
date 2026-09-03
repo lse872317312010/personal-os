@@ -4,6 +4,21 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val personalOsOpenAiEnabled =
+    providers.gradleProperty("personalOsOpenAiEnabled").orNull == "true"
+val personalOsOpenAiModel =
+    providers.gradleProperty("personalOsOpenAiModel").orNull?.trim().orEmpty()
+
+require(!personalOsOpenAiEnabled || personalOsOpenAiModel.isNotEmpty()) {
+    "personalOsOpenAiModel is required when personalOsOpenAiEnabled=true"
+}
+require(
+    personalOsOpenAiModel.isEmpty() ||
+        personalOsOpenAiModel.matches(Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,127}")),
+) {
+    "personalOsOpenAiModel contains unsupported characters"
+}
+
 android {
     namespace = "com.personalos.app"
     compileSdk = 36
@@ -26,8 +41,21 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        buildConfigField(
+            "boolean",
+            "PERSONAL_OS_OPENAI_ENABLED",
+            personalOsOpenAiEnabled.toString(),
+        )
+        buildConfigField(
+            "String",
+            "PERSONAL_OS_OPENAI_MODEL",
+            "\"$personalOsOpenAiModel\"",
+        )
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 flutter {
@@ -35,6 +63,7 @@ flutter {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("net.zetetic:sqlcipher-android:4.17.0@aar")
     implementation("androidx.sqlite:sqlite:2.7.0")
