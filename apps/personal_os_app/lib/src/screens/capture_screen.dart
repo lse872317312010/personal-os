@@ -28,7 +28,8 @@ final class _CaptureScreenState extends State<CaptureScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final busy = widget.controller.submission == SubmissionStatus.running;
+    final busy = widget.controller.submission == SubmissionStatus.running ||
+        widget.controller.credentialOperationRunning;
     return ListView(
       padding: const EdgeInsets.all(20),
       children: <Widget>[
@@ -56,22 +57,14 @@ final class _CaptureScreenState extends State<CaptureScreen> {
         if (widget.controller.sourceAvailable) ...<Widget>[
           FilledButton.icon(
             key: const Key('pick-photo-analyze'),
-            onPressed: busy
-                ? null
-                : () => widget.controller.pickPhotoAndAnalyze(
-                      observationContext: _context.text.trim(),
-                    ),
+            onPressed: busy ? null : _pickPhotoAndAnalyze,
             icon: const Icon(Icons.photo_library_outlined),
             label: const Text('选择照片并分析'),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
             key: const Key('capture-photo-analyze'),
-            onPressed: busy
-                ? null
-                : () => widget.controller.capturePhotoAndAnalyze(
-                      observationContext: _context.text.trim(),
-                    ),
+            onPressed: busy ? null : _capturePhotoAndAnalyze,
             icon: const Icon(Icons.camera_alt_outlined),
             label: const Text('拍照并分析'),
           ),
@@ -109,15 +102,57 @@ final class _CaptureScreenState extends State<CaptureScreen> {
                 : '敏感等级 D3；仅用于本次安全会话，可随时关闭',
           ),
         ),
+        if (widget.mode == AppExperienceMode.secureVault) ...<Widget>[
+          const SizedBox(height: 8),
+          Text(
+            _modelCapabilityStatus(widget.controller),
+            key: const Key('model-capability-status'),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          if (widget.controller.canConfigureExternalCredential) ...<Widget>[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              key: const Key('configure-model-credential'),
+              onPressed: busy
+                  ? null
+                  : widget.controller.configureExternalModelCredential,
+              icon: const Icon(Icons.key_outlined),
+              label: Text(
+                widget.controller.externalProcessingAvailable
+                    ? '更换一次性模型凭据'
+                    : '配置一次性模型凭据',
+              ),
+            ),
+            if (widget.controller.externalProcessingAvailable)
+              TextButton(
+                key: const Key('clear-model-credential'),
+                onPressed: busy
+                    ? null
+                    : widget.controller.clearExternalModelCredential,
+                child: const Text('立即清除模型凭据'),
+              ),
+          ],
+          if (widget.controller.externalProcessingAvailable ||
+              widget.controller.externalProcessingConsentGranted)
+            SwitchListTile(
+              key: const Key('external-processing-consent'),
+              value: widget.controller.externalProcessingConsentGranted,
+              onChanged: busy
+                  ? null
+                  : widget.controller.setExternalProcessingConsent,
+              title: const Text('我允许使用外部模型处理照片'),
+              subtitle: Text(
+                widget.controller.externalProcessingAvailable
+                    ? '独立持续授权；每次实际发送前仍会再次确认。'
+                    : '外部模型当前不可用；'
+                        '请关闭此授权以恢复安全拒绝状态。',
+              ),
+            ),
+        ],
         const SizedBox(height: 16),
         FilledButton(
           key: const Key('analyze-reference'),
-          onPressed: busy
-              ? null
-              : () => widget.controller.analyzeBlobReference(
-                    blobReference: _blobRef.text.trim(),
-                    observationContext: _context.text.trim(),
-                  ),
+          onPressed: busy ? null : _analyzeBlobReference,
           child: Text(
             busy
                 ? '正在生成建议…'
@@ -132,6 +167,66 @@ final class _CaptureScreenState extends State<CaptureScreen> {
         ],
       ],
     );
+  }
+
+  Future<void> _pickPhotoAndAnalyze() async {
+    final confirmed = await _confirmExternalTransmission();
+    if (!mounted || !confirmed) return;
+    await widget.controller.pickPhotoAndAnalyze(
+      observationContext: _context.text.trim(),
+      externalTransmissionConfirmed: confirmed,
+    );
+  }
+
+  Future<void> _capturePhotoAndAnalyze() async {
+    final confirmed = await _confirmExternalTransmission();
+    if (!mounted || !confirmed) return;
+    await widget.controller.capturePhotoAndAnalyze(
+      observationContext: _context.text.trim(),
+      externalTransmissionConfirmed: confirmed,
+    );
+  }
+
+  Future<void> _analyzeBlobReference() async {
+    final confirmed = await _confirmExternalTransmission();
+    if (!mounted || !confirmed) return;
+    await widget.controller.analyzeBlobReference(
+      blobReference: _blobRef.text.trim(),
+      observationContext: _context.text.trim(),
+      externalTransmissionConfirmed: confirmed,
+    );
+  }
+
+  Future<bool> _confirmExternalTransmission() async {
+    if (!widget.controller.externalTransmissionConfirmationRequired) {
+      return true;
+    }
+    return await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            key: const Key('external-transmission-confirmation'),
+            title: const Text('确认发送到外部模型'),
+            content: const Text(
+              '本次照片和观察说明将离开设备，交给外部模型处理。'
+              '服务商可能收取 API 费用；一次性凭据无论成功或失败都会被清除。'
+              '应用不会把凭据或原始响应写入事件记录。',
+            ),
+            actions: <Widget>[
+              TextButton(
+                key: const Key('cancel-external-transmission'),
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                key: const Key('confirm-external-transmission'),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text('仅发送这一次'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 }
 
@@ -152,6 +247,39 @@ String _errorMessage(String code) => switch (code) {
       'security.unlock_unavailable' => '当前无法使用解锁验证。',
       'security.unlock_expired' => '解锁会话已过期，请重新进入。',
       'security.provider_unavailable' => '安全存储暂时不可用，请稍后重试。',
+      'model.adapter_unavailable' => '真实模型尚未配置，照片未发送。',
+      'model.on_device_unavailable' => '当前模型不支持设备内处理。',
+      'model.external_processing_unavailable' =>
+        '外部模型或运行时凭据尚未就绪，照片未发送。',
+      'model.credential_configuration_unavailable' =>
+        '当前模型不支持运行时凭据配置。',
+      'model.credential_configuration_failed' => '模型凭据配置失败，未保存任何值。',
+      'model.runtime_credential_not_ready' => '模型凭据未就绪，请重新配置。',
+      'model.credential_clear_failed' =>
+        '模型凭据清除失败，请锁定保险库后重试。',
+      'external_consent_persistence_failed' =>
+        '外部处理授权未能安全保存，请重试。',
+      'external_processing_consent_required' =>
+        '当前仅配置了外部模型，请先完成独立授权。',
+      'external_transmission_confirmation_required' =>
+        '本次外部发送尚未确认，照片未读取也未发送。',
       'd4_persistence_forbidden' => '该资料不允许持久化。',
       _ => '暂时无法生成（$code），请重试。',
     };
+
+String _modelCapabilityStatus(AppController controller) {
+  if (!controller.modelConfigured) {
+    return '真实模型尚未配置；系统会在读取照片前安全拒绝。';
+  }
+  if (controller.externalProcessingConfigured) {
+    if (controller.externalProcessingAvailable) {
+      return controller.onDeviceProcessingAvailable
+          ? '设备内模型可用；外部模型和运行时凭据也已就绪。'
+          : '外部模型和运行时凭据已就绪。';
+    }
+    return controller.onDeviceProcessingAvailable
+        ? '设备内模型可用；外部模型已配置，但运行时凭据未就绪。'
+        : '外部模型已配置，但运行时凭据未就绪。';
+  }
+  return '设备内安全模型已配置。';
+}
