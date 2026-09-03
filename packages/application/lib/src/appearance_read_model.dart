@@ -17,6 +17,7 @@ final class AppearanceSessionView {
     required this.tasks,
     required this.review,
     required this.consent,
+    this.consents = const <AppearanceConsentView>[],
     this.observations = const <AppearanceObservationView>[],
   });
 
@@ -28,6 +29,7 @@ final class AppearanceSessionView {
   final List<AppearanceTaskView> tasks;
   final AppearanceReviewView? review;
   final AppearanceConsentView? consent;
+  final List<AppearanceConsentView> consents;
   final List<AppearanceObservationView> observations;
 
   bool get hasAnalysis => claims.isNotEmpty;
@@ -207,7 +209,7 @@ final class AppearanceSessionQueryHandler {
     final tasks = <String, AppearanceTaskView>{};
     final observations = <String, AppearanceObservationView>{};
     AppearanceReviewView? review;
-    AppearanceConsentView? consent;
+    final consents = <String, AppearanceConsentView>{};
 
     for (final event in events) {
       final subject = _subjectForEvent(event);
@@ -339,7 +341,7 @@ final class AppearanceSessionQueryHandler {
           }
           break;
         case EventTypes.consentRequested:
-          consent = AppearanceConsentView(
+          consents[id] = AppearanceConsentView(
             id: id,
             state: ConsentState.requested.name,
             stateRevision: (event.expectedRevision ?? 0) + 1,
@@ -347,8 +349,8 @@ final class AppearanceSessionQueryHandler {
           );
           break;
         case EventTypes.consentGranted:
-          consent = _consentState(
-            consent,
+          consents[id] = _consentState(
+            consents[id],
             id,
             ConsentState.granted.name,
             (event.expectedRevision ?? 1) + 1,
@@ -356,20 +358,20 @@ final class AppearanceSessionQueryHandler {
           );
           break;
         case EventTypes.consentRevoked:
-          consent = _consentState(
-            consent,
+          consents[id] = _consentState(
+            consents[id],
             id,
             ConsentState.revoked.name,
-            (consent?.stateRevision ?? 0) + 1,
+            (consents[id]?.stateRevision ?? 0) + 1,
             _int(payload['consent_revision']),
           );
           break;
         case EventTypes.consentExpired:
-          consent = _consentState(
-            consent,
+          consents[id] = _consentState(
+            consents[id],
             id,
             ConsentState.expired.name,
-            (consent?.stateRevision ?? 0) + 1,
+            (consents[id]?.stateRevision ?? 0) + 1,
             _int(payload['consent_revision']),
           );
           break;
@@ -384,7 +386,9 @@ final class AppearanceSessionQueryHandler {
       plan: plan,
       tasks: List<AppearanceTaskView>.unmodifiable(tasks.values),
       review: review,
-      consent: consent,
+      consent: consents['local-appearance-consent'] ??
+          (consents.length == 1 ? consents.values.single : null),
+      consents: List<AppearanceConsentView>.unmodifiable(consents.values),
       observations: List<AppearanceObservationView>.unmodifiable(
         observations.values,
       ),
