@@ -1,5 +1,6 @@
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
+import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
 import 'package:personal_os_policy/policy.dart';
 import 'package:personal_os_policy_application/policy_application.dart';
 import 'package:test/test.dart';
@@ -17,8 +18,14 @@ void main() {
     id: EntityId('consent-1'),
     revision: Revision(7),
   );
+  final externalRef = ObjectRef(
+    type: 'consent',
+    id: EntityId('external-consent-1'),
+    revision: Revision(3),
+  );
 
   ConsentGrant grant({
+    String consentId = 'consent-1',
     ConsentStatus status = ConsentStatus.active,
     DateTime? validUntil,
     int revision = 7,
@@ -30,7 +37,7 @@ void main() {
     Sensitivity maximumSensitivity = Sensitivity.d3,
   }) =>
       ConsentGrant(
-        consentId: 'consent-1',
+        consentId: consentId,
         revision: revision,
         subjectId: subjectId,
         authorizedActorId: actorId,
@@ -104,6 +111,79 @@ void main() {
     expect(result.reasonCode, isNull);
   });
 
+  test('external processing requires a separate exact consent scope',
+      () async {
+    final externalGrant = grant(
+      consentId: 'external-consent-1',
+      revision: 3,
+      purposes: {'external_processing'},
+      actions: {'transmit'},
+    );
+    final adapter = AppearancePolicyAdapter(
+      consents: _MultiRepository({
+        'consent-1@7': grant(),
+        'external-consent-1@3': externalGrant,
+      }),
+      clock: _FixedClock(now),
+    );
+
+    final result = await adapter.authorizeAnalysis(
+      actor: actor,
+      profileId: profileId,
+      consentRefs: [ref, externalRef],
+      sensitivity: Sensitivity.d3,
+      processingBoundary: AppearanceProcessingBoundary.externalProcessor,
+    );
+
+    expect(result.allowed, isTrue);
+  });
+
+  test('external processing fails closed without transmit consent', () async {
+    final secondRef = ObjectRef(
+      type: 'consent',
+      id: EntityId('consent-2'),
+      revision: Revision(1),
+    );
+    final adapter = AppearancePolicyAdapter(
+      consents: _MultiRepository({
+        'consent-1@7': grant(),
+        'consent-2@1': grant(consentId: 'consent-2', revision: 1),
+      }),
+      clock: _FixedClock(now),
+    );
+
+    final result = await adapter.authorizeAnalysis(
+      actor: actor,
+      profileId: profileId,
+      consentRefs: [ref, secondRef],
+      sensitivity: Sensitivity.d3,
+      processingBoundary: AppearanceProcessingBoundary.externalProcessor,
+    );
+
+    expect(result.allowed, isFalse);
+    expect(
+      result.reasonCode,
+      AppearancePolicyReason.externalProcessingConsentRequired,
+    );
+  });
+
+  test('external processing rejects duplicate consent references', () async {
+    final adapter = AppearancePolicyAdapter(
+      consents: _Repository(grant()),
+      clock: _FixedClock(now),
+    );
+
+    final result = await adapter.authorizeAnalysis(
+      actor: actor,
+      profileId: profileId,
+      consentRefs: [ref, ref],
+      sensitivity: Sensitivity.d3,
+      processingBoundary: AppearanceProcessingBoundary.externalProcessor,
+    );
+
+    expect(result.reasonCode, AppearancePolicyReason.invalidConsentReference);
+  });
+
   test('denies unpinned, duplicate, and wrong-type references', () async {
     final adapter = AppearancePolicyAdapter(
       consents: _Repository(grant()),
@@ -170,6 +250,19 @@ final class _Repository implements ConsentRevisionRepository {
     if (throwsOnRead) throw StateError('unavailable');
     return value;
   }
+}
+
+final class _MultiRepository implements ConsentRevisionRepository {
+  const _MultiRepository(this.values);
+
+  final Map<String, ConsentGrant> values;
+
+  @override
+  Future<ConsentGrant?> findRevision({
+    required String consentId,
+    required int revision,
+  }) async =>
+      values['$consentId@$revision'];
 }
 
 final class _FixedClock implements PolicyClock {
