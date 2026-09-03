@@ -1,6 +1,6 @@
 name: personal_os_app
 description: Android-first Flutter shell for the Personal OS primary vault.
-version: 0.0.1+1
+version: 0.1.0-dev.1+1
 publish_to: none
 
 environment:
