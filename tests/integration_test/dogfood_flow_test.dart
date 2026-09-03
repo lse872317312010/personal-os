@@ -68,7 +68,10 @@ void main() {
       expect(writer.submission, SubmissionStatus.succeeded);
       expect(writer.result, isNotNull);
       expect(harness.source.issued, hasLength(1));
-      expect(harness.source.released, contains(harness.source.issued.single));
+      expect(
+        harness.source.released,
+        contains(harness.source.issued.single.value),
+      );
       expect(harness.ingestion.tokens, [harness.source.issued.single]);
       expect(harness.ingestion.discarded, isEmpty);
       expect(harness.store.readEvents().toString(),
