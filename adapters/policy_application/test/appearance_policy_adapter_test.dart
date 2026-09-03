@@ -111,8 +111,7 @@ void main() {
     expect(result.reasonCode, isNull);
   });
 
-  test('external processing requires a separate exact consent scope',
-      () async {
+  test('external processing requires a separate exact consent scope', () async {
     final externalGrant = grant(
       consentId: 'external-consent-1',
       revision: 3,
