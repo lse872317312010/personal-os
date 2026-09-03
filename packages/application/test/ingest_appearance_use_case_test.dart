@@ -76,7 +76,11 @@ void main() {
       expect(event.payload.values, everyElement(isNot(isA<List<int>>())));
     }
     expect(
-      store.events.first.payload,
+      store.events
+          .singleWhere(
+            (event) => event.eventType == EventTypes.observationRecorded,
+          )
+          .payload,
       containsPair('blob_ref', 'blob://opaque-1'),
     );
     expect(
@@ -146,7 +150,32 @@ void main() {
       )),
     );
     expect(ingestion.discarded, <BlobRef>[BlobRef('blob://opaque-1')]);
-    expect(store.events, hasLength(1));
+    expect(store.events, isEmpty);
+  });
+
+  test('observation failure retains blob referenced by committed analysis',
+      () async {
+    final ingestion = _Ingestion();
+    final store = _Store()..failObservation = true;
+
+    await expectLater(
+      _buildUseCase(ingestion, store, _Model()).execute(
+        _buildCommand(Stream<List<int>>.value(<int>[6])),
+      ),
+      throwsA(isA<StateError>()),
+    );
+
+    expect(ingestion.discarded, isEmpty);
+    expect(
+      store.events.any((event) => event.eventType == EventTypes.claimProposed),
+      isTrue,
+    );
+    expect(
+      store.events.any(
+        (event) => event.eventType == EventTypes.observationRecorded,
+      ),
+      isFalse,
+    );
   });
 
   test('discard failure preserves the stable application error', () async {
@@ -248,9 +277,16 @@ final class _Model implements AppearanceAnalysisGateway {
 
 final class _Store implements EventStore {
   final List<EventEnvelope> events = <EventEnvelope>[];
+  bool failObservation = false;
 
   @override
   Future<void> appendAll(List<EventEnvelope> events) async {
+    if (failObservation &&
+        events.any(
+          (event) => event.eventType == EventTypes.observationRecorded,
+        )) {
+      throw StateError('observation unavailable');
+    }
     this.events.addAll(events);
   }
 
@@ -290,6 +326,8 @@ final class _Policy implements AppearancePolicyPort {
     required EntityId profileId,
     required List<ObjectRef> consentRefs,
     required Sensitivity sensitivity,
+    AppearanceProcessingBoundary processingBoundary =
+        AppearanceProcessingBoundary.onDevice,
   }) async =>
       const PolicyVerdict.allow();
 }
