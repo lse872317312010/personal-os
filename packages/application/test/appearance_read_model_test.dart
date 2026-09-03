@@ -100,6 +100,7 @@ void main() {
     );
 
     expect(view.observations, isEmpty);
+    expect(view.consents, isEmpty);
   });
 
   test('keeps observation list backward-compatible by default', () {
@@ -165,6 +166,58 @@ void main() {
     expect(view.consent?.state, ConsentState.revoked.name);
     expect(view.consent?.stateRevision, 3);
     expect(view.consent?.consentRevision, 1);
+  });
+
+  test('keeps appearance and external processing consents independent',
+      () async {
+    final view = await AppearanceSessionQueryHandler(_Store(<EventEnvelope>[
+      _event(
+        id: 'appearance-granted',
+        type: EventTypes.consentGranted,
+        subject: ObjectRef(
+          type: 'consent',
+          id: EntityId('local-appearance-consent'),
+        ),
+        payload: const <String, Object?>{
+          'expected_revision': 1,
+          'consent_revision': 2,
+        },
+      ),
+      _event(
+        id: 'external-granted',
+        type: EventTypes.consentGranted,
+        subject: ObjectRef(
+          type: 'consent',
+          id: EntityId('external-processing-consent'),
+        ),
+        payload: const <String, Object?>{
+          'expected_revision': 1,
+          'consent_revision': 1,
+        },
+      ),
+      _event(
+        id: 'external-revoked',
+        type: EventTypes.consentRevoked,
+        subject: ObjectRef(
+          type: 'consent',
+          id: EntityId('external-processing-consent'),
+        ),
+        payload: const <String, Object?>{
+          'expected_revision': 2,
+          'consent_revision': 1,
+        },
+      ),
+    ])).execute(
+      GetAppearanceHistoryQuery(profileId: EntityId('profile-1')),
+    );
+
+    expect(view.consents, hasLength(2));
+    expect(view.consent?.id, 'local-appearance-consent');
+    expect(view.consent?.state, ConsentState.granted.name);
+    final external = view.consents.singleWhere(
+      (consent) => consent.id == 'external-processing-consent',
+    );
+    expect(external.state, ConsentState.revoked.name);
   });
 
   test('reconstructs feedback completion, skip, and review lifecycle',
