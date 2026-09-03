@@ -89,7 +89,7 @@ void main() {
       ),
       (
         grant(resources: {'another_resource'}),
-        PolicyReason.consentResourceMismatch
+        PolicyReason.consentResourceMismatch,
       ),
       (grant(actions: {'another_action'}), PolicyReason.consentActionMismatch),
       (
