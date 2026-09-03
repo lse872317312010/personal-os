@@ -37,14 +37,16 @@ bash tool/run_dogfood_tests.sh
 
 ## 3. 获取 APK 与记录候选版本
 
-从 GitHub Release 下载候选 APK，并记录：
+从 GitHub Release 下载 APK、SHA-256 sidecar 和 provenance。先在同一目录验证三者绑定；校验器不依赖 sidecar 中的相对路径，因此适用于 GitHub Release 单文件下载：
 
 ```sh
-sha256sum personal-os-latest-debug.apk
-git rev-parse HEAD
+python3 tool/android_mvp/verify_release_candidate.py \
+  --apk personal-os-latest-debug.apk \
+  --checksum personal-os-latest-debug.apk.sha256 \
+  --provenance personal-os-latest-debug.provenance.json
 ```
 
-Release、APK SHA-256 和 provenance 中的 commit 必须指向同一个候选 commit。若不一致，停止验收。
+候选 commit 必须读取 provenance，不能使用本地仓库 HEAD 代替。APK、sidecar 和 provenance 任一不一致时，停止验收。
 
 ## 4. Redmi 预检
 
@@ -53,6 +55,8 @@ Release、APK SHA-256 和 provenance 中的 commit 必须指向同一个候选 c
 ```sh
 bash tool/android_mvp/redmi_dogfood_preflight.sh \
   /path/to/personal-os-latest-debug.apk \
+  /path/to/personal-os-latest-debug.apk.sha256 \
+  /path/to/personal-os-latest-debug.provenance.json \
   /path/to/redmi-dogfood-preflight.json
 ```
 
@@ -92,3 +96,9 @@ adb shell monkey -p com.personalos.app -c android.intent.category.LAUNCHER 1
 
 任何真机场景显示 `BLOCKED` 或 `FAIL`，整体不能标记为 `DOGFOOD_READY`。本 runbook 不会把 synthetic 测试结果提升为真机结论。
 
+完成记录后先验证结构；只有要求全部真机场景通过时才加入 `--require-ready`：
+
+```sh
+bash tool/validate_redmi_evidence.sh completed-redmi-evidence.json
+bash tool/validate_redmi_evidence.sh completed-redmi-evidence.json --require-ready
+```
