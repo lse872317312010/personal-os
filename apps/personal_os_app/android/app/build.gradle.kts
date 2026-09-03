@@ -64,6 +64,7 @@ flutter {
 
 dependencies {
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.16.1")
     implementation("androidx.biometric:biometric:1.1.0")
     implementation("net.zetetic:sqlcipher-android:4.17.0@aar")
     implementation("androidx.sqlite:sqlite:2.7.0")
