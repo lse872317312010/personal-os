@@ -7,19 +7,20 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.io.InputStream
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.UUID
 
 /** Private channel facade. Database keys and handles never cross this class boundary. */
 internal class NativeVaultChannel(
     private val activity: FragmentActivity,
     private val sessions: OpaqueVaultSessionRegistry = OpaqueVaultSessionRegistry(),
     private val tickets: KeystoreTicketCodec = KeystoreTicketCodec(),
-) : MethodChannel.MethodCallHandler {
+) : MethodChannel.MethodCallHandler, NativeModelMediaAccess {
     companion object {
         const val CHANNEL_NAME = "personal_os/internal/android_vault"
         private const val DEFAULT_PROMPT_TITLE = "Unlock Personal OS"
@@ -117,11 +118,14 @@ internal class NativeVaultChannel(
                 BiometricManager.Authenticators.BIOMETRIC_STRONG or
                     BiometricManager.Authenticators.DEVICE_CREDENTIAL,
             )
+        val protectionLevel = tickets.protectionLevel()
         return mapOf(
-            "protectionLevel" to tickets.protectionLevel(),
+            "protectionLevel" to protectionLevel,
             "userAuthenticationAvailable" to strongBiometricAvailable,
             "deviceCredentialAvailable" to deviceCredentialAvailable,
-            "nonExportableKeys" to true,
+            // Do not claim a secure key capability while the Keystore key is
+            // absent or unreadable. Callers must remain fail-closed.
+            "nonExportableKeys" to tickets.hasNonExportableKey(),
             "atomicDeviceRevocation" to false,
         )
     }
@@ -311,6 +315,16 @@ internal class NativeVaultChannel(
         val ticketId = requiredStringArgument(call, "authenticationTicketId")
         val ticketExpiresAt = requiredLongArgument(call, "ticketExpiresAt")
         enqueueDatabase(result) {
+            // A process may expose only one active vault session. Reject a
+            // second open instead of leaving an older SQLCipher handle alive
+            // and changing the source adapter's active-session binding.
+            val currentSession = activeSessionId
+            if (currentSession != null) {
+                if (sessions.isActive(currentSession)) {
+                    throw NativeVaultFailure(NativeVaultFailureCode.VAULT_LOCKED)
+                }
+                activeSessionId = null
+            }
             val databaseKey = tickets.consumeForOpen(ticketId, ticketExpiresAt)
             var database: NativeVaultDatabase? = null
             try {
@@ -366,6 +380,21 @@ internal class NativeVaultChannel(
             ?: throw NativeVaultFailure(NativeVaultFailureCode.VAULT_LOCKED)
         sessions.withActive(sessionId) { database ->
             database.deleteBlob(blobRef)
+        }
+    }
+
+    /** Native model adapters can read media only while the vault session is active. */
+    override fun <T> useBlobForModel(
+        blobRef: String,
+        consumer: (InputStream) -> T,
+    ): T {
+        if (disposed.get()) {
+            throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
+        }
+        val sessionId = activeSessionId
+            ?: throw NativeVaultFailure(NativeVaultFailureCode.VAULT_LOCKED)
+        return sessions.withActive(sessionId) { database ->
+            database.useBlob(blobRef, consumer)
         }
     }
 

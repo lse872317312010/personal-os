@@ -38,6 +38,13 @@ void main() {
           .having((error) => error.toString(), 'safe', isNot(contains('/')))),
     );
   });
+
+  test('source contract preserves user cancellation as a stable code', () {
+    const failure = SourceBlobIngestionException('source_cancelled');
+
+    expect(failure.code, 'source_cancelled');
+    expect(failure.toString(), isNot(contains('/')));
+  });
 }
 
 final _access = BlobAccessContext(

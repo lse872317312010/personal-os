@@ -242,6 +242,8 @@ final class _Policy implements AppearancePolicyPort {
     required EntityId profileId,
     required List<ObjectRef> consentRefs,
     required Sensitivity sensitivity,
+    AppearanceProcessingBoundary processingBoundary =
+        AppearanceProcessingBoundary.onDevice,
   }) async =>
       const PolicyVerdict.allow();
 }

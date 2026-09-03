@@ -133,6 +133,26 @@ internal class KeystoreTicketCodec(
         openableTickets.clear()
     }
 
+    /**
+     * Reports whether the authenticated Keystore key is currently available.
+     *
+     * This is deliberately false before first unlock and on any inspection
+     * failure so capability discovery cannot be used as a readiness bypass.
+     */
+    fun hasNonExportableKey(): Boolean {
+        return try {
+            val keyStore = KeyStore.getInstance(KEYSTORE).apply { load(null) }
+            val key = keyStore.getKey(AUTH_KEY_ALIAS, null) as? SecretKey ?: return false
+            val keyInfo = SecretKeyFactory.getInstance(key.algorithm, KEYSTORE)
+                .getKeySpec(key, KeyInfo::class.java)
+            KeyInfo::class.java
+                .getMethod("isUserAuthenticationRequired")
+                .invoke(keyInfo) as Boolean
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
     /** Reports the Keystore backing of an already-created ticket key only. */
     fun protectionLevel(): String {
         return try {

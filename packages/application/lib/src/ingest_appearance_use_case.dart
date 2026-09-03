@@ -1,5 +1,6 @@
 import 'package:personal_os_blob_engine/blob_engine.dart';
 import 'package:personal_os_domain/domain.dart';
+import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 
 import 'appearance_commands.dart';
@@ -10,7 +11,7 @@ import 'observation_use_case.dart';
 /// Raw bytes are accepted only at this boundary. They are passed directly to
 /// the blob ingestion port and are never copied into an event or model input.
 final class IngestAppearanceAnalysisCommand {
-  const IngestAppearanceAnalysisCommand({
+  IngestAppearanceAnalysisCommand({
     required this.bytes,
     required this.mediaType,
     required this.access,
@@ -21,7 +22,14 @@ final class IngestAppearanceAnalysisCommand {
     required this.correlationId,
     this.locale = 'zh-CN',
     this.sensitivity = Sensitivity.d3,
-  });
+    Iterable<ObjectRef>? analysisConsentRefs,
+    this.processingBoundary = AppearanceProcessingBoundary.onDevice,
+  }) : analysisConsentRefs = List<ObjectRef>.unmodifiable(
+          analysisConsentRefs ??
+              (consentRef == null
+                  ? const <ObjectRef>[]
+                  : <ObjectRef>[consentRef]),
+        );
 
   final Stream<List<int>> bytes;
   final String mediaType;
@@ -33,6 +41,8 @@ final class IngestAppearanceAnalysisCommand {
   final String correlationId;
   final String locale;
   final Sensitivity sensitivity;
+  final List<ObjectRef> analysisConsentRefs;
+  final AppearanceProcessingBoundary processingBoundary;
 }
 
 final class IngestAppearanceAnalysisResult {
@@ -84,7 +94,21 @@ final class IngestAppearanceAnalysisUseCase {
       access: command.access,
     );
 
+    var analysisCommitted = false;
     try {
+      final analysis = await _analyzeAppearance.execute(
+        AnalyzeAppearanceCommand(
+          profileId: command.profileId,
+          imageRef: blobRef.encode(),
+          actor: command.actor,
+          correlationId: command.correlationId,
+          observationContext: command.observationContext,
+          consentRefs: command.analysisConsentRefs,
+          locale: command.locale,
+          processingBoundary: command.processingBoundary,
+        ),
+      );
+      analysisCommitted = true;
       final observation = await _recordObservation.execute(
         RecordObservationCommand(
           profileId: command.profileId,
@@ -97,29 +121,18 @@ final class IngestAppearanceAnalysisUseCase {
           sensitivity: command.sensitivity,
         ),
       );
-      final analysis = await _analyzeAppearance.execute(
-        AnalyzeAppearanceCommand(
-          profileId: command.profileId,
-          imageRef: blobRef.encode(),
-          actor: command.actor,
-          correlationId: command.correlationId,
-          observationContext: command.observationContext,
-          consentRefs: command.consentRef == null
-              ? const <ObjectRef>[]
-              : <ObjectRef>[command.consentRef!],
-          locale: command.locale,
-        ),
-      );
       return IngestAppearanceAnalysisResult(
         blobRef: blobRef,
         observation: observation,
         analysis: analysis,
       );
     } catch (_) {
-      try {
-        await rollback.discard(ref: blobRef, access: command.access);
-      } catch (_) {
-        // Preserve the original stable application failure.
+      if (!analysisCommitted) {
+        try {
+          await rollback.discard(ref: blobRef, access: command.access);
+        } catch (_) {
+          // Preserve the original stable application failure.
+        }
       }
       rethrow;
     }

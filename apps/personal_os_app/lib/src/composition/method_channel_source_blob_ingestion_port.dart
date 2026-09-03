@@ -47,7 +47,7 @@ final class MethodChannelSourceBlobIngestionPort
         ControlledSourceFailureCode.sourceConsumed => 'source_consumed',
         ControlledSourceFailureCode.denied => 'source_denied',
         ControlledSourceFailureCode.sourceWriteFailed => 'ingestion_failed',
-        ControlledSourceFailureCode.cancelled => 'source_unavailable',
+        ControlledSourceFailureCode.cancelled => 'source_cancelled',
         ControlledSourceFailureCode.unavailable => 'source_unavailable',
         ControlledSourceFailureCode.invalidResponse => 'ingestion_failed',
       };

@@ -1,4 +1,5 @@
 import 'package:personal_os_domain/domain.dart';
+import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
 import 'package:personal_os_source_api/source_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 
@@ -11,7 +12,7 @@ import 'observation_use_case.dart';
 /// Command for native source-token ingestion. The token is never dereferenced,
 /// serialized into an event, or converted into bytes in Dart.
 final class IngestAppearanceFromSourceCommand {
-  const IngestAppearanceFromSourceCommand({
+  IngestAppearanceFromSourceCommand({
     required this.source,
     required this.mediaType,
     required this.access,
@@ -22,7 +23,14 @@ final class IngestAppearanceFromSourceCommand {
     required this.correlationId,
     this.locale = 'zh-CN',
     this.sensitivity = Sensitivity.d3,
-  });
+    Iterable<ObjectRef>? analysisConsentRefs,
+    this.processingBoundary = AppearanceProcessingBoundary.onDevice,
+  }) : analysisConsentRefs = List<ObjectRef>.unmodifiable(
+          analysisConsentRefs ??
+              (consentRef == null
+                  ? const <ObjectRef>[]
+                  : <ObjectRef>[consentRef]),
+        );
 
   final OpaqueSourceToken source;
   final String mediaType;
@@ -34,6 +42,8 @@ final class IngestAppearanceFromSourceCommand {
   final String correlationId;
   final String locale;
   final Sensitivity sensitivity;
+  final List<ObjectRef> analysisConsentRefs;
+  final AppearanceProcessingBoundary processingBoundary;
 }
 
 final class IngestAppearanceFromSourceResult {
@@ -95,10 +105,9 @@ final class IngestAppearanceFromSourceUseCase {
           actor: command.actor,
           correlationId: command.correlationId,
           observationContext: command.observationContext,
-          consentRefs: command.consentRef == null
-              ? const <ObjectRef>[]
-              : <ObjectRef>[command.consentRef!],
+          consentRefs: command.analysisConsentRefs,
           locale: command.locale,
+          processingBoundary: command.processingBoundary,
         ),
       );
       eventCommitted = true;

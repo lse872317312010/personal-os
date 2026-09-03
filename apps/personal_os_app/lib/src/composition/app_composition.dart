@@ -15,10 +15,11 @@ import 'package:personal_os_source_api/source_api.dart';
 
 import '../controller/app_controller.dart';
 import 'android_platform_security_bridge.dart';
-import 'native_sqlcipher_event_store.dart';
-import 'native_sqlcipher_session_coordinator.dart';
+import 'method_channel_appearance_analysis_gateway.dart';
 import 'method_channel_controlled_source_port.dart';
 import 'method_channel_source_blob_ingestion_port.dart';
+import 'native_sqlcipher_event_store.dart';
+import 'native_sqlcipher_session_coordinator.dart';
 
 enum AppExperienceMode { syntheticDemo, secureVault }
 
@@ -61,6 +62,7 @@ final class AppComposition {
   factory AppComposition.secureVault({
     PlatformSecurityBridge? securityBridge,
     MethodChannel? channel,
+    MethodChannel? modelChannel,
   }) {
     final bridge =
         securityBridge ?? AndroidPlatformSecurityBridge(channel: channel);
@@ -79,7 +81,9 @@ final class AppComposition {
       sessionCoordinator: coordinator,
       sourcePort: sourcePort,
       sourceBlobIngestion: sourceBlobIngestion,
-      modelGateway: const _UnavailableSecureModelGateway(),
+      modelGateway: MethodChannelAppearanceAnalysisGateway(
+        channel: modelChannel,
+      ),
     );
   }
 
@@ -103,12 +107,13 @@ final class AppComposition {
       fallback: consentRepository,
     );
     final ids = _SequentialIds();
+    final resolvedModelGateway = modelGateway ??
+        const FixtureAppearanceAnalysisGateway(
+          behavior: FixtureAppearanceBehavior.syntheticSuccess,
+        );
     final useCase = AnalyzeAppearanceUseCase(
       eventStore: eventStore,
-      modelGateway: modelGateway ??
-          const FixtureAppearanceAnalysisGateway(
-            behavior: FixtureAppearanceBehavior.syntheticSuccess,
-          ),
+      modelGateway: resolvedModelGateway,
       policy: AppearancePolicyAdapter(
         consents: policyConsentRepository,
         clock: policyClock,
@@ -150,6 +155,14 @@ final class AppComposition {
                 ),
                 analyzeAppearance: useCase,
               ),
+        modelCapabilities:
+            resolvedModelGateway is AppearanceModelCapabilityGateway
+                ? resolvedModelGateway as AppearanceModelCapabilityGateway
+                : null,
+        modelCredentials:
+            resolvedModelGateway is AppearanceModelCredentialGateway
+                ? resolvedModelGateway as AppearanceModelCredentialGateway
+                : null,
         actor: ActorRef(
           actorId: 'primary-user',
           actorType: ActorType.user,
@@ -191,14 +204,4 @@ final class _SequentialIds implements IdGenerator {
 
   @override
   String nextId(String namespace) => '$namespace-${++_next}';
-}
-
-
-final class _UnavailableSecureModelGateway implements AppearanceAnalysisGateway {
-  const _UnavailableSecureModelGateway();
-
-  @override
-  Future<AppearanceAnalysisResult> analyze(AppearanceAnalysisInput input) async {
-    throw StateError('secure model adapter unavailable');
-  }
 }

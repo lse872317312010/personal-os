@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_blob_engine/blob_engine.dart';
 import 'package:personal_os_domain/domain.dart';
+import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
 import 'package:personal_os_security_api/security_api.dart';
 import 'package:personal_os_source_api/source_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
@@ -39,6 +40,8 @@ final class AppController extends ChangeNotifier {
     SecureSessionCoordinator? sessionCoordinator,
     ControlledSourcePort? sourcePort,
     IngestAppearanceFromSourceUseCase? ingestAppearanceFromSource,
+    AppearanceModelCapabilityGateway? modelCapabilities,
+    AppearanceModelCredentialGateway? modelCredentials,
   })  : _analyzeAppearance = analyzeAppearance,
         _actionFeedback = actionFeedback,
         _profileId = profileId,
@@ -50,7 +53,11 @@ final class AppController extends ChangeNotifier {
         _secureVault = secureVault,
         _sessionCoordinator = sessionCoordinator,
         _sourcePort = sourcePort,
-        _ingestAppearanceFromSource = ingestAppearanceFromSource {
+        _ingestAppearanceFromSource = ingestAppearanceFromSource,
+        _modelCapabilities = modelCapabilities,
+        _modelCredentials = modelCredentials,
+        _modelConfigured = modelCapabilities == null,
+        _onDeviceProcessingAvailable = modelCapabilities == null {
     if (_sessionCoordinator != null) {
       _sessionCoordinator.onSessionInvalidated = _handleSessionInvalidated;
     }
@@ -82,6 +89,8 @@ final class AppController extends ChangeNotifier {
   final SecureSessionCoordinator? _sessionCoordinator;
   final ControlledSourcePort? _sourcePort;
   final IngestAppearanceFromSourceUseCase? _ingestAppearanceFromSource;
+  final AppearanceModelCapabilityGateway? _modelCapabilities;
+  final AppearanceModelCredentialGateway? _modelCredentials;
 
   bool _vaultUnlocked = false;
   bool _consentGranted = false;
@@ -102,9 +111,28 @@ final class AppController extends ChangeNotifier {
   int _consentStateRevision = 0;
   int _consentRevision = 0;
   int _lifecycleEpoch = 0;
+  bool _modelConfigured;
+  bool _externalProcessingConfigured = false;
+  bool _externalProcessingAvailable = false;
+  bool _onDeviceProcessingAvailable;
+  bool _externalProcessingConsentGranted = false;
+  bool _credentialOperationRunning = false;
+  int _externalConsentStateRevision = 0;
+  int _externalConsentRevision = 0;
 
   bool get vaultUnlocked => _vaultUnlocked;
   bool get consentGranted => _consentGranted;
+  bool get modelConfigured => _modelConfigured;
+  bool get externalProcessingConfigured => _externalProcessingConfigured;
+  bool get externalProcessingAvailable => _externalProcessingAvailable;
+  bool get onDeviceProcessingAvailable => _onDeviceProcessingAvailable;
+  bool get externalProcessingConsentGranted =>
+      _externalProcessingConsentGranted;
+  bool get externalTransmissionConfirmationRequired =>
+      _processingBoundary == AppearanceProcessingBoundary.externalProcessor;
+  bool get credentialOperationRunning => _credentialOperationRunning;
+  bool get canConfigureExternalCredential =>
+      _modelCredentials != null && _externalProcessingConfigured;
   AppDestination get destination => _destination;
   SubmissionStatus get submission => _submission;
   AppearanceLoopResult? get result => _result;
@@ -143,6 +171,7 @@ final class AppController extends ChangeNotifier {
     }
     _vaultUnlocked = true;
     notifyListeners();
+    unawaited(_refreshModelCapabilities());
     if (_sessionQuery != null) unawaited(bootstrap());
   }
 
@@ -173,6 +202,7 @@ final class AppController extends ChangeNotifier {
       _opaqueVaultSession = session;
       _vaultUnlocked = true;
       _errorCode = null;
+      unawaited(_refreshModelCapabilities());
       if (_sessionQuery != null) unawaited(bootstrap());
     } on SecurityException catch (error) {
       if (epoch != _lifecycleEpoch) return;
@@ -190,9 +220,8 @@ final class AppController extends ChangeNotifier {
 
   /// Rebuilds the controller's volatile view from persisted profile events.
   ///
-  /// Consent is intentionally not inferred from the appearance session. Until
-  /// the consent lifecycle is event-backed, a recreated controller remains
-  /// denied by default.
+  /// Consent is restored only from the event-backed read model. A recreated
+  /// controller remains denied until the persisted projection is available.
   Future<void> bootstrap() async {
     final query = _sessionQuery;
     if (_bootstrapped || _bootstrapping || query == null || !_vaultUnlocked) {
@@ -262,6 +291,17 @@ final class AppController extends ChangeNotifier {
     _consentGranted = consent?.state == ConsentState.granted.name;
     _consentStateRevision = consent?.stateRevision ?? 0;
     _consentRevision = consent?.consentRevision ?? 0;
+    AppearanceConsentView? externalConsent;
+    for (final candidate in view.consents) {
+      if (candidate.id == 'external-processing-consent') {
+        externalConsent = candidate;
+        break;
+      }
+    }
+    _externalProcessingConsentGranted =
+        externalConsent?.state == ConsentState.granted.name;
+    _externalConsentStateRevision = externalConsent?.stateRevision ?? 0;
+    _externalConsentRevision = externalConsent?.consentRevision ?? 0;
   }
 
   void _handleSessionInvalidated(SecurityException error) {
@@ -274,6 +314,10 @@ final class AppController extends ChangeNotifier {
 
   void lockVault({String? errorCode}) {
     _lifecycleEpoch++;
+    final modelCredentials = _modelCredentials;
+    if (modelCredentials != null) {
+      unawaited(_clearModelCredentialAfterLock(modelCredentials));
+    }
     final opaqueSession = _opaqueVaultSession;
     _opaqueVaultSession = null;
     if (opaqueSession != null &&
@@ -294,6 +338,10 @@ final class AppController extends ChangeNotifier {
     _consentGranted = false;
     _consentStateRevision = 0;
     _consentRevision = 0;
+    _externalProcessingConsentGranted = false;
+    _externalConsentStateRevision = 0;
+    _externalConsentRevision = 0;
+    _credentialOperationRunning = false;
     _bootstrapped = false;
     _bootstrapping = false;
     _submission = SubmissionStatus.idle;
@@ -301,6 +349,17 @@ final class AppController extends ChangeNotifier {
     _feedbackSubmission = SubmissionStatus.idle;
     _feedbackCode = null;
     notifyListeners();
+  }
+
+  Future<void> _clearModelCredentialAfterLock(
+    AppearanceModelCredentialGateway gateway,
+  ) async {
+    try {
+      await gateway.clearRuntimeCredential();
+    } on Object {
+      // The Vault remains locked and protected state stays cleared. Native
+      // channel teardown provides a second credential-zeroization boundary.
+    }
   }
 
   Future<void> _closeSecureVault(OpaqueVaultSession session) async {
@@ -331,12 +390,14 @@ final class AppController extends ChangeNotifier {
 
   Future<void> _setPersistedConsent(bool granted) async {
     if (granted == _consentGranted) return;
+    final consentLifecycle = _consentLifecycle;
+    if (consentLifecycle == null) return;
     final epoch = _lifecycleEpoch;
     try {
       if (granted) {
         final consentRevision =
             _consentRevision == 0 ? 1 : _consentRevision + 1;
-        final result = await _consentLifecycle!.grant(
+        final result = await consentLifecycle.grant(
           GrantConsentCommand(
             profileId: _profileId,
             consentId: 'local-appearance-consent',
@@ -351,7 +412,7 @@ final class AppController extends ChangeNotifier {
         _consentRevision = consentRevision;
         _consentGranted = true;
       } else if (_consentStateRevision > 0) {
-        final result = await _consentLifecycle!.revoke(
+        final result = await consentLifecycle.revoke(
           RevokeConsentCommand(
             profileId: _profileId,
             consentId: 'local-appearance-consent',
@@ -373,6 +434,130 @@ final class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setExternalProcessingConsent(bool granted) async {
+    if (!_vaultUnlocked) {
+      _fail('vault_locked');
+      return;
+    }
+    await _refreshModelCapabilities();
+    if (granted && !_externalProcessingAvailable) {
+      _fail('model.external_processing_unavailable');
+      return;
+    }
+    if (granted == _externalProcessingConsentGranted) return;
+    final consentLifecycle = _consentLifecycle;
+    if (consentLifecycle == null) {
+      _externalProcessingConsentGranted = granted;
+      notifyListeners();
+      return;
+    }
+    final epoch = _lifecycleEpoch;
+    try {
+      if (granted) {
+        final consentRevision = _externalConsentRevision == 0
+            ? 1
+            : _externalConsentRevision + 1;
+        final result = await consentLifecycle.grant(
+          GrantConsentCommand(
+            profileId: _profileId,
+            consentId: 'external-processing-consent',
+            consentRevision: consentRevision,
+            expectedConsentStateRevision: _externalConsentStateRevision,
+            actor: _actor,
+            correlationId: _correlation('grant-external-consent'),
+            scope: ConsentScope.externalProcessing,
+          ),
+        );
+        if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+        _externalConsentStateRevision = result.stateRevision;
+        _externalConsentRevision = consentRevision;
+        _externalProcessingConsentGranted = true;
+      } else if (_externalConsentStateRevision > 0) {
+        final result = await consentLifecycle.revoke(
+          RevokeConsentCommand(
+            profileId: _profileId,
+            consentId: 'external-processing-consent',
+            consentRevision: _externalConsentRevision,
+            expectedConsentStateRevision: _externalConsentStateRevision,
+            actor: _actor,
+            correlationId: _correlation('revoke-external-consent'),
+          ),
+        );
+        if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+        _externalConsentStateRevision = result.stateRevision;
+        _externalProcessingConsentGranted = false;
+      }
+      _errorCode = null;
+    } on Object {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _errorCode = 'external_consent_persistence_failed';
+      _externalProcessingConsentGranted = false;
+    }
+    notifyListeners();
+  }
+
+  Future<void> configureExternalModelCredential() async {
+    if (!_vaultUnlocked) {
+      _fail('vault_locked');
+      return;
+    }
+    final gateway = _modelCredentials;
+    if (gateway == null || !_externalProcessingConfigured) {
+      _fail('model.credential_configuration_unavailable');
+      return;
+    }
+    if (_credentialOperationRunning) return;
+    final epoch = _lifecycleEpoch;
+    _credentialOperationRunning = true;
+    _errorCode = null;
+    notifyListeners();
+    try {
+      final accepted = await gateway.configureRuntimeCredential();
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      if (accepted) {
+        await _refreshModelCapabilities();
+        if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+        if (!_externalProcessingAvailable) {
+          _errorCode = 'model.runtime_credential_not_ready';
+        }
+      }
+    } on Object {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _errorCode = 'model.credential_configuration_failed';
+    } finally {
+      if (epoch == _lifecycleEpoch && _vaultUnlocked) {
+        _credentialOperationRunning = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> clearExternalModelCredential() async {
+    if (!_vaultUnlocked) {
+      _fail('vault_locked');
+      return;
+    }
+    final gateway = _modelCredentials;
+    if (gateway == null || _credentialOperationRunning) return;
+    final epoch = _lifecycleEpoch;
+    _credentialOperationRunning = true;
+    _errorCode = null;
+    notifyListeners();
+    try {
+      await gateway.clearRuntimeCredential();
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      await _refreshModelCapabilities();
+    } on Object {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _errorCode = 'model.credential_clear_failed';
+    } finally {
+      if (epoch == _lifecycleEpoch && _vaultUnlocked) {
+        _credentialOperationRunning = false;
+        notifyListeners();
+      }
+    }
+  }
+
   void navigate(AppDestination destination) {
     if (!_vaultUnlocked) return;
     _destination = destination;
@@ -382,6 +567,7 @@ final class AppController extends ChangeNotifier {
   Future<void> analyzeBlobReference({
     required String blobReference,
     required String observationContext,
+    bool externalTransmissionConfirmed = false,
   }) async {
     if (!_vaultUnlocked) {
       _fail('vault_locked');
@@ -395,6 +581,12 @@ final class AppController extends ChangeNotifier {
       _fail('blob_reference_required');
       return;
     }
+    if (!await _ensureModelAvailable()) return;
+    if (!_validateExternalTransmissionConfirmation(
+      externalTransmissionConfirmed,
+    )) {
+      return;
+    }
 
     _submission = SubmissionStatus.running;
     _errorCode = null;
@@ -402,6 +594,8 @@ final class AppController extends ChangeNotifier {
     // would let a failed fail-closed analysis render as the previous success.
     _result = null;
     final epoch = _lifecycleEpoch;
+    final usedExternalCredential =
+        _processingBoundary == AppearanceProcessingBoundary.externalProcessor;
     final correlationId = _correlation('appearance');
     notifyListeners();
     try {
@@ -440,13 +634,8 @@ final class AppController extends ChangeNotifier {
           actor: _actor,
           correlationId: correlationId,
           observationContext: observationContext,
-          consentRefs: <ObjectRef>[
-            ObjectRef(
-              type: 'consent',
-              id: EntityId('local-appearance-consent'),
-              revision: Revision(_activeConsentRevision),
-            ),
-          ],
+          consentRefs: _analysisConsentRefs,
+          processingBoundary: _processingBoundary,
         ),
       );
       if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
@@ -469,29 +658,40 @@ final class AppController extends ChangeNotifier {
       if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
       _submission = SubmissionStatus.failed;
       _errorCode = 'unexpected_failure';
+    } finally {
+      if (usedExternalCredential &&
+          epoch == _lifecycleEpoch &&
+          _vaultUnlocked) {
+        await _refreshModelCapabilities();
+      }
     }
     notifyListeners();
   }
 
   Future<void> pickPhotoAndAnalyze({
     required String observationContext,
+    bool externalTransmissionConfirmed = false,
   }) =>
       _analyzeSourceAndAnalyze(
         acquire: () => _sourcePort!.pickPhoto(),
         observationContext: observationContext,
+        externalTransmissionConfirmed: externalTransmissionConfirmed,
       );
 
   Future<void> capturePhotoAndAnalyze({
     required String observationContext,
+    bool externalTransmissionConfirmed = false,
   }) =>
       _analyzeSourceAndAnalyze(
         acquire: () => _sourcePort!.capturePhoto(),
         observationContext: observationContext,
+        externalTransmissionConfirmed: externalTransmissionConfirmed,
       );
 
   Future<void> _analyzeSourceAndAnalyze({
     required Future<OpaqueSourceToken> Function() acquire,
     required String observationContext,
+    required bool externalTransmissionConfirmed,
   }) async {
     if (!_vaultUnlocked) {
       _fail('vault_locked');
@@ -511,6 +711,12 @@ final class AppController extends ChangeNotifier {
       _fail(ObservationFailureCode.invalidContext);
       return;
     }
+    if (!await _ensureModelAvailable()) return;
+    if (!_validateExternalTransmissionConfirmation(
+      externalTransmissionConfirmed,
+    )) {
+      return;
+    }
 
     _submission = SubmissionStatus.running;
     _errorCode = null;
@@ -518,6 +724,8 @@ final class AppController extends ChangeNotifier {
     // claims from an earlier successful attempt.
     _result = null;
     final epoch = _lifecycleEpoch;
+    final usedExternalCredential =
+        _processingBoundary == AppearanceProcessingBoundary.externalProcessor;
     OpaqueSourceToken? token;
     notifyListeners();
     try {
@@ -539,6 +747,8 @@ final class AppController extends ChangeNotifier {
           profileId: _profileId,
           observationContext: observationContext,
           consentRef: consentRef,
+          analysisConsentRefs: _analysisConsentRefs,
+          processingBoundary: _processingBoundary,
           actor: _actor,
           correlationId: _correlation('source-appearance'),
         ),
@@ -567,7 +777,7 @@ final class AppController extends ChangeNotifier {
       if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
       _submission = SubmissionStatus.failed;
       _errorCode = switch (error.code) {
-        ControlledSourceFailureCode.cancelled => 'source_unavailable',
+        ControlledSourceFailureCode.cancelled => 'source_cancelled',
         ControlledSourceFailureCode.denied => 'source_denied',
         _ => 'source_unavailable',
       };
@@ -582,6 +792,11 @@ final class AppController extends ChangeNotifier {
         } catch (_) {
           // Native expiry and one-shot consume make release best effort.
         }
+      }
+      if (usedExternalCredential &&
+          epoch == _lifecycleEpoch &&
+          _vaultUnlocked) {
+        await _refreshModelCapabilities();
       }
     }
     notifyListeners();
@@ -719,6 +934,80 @@ final class AppController extends ChangeNotifier {
 
   int get _activeConsentRevision =>
       _consentRevision == 0 ? 1 : _consentRevision;
+
+  int get _activeExternalConsentRevision =>
+      _externalConsentRevision == 0 ? 1 : _externalConsentRevision;
+
+  AppearanceProcessingBoundary get _processingBoundary =>
+      _externalProcessingConsentGranted
+          ? AppearanceProcessingBoundary.externalProcessor
+          : AppearanceProcessingBoundary.onDevice;
+
+  List<ObjectRef> get _analysisConsentRefs => <ObjectRef>[
+        ..._appearanceConsentRefs,
+        if (_processingBoundary ==
+            AppearanceProcessingBoundary.externalProcessor)
+          ObjectRef(
+            type: 'consent',
+            id: EntityId('external-processing-consent'),
+            revision: Revision(_activeExternalConsentRevision),
+          ),
+      ];
+
+  Future<bool> _ensureModelAvailable() async {
+    if (_modelCapabilities == null) return true;
+    await _refreshModelCapabilities();
+    if (!_modelConfigured) {
+      _fail('model.adapter_unavailable');
+      return false;
+    }
+    if (_processingBoundary == AppearanceProcessingBoundary.onDevice &&
+        !_onDeviceProcessingAvailable) {
+      _fail(_externalProcessingAvailable
+          ? 'external_processing_consent_required'
+          : 'model.on_device_unavailable');
+      return false;
+    }
+    if (_processingBoundary == AppearanceProcessingBoundary.externalProcessor &&
+        !_externalProcessingAvailable) {
+      _fail('model.external_processing_unavailable');
+      return false;
+    }
+    return true;
+  }
+
+  bool _validateExternalTransmissionConfirmation(bool confirmed) {
+    if (_processingBoundary == AppearanceProcessingBoundary.externalProcessor &&
+        !confirmed) {
+      _fail('external_transmission_confirmation_required');
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _refreshModelCapabilities() async {
+    final gateway = _modelCapabilities;
+    if (gateway == null || !_vaultUnlocked) return;
+    final epoch = _lifecycleEpoch;
+    try {
+      final capabilities = await gateway.inspectCapabilities();
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _modelConfigured = capabilities.configured;
+      _externalProcessingConfigured =
+          capabilities.externalProcessingConfigured;
+      _externalProcessingAvailable =
+          capabilities.externalProcessingAvailable;
+      _onDeviceProcessingAvailable =
+          capabilities.onDeviceProcessingAvailable;
+    } on Object {
+      if (epoch != _lifecycleEpoch || !_vaultUnlocked) return;
+      _modelConfigured = false;
+      _externalProcessingConfigured = false;
+      _externalProcessingAvailable = false;
+      _onDeviceProcessingAvailable = false;
+    }
+    notifyListeners();
+  }
 
   String _correlation(String operation) =>
       'mobile-$operation-${DateTime.now().microsecondsSinceEpoch}';

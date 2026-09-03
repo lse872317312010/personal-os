@@ -94,9 +94,9 @@ class ControlledSourceMethodChannelContractTest {
     }
 
     @Test
-    fun deleteFailureUsesStableCodeWithoutNativeDetails() {
+    fun unknownNativeFailureUsesUnavailableWithoutNativeDetails() {
         assertEquals(
-            mapOf("errorCode" to ControlledSourceMethodChannelContract.ERROR_DELETE_FAILED),
+            mapOf("errorCode" to ControlledSourceMethodChannelContract.ERROR_UNAVAILABLE),
             ControlledSourceMethodChannelContract.safeFailure(
                 "SQLiteException: /data/user/0/com.personalos.app/vault.db",
             ),

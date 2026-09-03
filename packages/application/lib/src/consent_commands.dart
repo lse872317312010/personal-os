@@ -1,5 +1,7 @@
 import 'package:personal_os_domain/domain.dart';
 
+enum ConsentScope { appearanceReview, externalProcessing }
+
 final class GrantConsentCommand {
   const GrantConsentCommand({
     required this.profileId,
@@ -8,6 +10,7 @@ final class GrantConsentCommand {
     this.expectedConsentStateRevision = 0,
     required this.actor,
     required this.correlationId,
+    this.scope = ConsentScope.appearanceReview,
   });
 
   final EntityId profileId;
@@ -16,6 +19,7 @@ final class GrantConsentCommand {
   final int expectedConsentStateRevision;
   final ActorRef actor;
   final String correlationId;
+  final ConsentScope scope;
 }
 
 final class RevokeConsentCommand {

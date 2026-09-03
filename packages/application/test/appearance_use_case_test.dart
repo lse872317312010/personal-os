@@ -68,6 +68,50 @@ void main() {
     expect(result.eventIds, hasLength(5));
   });
 
+  test('passes external processing boundary through policy and audit events',
+      () async {
+    final store = _MemoryEventStore();
+    final policy = _RecordingPolicy();
+    final useCase = AnalyzeAppearanceUseCase(
+      eventStore: store,
+      modelGateway: _FakeModelGateway(_completeAnalysis()),
+      policy: policy,
+      ids: _SequentialIds(),
+      clock: _FixedClock(),
+    );
+    final command = AnalyzeAppearanceCommand(
+      profileId: EntityId('profile-1'),
+      imageRef: 'blob://photo-1',
+      actor: actor,
+      correlationId: 'corr-external',
+      observationContext: '正面自然光照片',
+      consentRefs: <ObjectRef>[
+        ObjectRef(
+          type: 'consent',
+          id: EntityId('consent-1'),
+          revision: Revision(1),
+        ),
+        ObjectRef(
+          type: 'consent',
+          id: EntityId('external-consent-1'),
+          revision: Revision(1),
+        ),
+      ],
+      processingBoundary: AppearanceProcessingBoundary.externalProcessor,
+    );
+
+    await useCase.execute(command);
+
+    expect(
+      policy.processingBoundary,
+      AppearanceProcessingBoundary.externalProcessor,
+    );
+    final claim = store.events.firstWhere(
+      (event) => event.eventType == EventTypes.claimProposed,
+    );
+    expect(claim.payload['processing_boundary'], 'externalProcessor');
+  });
+
   test('incomplete analysis writes nothing', () async {
     final store = _MemoryEventStore();
     final model = _FakeModelGateway(
@@ -98,6 +142,61 @@ void main() {
       ),
     );
     expect(store.events, isEmpty);
+  });
+
+  test('prompt-version mismatch fails closed and writes nothing', () async {
+    final store = _MemoryEventStore();
+    final analysis = _completeAnalysis(promptVersion: 'appearance-v2');
+    final useCase = AnalyzeAppearanceUseCase(
+      eventStore: store,
+      modelGateway: _FakeModelGateway(analysis),
+      policy: const _FixedPolicy(PolicyVerdict.allow()),
+      ids: _SequentialIds(),
+      clock: _FixedClock(),
+    );
+
+    await expectLater(
+      useCase.execute(_command(actor)),
+      throwsA(
+        isA<AppearanceUseCaseFailure>().having(
+          (error) => error.code,
+          'code',
+          AppearanceFailureCode.invalidAnalysis,
+        ),
+      ),
+    );
+    expect(store.events, isEmpty);
+  });
+
+  test('persists stable audit fields but not risk or confirmation prose',
+      () async {
+    final store = _MemoryEventStore();
+    final useCase = AnalyzeAppearanceUseCase(
+      eventStore: store,
+      modelGateway: _FakeModelGateway(_completeAnalysis()),
+      policy: const _FixedPolicy(PolicyVerdict.allow()),
+      ids: _SequentialIds(),
+      clock: _FixedClock(),
+    );
+
+    await useCase.execute(_command(actor));
+
+    final claim = store.events.first;
+    expect(claim.payload['model_id'], 'fixture-model-v1');
+    expect(claim.payload['prompt_version'], 'appearance-v1');
+    expect(claim.payload['input_summary_ref'], 'audit://input/fixture-1');
+    expect(claim.payload['finding_kind'], 'uncertainInference');
+    final plan = store.events.singleWhere(
+      (event) => event.eventType == EventTypes.planDrafted,
+    );
+    expect(plan.payload['risk_codes'], <String>['low_light']);
+    expect(
+      plan.payload['human_confirmation_codes'],
+      <String>['confirm_hair_shape'],
+    );
+    final encodedPayloads = store.events.map((event) => event.payload).join();
+    expect(encodedPayloads, isNot(contains('private risk prose')));
+    expect(encodedPayloads, isNot(contains('private confirmation prompt')));
   });
 
   test('event-store append failure is stable and publishes no events',
@@ -143,7 +242,10 @@ AnalyzeAppearanceCommand _command(ActorRef actor) => AnalyzeAppearanceCommand(
       ],
     );
 
-AppearanceAnalysisResult _completeAnalysis() => AppearanceAnalysisResult(
+AppearanceAnalysisResult _completeAnalysis({
+  String promptVersion = 'appearance-v1',
+}) =>
+    AppearanceAnalysisResult(
       findings: <AppearanceFinding>[
         AppearanceFinding(
             dimension: 'hair', statement: '顶部体积不足', confidence: .8),
@@ -154,6 +256,18 @@ AppearanceAnalysisResult _completeAnalysis() => AppearanceAnalysisResult(
         AppearanceActionSuggestion(title: '尝试纹理短发', rationale: '增强顶部轮廓'),
       ],
       modelTraceRef: 'trace-1',
+      modelId: 'fixture-model-v1',
+      promptVersion: promptVersion,
+      inputSummaryRef: 'audit://input/fixture-1',
+      risks: <AppearanceRisk>[
+        AppearanceRisk(code: 'low_light', statement: 'private risk prose'),
+      ],
+      humanConfirmations: <AppearanceHumanConfirmation>[
+        AppearanceHumanConfirmation(
+          code: 'confirm_hair_shape',
+          prompt: 'private confirmation prompt',
+        ),
+      ],
     );
 
 final class _MemoryEventStore implements EventStore {
@@ -210,8 +324,27 @@ final class _FixedPolicy implements AppearancePolicyPort {
     required EntityId profileId,
     required List<ObjectRef> consentRefs,
     required Sensitivity sensitivity,
+    AppearanceProcessingBoundary processingBoundary =
+        AppearanceProcessingBoundary.onDevice,
   }) async =>
       verdict;
+}
+
+final class _RecordingPolicy implements AppearancePolicyPort {
+  AppearanceProcessingBoundary? processingBoundary;
+
+  @override
+  Future<PolicyVerdict> authorizeAnalysis({
+    required ActorRef actor,
+    required EntityId profileId,
+    required List<ObjectRef> consentRefs,
+    required Sensitivity sensitivity,
+    AppearanceProcessingBoundary processingBoundary =
+        AppearanceProcessingBoundary.onDevice,
+  }) async {
+    this.processingBoundary = processingBoundary;
+    return const PolicyVerdict.allow();
+  }
 }
 
 final class _SequentialIds implements IdGenerator {

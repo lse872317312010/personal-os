@@ -9,6 +9,7 @@ import 'application_ports.dart';
 abstract final class AppearanceFailureCode {
   static const policyDenied = 'policy_denied';
   static const emptyAnalysis = 'empty_analysis';
+  static const invalidAnalysis = 'invalid_analysis';
   static const analysisFailed = 'analysis_failed';
 }
 
@@ -67,6 +68,7 @@ final class AnalyzeAppearanceUseCase {
       profileId: command.profileId,
       consentRefs: command.consentRefs,
       sensitivity: sensitivity,
+      processingBoundary: command.processingBoundary,
     );
     if (!verdict.allowed) {
       throw AppearanceUseCaseFailure(
@@ -82,6 +84,8 @@ final class AnalyzeAppearanceUseCase {
           imageRef: command.imageRef,
           observationContext: command.observationContext,
           locale: command.locale,
+          promptVersion: command.promptVersion,
+          processingBoundary: command.processingBoundary,
         ),
       );
     } catch (_) {
@@ -92,6 +96,11 @@ final class AnalyzeAppearanceUseCase {
     }
     if (analysis.findings.isEmpty || analysis.actions.isEmpty) {
       throw const AppearanceUseCaseFailure(AppearanceFailureCode.emptyAnalysis);
+    }
+    if (analysis.promptVersion != command.promptVersion) {
+      throw const AppearanceUseCaseFailure(
+        AppearanceFailureCode.invalidAnalysis,
+      );
     }
 
     final now = _clock.now().toUtc();
@@ -134,8 +143,13 @@ final class AnalyzeAppearanceUseCase {
           'dimension': finding.dimension,
           'statement': finding.statement,
           'confidence': finding.confidence,
+          'finding_kind': finding.kind.name,
           'evidence_blob_ref': command.imageRef,
           'model_trace_ref': analysis.modelTraceRef,
+          'model_id': analysis.modelId,
+          'prompt_version': analysis.promptVersion,
+          'input_summary_ref': analysis.inputSummaryRef,
+          'processing_boundary': command.processingBoundary.name,
         },
       ));
     }
@@ -156,6 +170,10 @@ final class AnalyzeAppearanceUseCase {
         'expected_revision': 0,
         'goal_ref': goalId,
         'title': '外貌改善行动计划',
+        'risk_codes': analysis.risks.map((risk) => risk.code).toList(),
+        'human_confirmation_codes': analysis.humanConfirmations
+            .map((confirmation) => confirmation.code)
+            .toList(),
       },
     ));
 
@@ -170,6 +188,8 @@ final class AnalyzeAppearanceUseCase {
           'plan_ref': planId,
           'title': action.title,
           'rationale': action.rationale,
+          'day_offset': action.dayOffset,
+          'requires_human_confirmation': action.requiresHumanConfirmation,
         },
       ));
     }

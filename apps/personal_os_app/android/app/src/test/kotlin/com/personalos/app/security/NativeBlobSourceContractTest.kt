@@ -4,7 +4,7 @@ import java.io.ByteArrayInputStream
 import java.io.InputStream
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFailsWith
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -34,8 +34,29 @@ class NativeBlobSourceContractTest {
     @Test
     fun blobReferenceMustBeOpaqueBlobScheme() {
         assertEquals("blob://opaque-id", NativeBlobReference("blob://opaque-id").value)
-        assertFailsWith<IllegalArgumentException> {
+        assertThrows(IllegalArgumentException::class.java) {
             NativeBlobReference("/provider/photo.jpg")
         }
+    }
+
+    @Test
+    fun modelMediaBufferIsZeroedAfterSuccess() {
+        val owned = byteArrayOf(7, 8, 9)
+
+        val result = consumeOwnedBlobBytes(owned) { stream -> stream.readBytes().sum() }
+
+        assertEquals(24, result)
+        assertArrayEquals(byteArrayOf(0, 0, 0), owned)
+    }
+
+    @Test
+    fun modelMediaBufferIsZeroedAfterConsumerFailure() {
+        val owned = byteArrayOf(7, 8, 9)
+
+        assertThrows(IllegalStateException::class.java) {
+            consumeOwnedBlobBytes(owned) { error("adapter failed") }
+        }
+
+        assertArrayEquals(byteArrayOf(0, 0, 0), owned)
     }
 }

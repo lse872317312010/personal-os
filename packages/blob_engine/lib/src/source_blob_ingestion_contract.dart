@@ -7,6 +7,7 @@ final class SourceBlobIngestionException implements Exception {
   const SourceBlobIngestionException(this.code)
       : assert(
           code == 'source_expired' ||
+              code == 'source_cancelled' ||
               code == 'source_unavailable' ||
               code == 'source_denied' ||
               code == 'source_consumed' ||

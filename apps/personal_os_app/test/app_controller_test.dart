@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
+import 'package:personal_os_events/events.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
 import 'package:personal_os_in_memory_policy/in_memory_policy.dart';
 import 'package:personal_os_model_fixture/model_fixture.dart';
@@ -8,6 +11,8 @@ import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
 import 'package:personal_os_policy/policy.dart';
 import 'package:personal_os_policy_application/policy_application.dart';
 import 'package:personal_os_security_api/security_api.dart';
+import 'package:personal_os_source_api/source_api.dart';
+import 'package:personal_os_storage_api/storage_api.dart';
 
 import 'package:personal_os_app/src/composition/native_sqlcipher_session_coordinator.dart';
 import 'package:personal_os_app/src/controller/app_controller.dart';
@@ -34,6 +39,296 @@ void main() {
 
     expect(controller.submission, SubmissionStatus.failed);
     expect(controller.errorCode, 'source_unavailable');
+  });
+
+  test('photo-picker cancellation remains a distinct safe outcome', () async {
+    final gateway = _CountingGateway();
+    final source = FakeControlledSourcePort()
+      ..nextFailure = ControlledSourceFailureCode.cancelled;
+    final ingestion = _SourceIngestion();
+    final controller = _controller(
+      gateway,
+      sourcePort: source,
+      sourceBlobIngestion: ingestion,
+    )..unlockVault();
+    await controller.setConsent(true);
+
+    await controller.pickPhotoAndAnalyze(observationContext: 'front');
+
+    expect(controller.errorCode, 'source_cancelled');
+    expect(gateway.calls, 0);
+    expect(ingestion.calls, 0);
+  });
+
+  test('unconfigured model is rejected before observation or gateway access',
+      () async {
+    final store = InMemoryEventStore();
+    final gateway = _CountingGateway();
+    final controller = _controller(
+      gateway,
+      store: store,
+      withObservation: true,
+      modelCapabilities: const _FixedCapabilities(configured: false),
+    )..unlockVault();
+    await controller.setConsent(true);
+
+    await controller.analyzeBlobReference(
+      blobReference: 'blob://vault/one',
+      observationContext: 'front',
+    );
+
+    expect(controller.errorCode, 'model.adapter_unavailable');
+    expect(gateway.calls, 0);
+    expect(
+      store.readEvents().map((record) => record.event.eventType),
+      isNot(contains(EventTypes.observationRecorded)),
+    );
+  });
+
+  test('external consent is persisted and revoked independently', () async {
+    final store = InMemoryEventStore();
+    final controller = _controller(
+      _CountingGateway(),
+      store: store,
+      modelCapabilities: const _FixedCapabilities(
+        configured: true,
+        external: true,
+        onDevice: false,
+      ),
+    )..unlockVault();
+    await controller.setConsent(true);
+
+    await controller.setExternalProcessingConsent(true);
+
+    expect(controller.externalProcessingConsentGranted, isTrue);
+    expect(controller.consentGranted, isTrue);
+    expect(
+      store.readEvents().map((record) => record.event).where(
+            (event) =>
+                event.eventType == EventTypes.consentGranted &&
+                event.payload['scope'] == 'externalProcessing',
+          ),
+      hasLength(1),
+    );
+
+    final restored = _controller(
+      _CountingGateway(),
+      store: store,
+      withSessionQuery: true,
+      modelCapabilities: const _FixedCapabilities(
+        configured: true,
+        external: true,
+        onDevice: false,
+      ),
+    )..unlockVault();
+    await restored.bootstrap();
+    expect(restored.externalProcessingConsentGranted, isTrue);
+    expect(restored.consentGranted, isTrue);
+
+    await controller.setExternalProcessingConsent(false);
+
+    expect(controller.externalProcessingConsentGranted, isFalse);
+    expect(controller.consentGranted, isTrue);
+  });
+
+  test('external-only model is rejected before access without consent',
+      () async {
+    final gateway = _CountingGateway();
+    final controller = _controller(
+      gateway,
+      modelCapabilities: const _FixedCapabilities(
+        configured: true,
+        external: true,
+        onDevice: false,
+      ),
+    )..unlockVault();
+    await controller.setConsent(true);
+
+    await controller.analyzeBlobReference(
+      blobReference: 'blob://vault/one',
+      observationContext: 'front',
+    );
+
+    expect(controller.errorCode, 'external_processing_consent_required');
+    expect(gateway.calls, 0);
+  });
+
+  test('external transport configuration is visible without credentials',
+      () async {
+    final controller = _controller(
+      _CountingGateway(),
+      modelCapabilities: const _FixedCapabilities(
+        configured: true,
+        external: true,
+        onDevice: false,
+        credentialReady: false,
+      ),
+    )..unlockVault();
+
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.modelConfigured, isTrue);
+    expect(controller.externalProcessingConfigured, isTrue);
+    expect(controller.externalProcessingAvailable, isFalse);
+    expect(controller.onDeviceProcessingAvailable, isFalse);
+  });
+
+  test('runtime credential configure and clear refresh capability state',
+      () async {
+    final credentials = _CredentialCapabilities();
+    final controller = _controller(
+      _CountingGateway(),
+      modelCapabilities: credentials,
+      modelCredentials: credentials,
+    )..unlockVault();
+    await Future<void>.delayed(Duration.zero);
+
+    await controller.configureExternalModelCredential();
+
+    expect(credentials.configureCalls, 1);
+    expect(controller.externalProcessingAvailable, isTrue);
+    expect(controller.credentialOperationRunning, isFalse);
+
+    await controller.clearExternalModelCredential();
+
+    expect(credentials.clearCalls, 1);
+    expect(controller.externalProcessingAvailable, isFalse);
+    expect(controller.externalProcessingConfigured, isTrue);
+  });
+
+  test('one-call external credential is refreshed after analysis', () async {
+    final credentials = _CredentialCapabilities();
+    final controller = _controller(
+      _CountingGateway(),
+      eventBackedPolicy: true,
+      modelCapabilities: credentials,
+      modelCredentials: credentials,
+    )..unlockVault();
+    await Future<void>.delayed(Duration.zero);
+    await controller.setConsent(true);
+    await controller.configureExternalModelCredential();
+    await controller.setExternalProcessingConsent(true);
+    credentials.consumeReadyOnInspect = true;
+
+    await controller.analyzeBlobReference(
+      blobReference: 'blob://vault/one',
+      observationContext: 'front',
+      externalTransmissionConfirmed: true,
+    );
+
+    expect(controller.submission, SubmissionStatus.succeeded);
+    expect(controller.externalProcessingAvailable, isFalse);
+    expect(controller.externalProcessingConfigured, isTrue);
+  });
+
+  test('locking the vault clears an unused native model credential', () async {
+    final credentials = _CredentialCapabilities();
+    final controller = _controller(
+      _CountingGateway(),
+      modelCapabilities: credentials,
+      modelCredentials: credentials,
+    )..unlockVault();
+    await Future<void>.delayed(Duration.zero);
+    await controller.configureExternalModelCredential();
+
+    controller.lockVault();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(credentials.clearCalls, 1);
+    expect(credentials.ready, isFalse);
+    expect(controller.vaultUnlocked, isFalse);
+  });
+
+  test('external consent selects external boundary with both consent refs',
+      () async {
+    final store = InMemoryEventStore();
+    final gateway = _CountingGateway();
+    final controller = _controller(
+      gateway,
+      store: store,
+      eventBackedPolicy: true,
+      modelCapabilities: const _FixedCapabilities(
+        configured: true,
+        external: true,
+        onDevice: false,
+      ),
+    )..unlockVault();
+    await controller.setConsent(true);
+    await controller.setExternalProcessingConsent(true);
+
+    await controller.analyzeBlobReference(
+      blobReference: 'blob://vault/one',
+      observationContext: 'front',
+      externalTransmissionConfirmed: true,
+    );
+
+    expect(controller.submission, SubmissionStatus.succeeded);
+    expect(
+      gateway.lastInput?.processingBoundary,
+      AppearanceProcessingBoundary.externalProcessor,
+    );
+    final claimEvent = store
+        .readEvents()
+        .map((record) => record.event)
+        .firstWhere((event) => event.eventType == EventTypes.claimProposed);
+    expect(claimEvent.consentRefs, hasLength(2));
+  });
+
+  test('external analysis requires a fresh transmission confirmation',
+      () async {
+    final store = InMemoryEventStore();
+    final gateway = _CountingGateway();
+    final controller = _controller(
+      gateway,
+      store: store,
+      withObservation: true,
+      eventBackedPolicy: true,
+      modelCapabilities: const _FixedCapabilities(
+        configured: true,
+        external: true,
+        onDevice: false,
+      ),
+    )..unlockVault();
+    await controller.setConsent(true);
+    await controller.setExternalProcessingConsent(true);
+
+    await controller.analyzeBlobReference(
+      blobReference: 'blob://vault/one',
+      observationContext: 'front',
+    );
+
+    expect(controller.errorCode, 'external_transmission_confirmation_required');
+    expect(gateway.calls, 0);
+    expect(
+      store.readEvents().map((record) => record.event.eventType),
+      isNot(contains(EventTypes.observationRecorded)),
+    );
+  });
+
+  test('consent change during capability refresh cannot bypass confirmation',
+      () async {
+    final gateway = _CountingGateway();
+    final capabilities = _BlockingCapabilities();
+    final controller = _controller(
+      gateway,
+      eventBackedPolicy: true,
+      modelCapabilities: capabilities,
+    )..unlockVault();
+    await Future<void>.delayed(Duration.zero);
+    await controller.setConsent(true);
+    capabilities.blockNextInspection();
+
+    final analysis = controller.analyzeBlobReference(
+      blobReference: 'blob://vault/one',
+      observationContext: 'front',
+    );
+    await capabilities.inspectionBlocked;
+    await controller.setExternalProcessingConsent(true);
+    capabilities.releaseInspection();
+    await analysis;
+
+    expect(controller.errorCode, 'external_transmission_confirmation_required');
+    expect(gateway.calls, 0);
   });
 
   test('raw path is rejected before any gateway call', () async {
@@ -305,39 +600,52 @@ AppController _controller(
   bool withObservation = false,
   VaultSession? vaultSession,
   SecureSessionCoordinator? sessionCoordinator,
+  AppearanceModelCapabilityGateway? modelCapabilities,
+  AppearanceModelCredentialGateway? modelCredentials,
+  bool eventBackedPolicy = false,
+  ControlledSourcePort? sourcePort,
+  SourceBlobIngestionPort? sourceBlobIngestion,
 }) {
   final eventStore = store ?? InMemoryEventStore();
   final ids = _Ids();
   gateway.eventStore = eventStore;
+  final fallbackConsents = InMemoryConsentRevisionRepository(
+    initialGrants: includeGrant
+        ? <ConsentGrant>[
+            ConsentGrant(
+              consentId: 'local-appearance-consent',
+              revision: 1,
+              subjectId: 'me',
+              authorizedActorId: 'me',
+              purposes: const <String>{'appearance_review'},
+              resources: const <String>{'portrait'},
+              actions: const <String>{'derive'},
+              maximumSensitivity: Sensitivity.d3,
+              validFrom: DateTime.utc(2026, 8, 19),
+              validUntil: DateTime.utc(2026, 8, 21),
+              status: ConsentStatus.active,
+            ),
+          ]
+        : const <ConsentGrant>[],
+  );
+  final policy = AppearancePolicyAdapter(
+    consents: eventBackedPolicy
+        ? EventBackedConsentRevisionRepository(
+            eventStore: eventStore,
+            fallback: fallbackConsents,
+          )
+        : fallbackConsents,
+    clock: FixedPolicyClock(DateTime.utc(2026, 8, 20)),
+  );
+  final analyzeAppearance = AnalyzeAppearanceUseCase(
+    eventStore: eventStore,
+    modelGateway: gateway,
+    policy: policy,
+    ids: ids,
+    clock: const _Clock(),
+  );
   return AppController(
-    analyzeAppearance: AnalyzeAppearanceUseCase(
-      eventStore: eventStore,
-      modelGateway: gateway,
-      policy: AppearancePolicyAdapter(
-        consents: InMemoryConsentRevisionRepository(
-          initialGrants: includeGrant
-              ? <ConsentGrant>[
-                  ConsentGrant(
-                    consentId: 'local-appearance-consent',
-                    revision: 1,
-                    subjectId: 'me',
-                    authorizedActorId: 'me',
-                    purposes: const <String>{'appearance_review'},
-                    resources: const <String>{'portrait'},
-                    actions: const <String>{'derive'},
-                    maximumSensitivity: Sensitivity.d3,
-                    validFrom: DateTime.utc(2026, 8, 19),
-                    validUntil: DateTime.utc(2026, 8, 21),
-                    status: ConsentStatus.active,
-                  ),
-                ]
-              : const <ConsentGrant>[],
-        ),
-        clock: FixedPolicyClock(DateTime.utc(2026, 8, 20)),
-      ),
-      ids: ids,
-      clock: const _Clock(),
-    ),
+    analyzeAppearance: analyzeAppearance,
     actionFeedback: ActionFeedbackUseCase(
       eventStore: eventStore,
       ids: ids,
@@ -360,6 +668,20 @@ AppController _controller(
     ),
     vaultSession: vaultSession,
     sessionCoordinator: sessionCoordinator,
+    modelCapabilities: modelCapabilities,
+    modelCredentials: modelCredentials,
+    sourcePort: sourcePort,
+    ingestAppearanceFromSource: sourceBlobIngestion == null
+        ? null
+        : IngestAppearanceFromSourceUseCase(
+            ingestion: sourceBlobIngestion,
+            recordObservation: RecordObservationUseCase(
+              eventStore: eventStore,
+              ids: ids,
+              clock: const _Clock(),
+            ),
+            analyzeAppearance: analyzeAppearance,
+          ),
     actor: ActorRef(
       actorId: 'me',
       actorType: ActorType.user,
@@ -368,23 +690,156 @@ AppController _controller(
   );
 }
 
+final class _SourceIngestion implements SourceBlobIngestionPort {
+  int calls = 0;
+
+  @override
+  Future<BlobRef> ingestSource({
+    required OpaqueSourceToken source,
+    required String mediaType,
+    required Sensitivity sensitivity,
+    required BlobAccessContext access,
+  }) async {
+    calls++;
+    return BlobRef('blob://fake-source-00000001');
+  }
+
+  @override
+  Future<void> discard({
+    required BlobRef ref,
+    required BlobAccessContext access,
+  }) async {}
+}
+
 final class _CountingGateway implements AppearanceAnalysisGateway {
   int calls = 0;
   bool fail = false;
   InMemoryEventStore? eventStore;
   List<String> eventTypesAtCall = const <String>[];
+  AppearanceAnalysisInput? lastInput;
 
   @override
   Future<AppearanceAnalysisResult> analyze(
       AppearanceAnalysisInput input) async {
     calls++;
+    lastInput = input;
     if (fail) throw StateError('test failure');
     eventTypesAtCall =
         eventStore?.readEvents().map((e) => e.event.eventType).toList() ??
             const <String>[];
+    final fixtureInput = input.processingBoundary ==
+            AppearanceProcessingBoundary.onDevice
+        ? input
+        : AppearanceAnalysisInput(
+            imageRef: input.imageRef,
+            observationContext: input.observationContext,
+            locale: input.locale,
+            promptVersion: input.promptVersion,
+          );
     return const FixtureAppearanceAnalysisGateway(
       behavior: FixtureAppearanceBehavior.syntheticSuccess,
-    ).analyze(input);
+    ).analyze(fixtureInput);
+  }
+}
+
+final class _FixedCapabilities implements AppearanceModelCapabilityGateway {
+  const _FixedCapabilities({
+    required this.configured,
+    this.onDevice = true,
+    this.external = false,
+    this.credentialReady,
+  });
+
+  final bool configured;
+  final bool onDevice;
+  final bool external;
+  final bool? credentialReady;
+
+  @override
+  Future<AppearanceModelCapabilities> inspectCapabilities() async =>
+      AppearanceModelCapabilities(
+        configured: configured,
+        supportedBoundaries: configured
+            ? <AppearanceProcessingBoundary>{
+                if (onDevice) AppearanceProcessingBoundary.onDevice,
+                if (external) AppearanceProcessingBoundary.externalProcessor,
+              }
+            : const <AppearanceProcessingBoundary>{},
+        runtimeCredentialReady: credentialReady ?? (configured && external),
+      );
+}
+
+final class _CredentialCapabilities
+    implements
+        AppearanceModelCapabilityGateway,
+        AppearanceModelCredentialGateway {
+  bool ready = false;
+  bool consumeReadyOnInspect = false;
+  int configureCalls = 0;
+  int clearCalls = 0;
+
+  @override
+  Future<AppearanceModelCapabilities> inspectCapabilities() async {
+    final advertisedReady = ready;
+    if (consumeReadyOnInspect && ready) {
+      ready = false;
+      consumeReadyOnInspect = false;
+    }
+    return AppearanceModelCapabilities(
+      configured: true,
+      supportedBoundaries: const <AppearanceProcessingBoundary>{
+        AppearanceProcessingBoundary.externalProcessor,
+      },
+      runtimeCredentialReady: advertisedReady,
+    );
+  }
+
+  @override
+  Future<bool> configureRuntimeCredential() async {
+    configureCalls++;
+    ready = true;
+    return true;
+  }
+
+  @override
+  Future<void> clearRuntimeCredential() async {
+    clearCalls++;
+    ready = false;
+  }
+}
+
+final class _BlockingCapabilities
+    implements AppearanceModelCapabilityGateway {
+  Completer<void>? _blocked;
+  Completer<void>? _release;
+
+  Future<void> get inspectionBlocked => _blocked!.future;
+
+  void blockNextInspection() {
+    _blocked = Completer<void>();
+    _release = Completer<void>();
+  }
+
+  void releaseInspection() {
+    _release!.complete();
+  }
+
+  @override
+  Future<AppearanceModelCapabilities> inspectCapabilities() async {
+    final blocked = _blocked;
+    final release = _release;
+    if (blocked != null && !blocked.isCompleted) {
+      blocked.complete();
+      await release!.future;
+    }
+    return AppearanceModelCapabilities(
+      configured: true,
+      supportedBoundaries: <AppearanceProcessingBoundary>{
+        AppearanceProcessingBoundary.onDevice,
+        AppearanceProcessingBoundary.externalProcessor,
+      },
+      runtimeCredentialReady: true,
+    );
   }
 }
 
