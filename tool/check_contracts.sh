@@ -13,5 +13,6 @@ python3 evidence/android/tool/validate_evidence.py \
   evidence/android/records/synthetic.example.json
 python3 -m unittest tool/tests/test_evidence_ledger.py
 python3 tool/evidence_ledger.py --ledger evidence/mvp/status.json
+python3 tool/check_external_provider_boundary.py
 
 echo 'repository contracts: PASS'
