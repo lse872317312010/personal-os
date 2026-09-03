@@ -6,9 +6,15 @@
 
 ## 当前阶段
 
-项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，当前基点是 **M2-B1/B2 · Android Secure Local MVP 实现基线**：Android Keystore 认证 primitive、native SQLCipher database/event JSON storage、secure Dart event-store/session coordinator、受控 Photo Picker 与 Camera→native blob→opaque `BlobRef`→analysis path 和 observation history UI 已接入；Camera capture 在拍摄时显式请求权限，使用 app-private cache 的 FileProvider，生成 opaque source token 交给 native blob sink，并在取消、失败、释放、过期或写入后清理失败时执行清理/回滚，但当前环境未编译、未完成运行时验证，也不是可交付的 dogfood 版本。Redmi Turbo、GitHub Actions、SQLCipher production behavior、冷启动恢复和真实 AI 分析均仍需 exact-commit 证据。
+项目已完成 **M0 产品章程与范围冻结**和 **M1 Core Data Model & Event Log**，当前基点是 **M2-B1/B2 · Android Secure Local MVP 实现基线**：Android Keystore 认证 primitive、native SQLCipher database/event JSON storage、secure Dart event-store/session coordinator、受控 Photo Picker 与 Camera→native blob→opaque `BlobRef`→analysis path 和 observation history UI 已接入。
 
-当前唯一开发基点为 `main`（exact commit：`6d23063c5059174240338a6be11d37949fefbab0`）。任何并行 Agent 都必须从当前基点创建独立分支，不能继续使用旧 Wave 分支，也不能把 Android 编译/运行时、SQLCipher、Keystore、冷启动恢复、GitHub Actions、Redmi 真机或生产行为标记为已验证，除非提交了绑定候选 commit 的证据。
+上游 `main` 的 `8eda400471e51a3137ddde3160073db402e2da5d` 已通过 Repository contracts、Linux/Windows Dart core 和 Flutter Android workflow，并生成 `android-latest` APK、SHA-256 与 provenance。该结果只证明构建链和自动测试通过，不代表 Redmi 真机、Android Keystore 生命周期、SQLCipher 冷启动恢复或真实模型分析已经验证。
+
+当前后续开发在本地 `local/offline-progress` 进行，本月不依赖 GitHub Actions。本地加入的 Vault 生命周期加固、dogfood 资产、结构化模型边界、外部处理授权和运行时凭据契约仍需在下一个明确里程碑集中执行 Flutter、Gradle 与真机验证。
+
+上游唯一发布基点为 `main`（exact commit：`8eda400471e51a3137ddde3160073db402e2da5d`）。本地离线提交不得被描述为 CI、APK 或真机已验证；恢复远端集成时必须从该上游基点整理成可审查提交，并在一个里程碑节点集中运行 Actions。
+
+固定下载入口：[android-latest Release](https://github.com/lse872317312010/personal-os/releases/tag/android-latest)。已验证 APK SHA-256：`4ebcc8df0d1285294bda887db6b4dd4a256be713ee61064ca75e15b3616ae580`。
 
 ## 首批领域
 
@@ -43,11 +49,11 @@
 
 ## 近期交付目标
 
-- 固化项目使命、范围、原则与非目标；
-- 从 2026-08-17“男士外貌分析”对话提炼真实使用场景和决策链；
-- 建立需求池、术语表、风险清单和验收标准；
-- 选出一个最小纵向闭环作为 MVP，而不是同时开发所有模块；
-- 在需求冻结后再进行技术选型、总体架构和模块接口设计。
+- 在 Redmi 真机完成“解锁→选图→加密存储→分析→保存→杀进程→恢复”的 exact-commit dogfood；
+- 验证 Keystore、SQLCipher 冷启动、Photo Picker/Camera、Blob 回滚和拒绝路径；
+- 保持 fixture 仅用于离线演示，生产安全模式不得回退 synthetic 输出；
+- 接入真实模型前完成外部处理显式授权、native-only 媒体读取和运行时凭据注入；
+- 到达明确里程碑后再集中运行一次 Actions、生成 APK 和 provenance。
 
 ## 文档入口
 
@@ -126,13 +132,12 @@ Runtime 编排、恢复契约 CI 与 Redmi Turbo 证据 runbook 见 [Coding Wave
 
 ## 状态
 
-`M2-B1 / native durable-vault implementation present → compiled and evidence-verified pending`
+`M2-B1/B2 / upstream APK build verified → local security/model work pending milestone verification`
 
 当前主线已经完成 M2-B1 的纯 Dart 安全边界、事件恢复/Consent 生命周期、
 native Keystore 认证 primitive、native SQLCipher database/event JSON storage、
 secure Dart event-store/session coordinator、observation history UI、Blob/Sync/Recovery
 契约加固、B2 controlled source/ingestion path、Android fail-closed 原生骨架和证据门禁。
-Android 默认 Composition 已是 secure vault，并接入受控 Photo Picker 与 Camera；Camera 在拍摄时显式请求权限，照片暂存于 app-private cache 的 FileProvider 路径，native 仅传递 opaque token 并写入 native blob sink，清理失败会触发稳定错误并对已写入 blob 回滚；synthetic/in-memory
-仅通过显式 demo/test factory 使用。当前未取得 Android 编译/运行时、GitHub Actions、SQLCipher
-production、冷启动持久化、Photo Picker/Camera/native blob 或 Redmi 真机证据，且模型仍是
-synthetic fixture，不能视为 `DOGFOOD_READY`。
+Android 默认 Composition 已是 secure vault，并接入受控 Photo Picker 与 Camera；Camera 在拍摄时显式请求权限，照片暂存于 app-private cache 的 FileProvider 路径，native 仅传递 opaque token 并写入 native blob sink，清理失败会触发稳定错误并对已写入 blob 回滚；synthetic/in-memory 仅通过显式 demo/test factory 使用。
+
+上游 Android workflow 与 APK Release 已验证。Redmi 真机、SQLCipher production 行为、冷启动持久化、Keystore 生命周期和真实模型仍未验证。安全模式当前没有真实 transport，必须 fail-closed；本地已加入 native-only 媒体边界、结构化输出、外部处理双重 consent 和一次性凭据租约，但不能视为 `DOGFOOD_READY`。
