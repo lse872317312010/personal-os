@@ -11,3 +11,7 @@
 - [0003 — 本地权威的加密混合架构](0003-local-authoritative-encrypted-hybrid.md)
 - [0004 — Android 先行的 Flutter + Dart 架构](0004-android-first-flutter-dart.md)
 - [0005 — v1 采用用户控制的离线恢复包与可信设备迁移](0005-v1-recovery-strategy.md)
+- [0012 — 真实同步 envelope 合同](0012-sync-envelope-format.md)
+- [0013 — 持久化层合同](0013-persistence-layer-contract.md)
+- [0014 — 持久化错误边界](0014-persistence-error-boundary.md)
+- [B2-02 — 受控本地来源入口](B2-02-controlled-source-entry.md)
