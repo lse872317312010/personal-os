@@ -14,6 +14,7 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.KeyGenerator
 import javax.crypto.Mac
 import javax.crypto.SecretKey
+import javax.crypto.spec.SecretKeySpec
 
 /**
  * Issues short-lived opaque tickets authenticated by an Android Keystore key.
@@ -36,6 +37,12 @@ internal class KeystoreTicketCodec(
         private const val MAC_ALGORITHM = "HmacSHA256"
         private const val TICKET_VERSION = "v1"
         private const val DATABASE_KEY_LABEL = "personalos/internal/sqlcipher-key/v1"
+
+        internal fun deriveTicketTag(databaseKey: ByteArray, body: String): ByteArray =
+            Mac.getInstance(MAC_ALGORITHM).run {
+                init(SecretKeySpec(databaseKey, MAC_ALGORITHM))
+                doFinal(body.toByteArray(StandardCharsets.UTF_8))
+            }
     }
 
     internal data class Challenge(
@@ -80,12 +87,21 @@ internal class KeystoreTicketCodec(
             throw NativeVaultFailure(NativeVaultFailureCode.AUTHENTICATION_EXPIRED)
         }
         val body = body(challenge)
-        val tag = authenticatedMac.doFinal(body.toByteArray(StandardCharsets.UTF_8))
         val databaseKey = try {
+            // An auth-per-use Android Keystore key permits one cryptographic
+            // operation for each successful BiometricPrompt. Derive the stable
+            // SQLCipher key with that single operation, then authenticate the
+            // opaque ticket in process from the derived key. Calling doFinal()
+            // twice on the Keystore Mac fails on strict OEM implementations.
             authenticatedMac.doFinal(DATABASE_KEY_LABEL.toByteArray(StandardCharsets.UTF_8))
         } catch (_: Throwable) {
-            tag.fill(0)
             throw NativeVaultFailure(NativeVaultFailureCode.KEY_NOT_FOUND)
+        }
+        val tag = try {
+            deriveTicketTag(databaseKey, body)
+        } catch (_: Throwable) {
+            databaseKey.fill(0)
+            throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
         }
         val issued = IssuedTicket(
             id = "$TICKET_VERSION.${challenge.nonce}.${encode(tag)}",
