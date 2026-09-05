@@ -73,12 +73,16 @@ internal class SqlCipherVaultDatabase private constructor(
             var database: SQLiteDatabase? = null
             try {
                 // Deliberately fail closed if the native SQLCipher library cannot load.
-                System.loadLibrary("sqlcipher")
+                try {
+                    System.loadLibrary("sqlcipher")
+                } catch (_: Throwable) {
+                    throw NativeVaultFailure(NativeVaultFailureCode.SQLCIPHER_LIBRARY_UNAVAILABLE)
+                }
                 val databaseFile = context.getDatabasePath(DATABASE_FILE_NAME)
                 val parent = databaseFile.parentFile
-                    ?: throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
+                    ?: throw NativeVaultFailure(NativeVaultFailureCode.VAULT_PATH_UNAVAILABLE)
                 if (!parent.exists() && !parent.mkdirs() && !parent.isDirectory) {
-                    throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
+                    throw NativeVaultFailure(NativeVaultFailureCode.VAULT_PATH_UNAVAILABLE)
                 }
 
                 // The current SQLCipher Android API accepts a String password. This
@@ -87,15 +91,20 @@ internal class SqlCipherVaultDatabase private constructor(
                     databaseKey,
                     android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING,
                 )
-                database = SQLiteDatabase.openOrCreateDatabase(
-                    databaseFile,
-                    password,
-                    null,
-                    null,
-                    null,
-                )
+                database = try {
+                    SQLiteDatabase.openOrCreateDatabase(
+                        databaseFile,
+                        password,
+                        null,
+                        null,
+                        null,
+                    )
+                } catch (_: Throwable) {
+                    throw NativeVaultFailure(NativeVaultFailureCode.DATABASE_OPEN_FAILED)
+                }
                 val opened = SqlCipherVaultDatabase(
-                    database ?: throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE),
+                    database
+                        ?: throw NativeVaultFailure(NativeVaultFailureCode.DATABASE_OPEN_FAILED),
                 )
                 try {
                     opened.initialize()
@@ -132,11 +141,21 @@ internal class SqlCipherVaultDatabase private constructor(
     private fun initialize() = synchronized(lock) {
         ensureOpen()
         verifySqlCipher()
-        database.execSQL("PRAGMA foreign_keys = ON")
-        if (readPragmaInt("foreign_keys") != 1) {
-            throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
+        try {
+            database.execSQL("PRAGMA foreign_keys = ON")
+            if (readPragmaInt("foreign_keys") != 1) {
+                throw NativeVaultFailure(NativeVaultFailureCode.FOREIGN_KEYS_UNAVAILABLE)
+            }
+        } catch (_: NativeVaultFailure) {
+            throw NativeVaultFailure(NativeVaultFailureCode.FOREIGN_KEYS_UNAVAILABLE)
+        } catch (_: Throwable) {
+            throw NativeVaultFailure(NativeVaultFailureCode.FOREIGN_KEYS_UNAVAILABLE)
         }
-        database.execSQL("PRAGMA busy_timeout = 5000")
+        try {
+            database.execSQL("PRAGMA busy_timeout = 5000")
+        } catch (_: Throwable) {
+            throw NativeVaultFailure(NativeVaultFailureCode.DATABASE_CONFIGURATION_FAILED)
+        }
         // WAL is an optional concurrency optimization, not an encryption or
         // durability prerequisite. SQLCipher follows Android's contract and
         // may decline WAL on a supported device/filesystem. Keep the encrypted
@@ -147,8 +166,15 @@ internal class SqlCipherVaultDatabase private constructor(
         } catch (_: Throwable) {
             false
         }
-        if (walEnabled && !isAcceptedJournalMode(walEnabled, readPragmaText("journal_mode"))) {
-            throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
+        if (walEnabled) {
+            val journalMode = try {
+                readPragmaText("journal_mode")
+            } catch (_: Throwable) {
+                throw NativeVaultFailure(NativeVaultFailureCode.JOURNAL_MODE_INVALID)
+            }
+            if (!isAcceptedJournalMode(walEnabled, journalMode)) {
+                throw NativeVaultFailure(NativeVaultFailureCode.JOURNAL_MODE_INVALID)
+            }
         }
         initializeSchema()
     }
@@ -540,12 +566,12 @@ internal class SqlCipherVaultDatabase private constructor(
         try {
             cursor = database.rawQuery("PRAGMA cipher_version", null)
             if (!cursor.moveToFirst() || cursor.getString(0).isNullOrBlank()) {
-                throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
+                throw NativeVaultFailure(NativeVaultFailureCode.CIPHER_VERIFICATION_FAILED)
             }
         } catch (failure: NativeVaultFailure) {
             throw failure
         } catch (_: Throwable) {
-            throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
+            throw NativeVaultFailure(NativeVaultFailureCode.CIPHER_VERIFICATION_FAILED)
         } finally {
             cursor?.close()
         }
