@@ -137,10 +137,17 @@ internal class SqlCipherVaultDatabase private constructor(
             throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
         }
         database.execSQL("PRAGMA busy_timeout = 5000")
-        if (!database.enableWriteAheadLogging()) {
-            throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
+        // WAL is an optional concurrency optimization, not an encryption or
+        // durability prerequisite. SQLCipher follows Android's contract and
+        // may decline WAL on a supported device/filesystem. Keep the encrypted
+        // database usable with its rollback journal in that case. If the
+        // provider claims WAL was enabled, verify that claim fail-closed.
+        val walEnabled = try {
+            database.enableWriteAheadLogging()
+        } catch (_: Throwable) {
+            false
         }
-        if (readPragmaText("journal_mode") != "wal") {
+        if (walEnabled && !isAcceptedJournalMode(walEnabled, readPragmaText("journal_mode"))) {
             throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
         }
         initializeSchema()
@@ -825,6 +832,9 @@ internal class SqlCipherVaultDatabase private constructor(
         )
     }
 }
+
+internal fun isAcceptedJournalMode(walEnabled: Boolean, journalMode: String?): Boolean =
+    !walEnabled || journalMode.equals("wal", ignoreCase = true)
 
 private class ZeroingByteArrayOutputStream : ByteArrayOutputStream() {
     fun zeroize() {
