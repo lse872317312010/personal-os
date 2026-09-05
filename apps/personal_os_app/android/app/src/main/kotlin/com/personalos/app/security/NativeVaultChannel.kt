@@ -208,10 +208,15 @@ internal class NativeVaultChannel(
                 if (activeAuthentication !== pending) return
                 activeAuthentication = null
                 try {
-                    val authenticatedMac = authenticationResult.cryptoObject?.mac
-                        ?: throw NativeVaultFailure(
-                            NativeVaultFailureCode.AUTHENTICATION_UNAVAILABLE,
-                        )
+                    // Some Android OEM credential implementations report a
+                    // successful device-credential authentication without
+                    // echoing the CryptoObject in AuthenticationResult. The
+                    // exact Mac submitted to BiometricPrompt is still gated by
+                    // Android Keystore and cannot produce a ticket unless this
+                    // authentication actually authorized it. Reuse that Mac
+                    // only from the terminal success callback; issue() remains
+                    // the fail-closed authorization check.
+                    val authenticatedMac = authenticationResult.cryptoObject?.mac ?: mac
                     val issued = tickets.issue(pending.challenge, authenticatedMac)
                     pending.result.success(
                         mapOf(
