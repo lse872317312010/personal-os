@@ -73,6 +73,8 @@ def main() -> None:
         "run_id": run_id,
         "app_version": app_version(args.app_dir),
         "apk_sha256": sha256(args.apk),
+        "model_provider": os.environ.get("PERSONAL_OS_MODEL_PROVIDER", "disabled"),
+        "model_id": os.environ.get("PERSONAL_OS_MODEL_ID", ""),
         "built_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
