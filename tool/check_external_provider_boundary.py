@@ -23,6 +23,7 @@ GRADLE = Path("apps/personal_os_app/android/app/build.gradle.kts")
 MANIFEST = Path("apps/personal_os_app/android/app/src/main/AndroidManifest.xml")
 CONTROLLER = Path("apps/personal_os_app/lib/src/controller/app_controller.dart")
 CAPTURE_SCREEN = Path("apps/personal_os_app/lib/src/screens/capture_screen.dart")
+DOGFOOD_BUILD = Path("tool/android_mvp/build_debug.sh")
 
 
 def require_tokens(text: str, path: Path, tokens: tuple[str, ...]) -> list[str]:
@@ -39,6 +40,7 @@ def main() -> int:
         MANIFEST,
         CONTROLLER,
         CAPTURE_SCREEN,
+        DOGFOOD_BUILD,
     )
     try:
         source = {path: (root / path).read_text(encoding="utf-8") for path in files}
@@ -125,6 +127,15 @@ def main() -> int:
             "external-transmission-confirmation",
             "服务商可能收取 API 费用",
             "仅发送这一次",
+        ),
+    )
+    errors += require_tokens(
+        source[DOGFOOD_BUILD],
+        DOGFOOD_BUILD,
+        (
+            'ORG_GRADLE_PROJECT_personalOsOpenAiEnabled:-true',
+            'ORG_GRADLE_PROJECT_personalOsOpenAiModel:-gpt-5.4-mini',
+            'PERSONAL_OS_MODEL_PROVIDER="openai"',
         ),
     )
 
