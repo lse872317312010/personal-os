@@ -151,10 +151,15 @@ internal class SqlCipherVaultDatabase private constructor(
         } catch (_: Throwable) {
             throw NativeVaultFailure(NativeVaultFailureCode.FOREIGN_KEYS_UNAVAILABLE)
         }
+        // busy_timeout only improves lock-contention behavior. Some SQLCipher
+        // Android/OEM combinations reject this PRAGMA even though the encrypted
+        // database is otherwise fully usable. Keep the provider default when it
+        // cannot be configured; encryption, foreign keys, schema validation,
+        // and transaction boundaries remain mandatory below.
         try {
             database.execSQL("PRAGMA busy_timeout = 5000")
         } catch (_: Throwable) {
-            throw NativeVaultFailure(NativeVaultFailureCode.DATABASE_CONFIGURATION_FAILED)
+            // Optional performance tuning; use the provider default.
         }
         // WAL is an optional concurrency optimization, not an encryption or
         // durability prerequisite. SQLCipher follows Android's contract and
