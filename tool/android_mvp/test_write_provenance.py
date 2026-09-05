@@ -28,6 +28,8 @@ def main() -> None:
             "GITHUB_RUN_ID": "12345",
             "GITHUB_WORKFLOW": "Flutter Android",
             "PERSONAL_OS_BUILD_NUMBER": "321",
+            "PERSONAL_OS_MODEL_PROVIDER": "openai",
+            "PERSONAL_OS_MODEL_ID": "gpt-5.4-mini",
         }
         subprocess.run(
             [sys.executable, str(WRITER), "--app-dir", str(app_dir), "--apk", str(apk), "--output", str(manifest_path)],
@@ -40,6 +42,8 @@ def main() -> None:
         assert manifest["workflow"] == "Flutter Android"
         assert manifest["app_version"] == "1.2.3+321"
         assert len(manifest["apk_sha256"]) == 64
+        assert manifest["model_provider"] == "openai"
+        assert manifest["model_id"] == "gpt-5.4-mini"
         assert manifest["built_at"].endswith("Z")
 
 

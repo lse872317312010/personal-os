@@ -129,8 +129,9 @@ accepts only the exact structured result schema with bounded collections. Raw
 HTTP bodies, provider-specific fields, and provider exceptions are not allowed
 to cross this boundary.
 
-The first concrete client uses the OpenAI Responses API and remains disabled by
-default. Enable it only in a deliberate local build with
+The first concrete client uses the OpenAI Responses API. Dogfood APKs produced
+by `tool/android_mvp/build_debug.sh` include the adapter and currently pin
+`gpt-5.4-mini`; ad-hoc Gradle builds remain disabled unless enabled with
 `-PpersonalOsOpenAiEnabled=true -PpersonalOsOpenAiModel=<model-id>`. The API key
 is never a Gradle property, BuildConfig value, repository value, or Flutter
 value; the user enters it into the native one-call credential dialog. The
