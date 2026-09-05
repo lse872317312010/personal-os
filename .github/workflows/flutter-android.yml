@@ -106,6 +106,10 @@ jobs:
               raise SystemExit("provenance github_sha does not match GITHUB_SHA")
           if not provenance.get("app_version"):
               raise SystemExit("provenance app_version is empty")
+          if provenance.get("model_provider") != "openai":
+              raise SystemExit("dogfood APK does not declare the OpenAI provider")
+          if provenance.get("model_id") != "gpt-5.4-mini":
+              raise SystemExit("dogfood APK does not declare the pinned model")
           PY
 
       - name: Upload workflow artifact
