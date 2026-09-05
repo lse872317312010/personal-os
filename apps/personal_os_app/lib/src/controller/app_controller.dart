@@ -93,6 +93,7 @@ final class AppController extends ChangeNotifier {
   final AppearanceModelCredentialGateway? _modelCredentials;
 
   bool _vaultUnlocked = false;
+  bool _vaultUnlocking = false;
   bool _consentGranted = false;
   AppDestination _destination = AppDestination.home;
   SubmissionStatus _submission = SubmissionStatus.idle;
@@ -121,6 +122,7 @@ final class AppController extends ChangeNotifier {
   int _externalConsentRevision = 0;
 
   bool get vaultUnlocked => _vaultUnlocked;
+  bool get vaultUnlocking => _vaultUnlocking;
   bool get consentGranted => _consentGranted;
   bool get modelConfigured => _modelConfigured;
   bool get externalProcessingConfigured => _externalProcessingConfigured;
@@ -166,6 +168,10 @@ final class AppController extends ChangeNotifier {
   void unlockVault() {
     if (_vaultSession != null &&
         (_secureVault != null || _sessionCoordinator != null)) {
+      if (_vaultUnlocking) return;
+      _vaultUnlocking = true;
+      _errorCode = null;
+      notifyListeners();
       unawaited(_unlockSecureVault());
       return;
     }
@@ -214,8 +220,12 @@ final class AppController extends ChangeNotifier {
       _vaultUnlocked = false;
       _errorCode = SecurityErrorCode.providerUnavailable.wireValue;
       await vaultSession.lock();
+    } finally {
+      if (epoch == _lifecycleEpoch) {
+        _vaultUnlocking = false;
+        notifyListeners();
+      }
     }
-    notifyListeners();
   }
 
   /// Rebuilds the controller's volatile view from persisted profile events.
@@ -314,6 +324,7 @@ final class AppController extends ChangeNotifier {
 
   void lockVault({String? errorCode}) {
     _lifecycleEpoch++;
+    _vaultUnlocking = false;
     final modelCredentials = _modelCredentials;
     if (modelCredentials != null) {
       unawaited(_clearModelCredentialAfterLock(modelCredentials));
