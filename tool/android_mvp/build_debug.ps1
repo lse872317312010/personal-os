@@ -3,6 +3,14 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 $AppDir = Join-Path $RepoRoot "apps/personal_os_app"
 
+# Include the real provider adapter in dogfood APKs without embedding a key.
+if (-not $env:ORG_GRADLE_PROJECT_personalOsOpenAiEnabled) {
+    $env:ORG_GRADLE_PROJECT_personalOsOpenAiEnabled = "true"
+}
+if (-not $env:ORG_GRADLE_PROJECT_personalOsOpenAiModel) {
+    $env:ORG_GRADLE_PROJECT_personalOsOpenAiModel = "gpt-5.4-mini"
+}
+
 if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
     throw "Flutter SDK is required and must be on PATH."
 }
