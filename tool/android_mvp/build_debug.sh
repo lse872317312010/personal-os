@@ -5,6 +5,14 @@ tool_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$tool_dir/../.." && pwd)
 app_dir="$repo_root/apps/personal_os_app"
 
+# Dogfood builds include the real provider adapter, but never a credential.
+# Gradle reads ORG_GRADLE_PROJECT_* as project properties; callers may override
+# the model explicitly while the API key remains runtime-only native input.
+export ORG_GRADLE_PROJECT_personalOsOpenAiEnabled="${ORG_GRADLE_PROJECT_personalOsOpenAiEnabled:-true}"
+export ORG_GRADLE_PROJECT_personalOsOpenAiModel="${ORG_GRADLE_PROJECT_personalOsOpenAiModel:-gpt-5.4-mini}"
+export PERSONAL_OS_MODEL_PROVIDER="openai"
+export PERSONAL_OS_MODEL_ID="$ORG_GRADLE_PROJECT_personalOsOpenAiModel"
+
 command -v flutter >/dev/null 2>&1 || {
   echo "Flutter SDK is required and must be on PATH." >&2
   exit 1
