@@ -78,5 +78,14 @@ String _unlockErrorText(String code) => switch (code) {
       'security.unlock_unavailable' => '当前无法使用系统解锁。',
       'security.unlock_expired' => '解锁授权已过期，请重试。',
       'security.vault_locked' => '安全保险库会话无效，请重试。',
+      'security.vault_library_unavailable' => '加密数据库原生库加载失败（vault_library）。',
+      'security.vault_path_unavailable' => '应用私有数据库目录不可用（vault_path）。',
+      'security.vault_database_open_failed' => '加密数据库打开失败（vault_open）。',
+      'security.vault_cipher_verification_failed' =>
+        'SQLCipher 提供程序校验失败（vault_cipher）。',
+      'security.vault_foreign_keys_unavailable' =>
+        '数据库完整性约束启用失败（vault_foreign_keys）。',
+      'security.vault_configuration_failed' => '数据库安全配置失败（vault_config）。',
+      'security.vault_journal_invalid' => '数据库事务日志校验失败（vault_journal）。',
       _ => '安全保险库打开失败（$code）。',
     };
