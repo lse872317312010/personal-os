@@ -545,6 +545,31 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(controller.vaultUnlocked, isTrue);
   });
+
+  test('secure unlock exposes progress and ignores repeated taps', () async {
+    final coordinator = _FakeSecureSessionCoordinator();
+    final vaultSession = _BlockingVaultSession();
+    final controller = _controller(
+      _CountingGateway(),
+      vaultSession: vaultSession,
+      sessionCoordinator: coordinator,
+    );
+
+    controller.unlockVault();
+    controller.unlockVault();
+
+    expect(controller.vaultUnlocking, isTrue);
+    expect(controller.vaultUnlocked, isFalse);
+    expect(vaultSession.unlockCalls, 1);
+
+    vaultSession.completeUnlock();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.vaultUnlocking, isFalse);
+    expect(controller.vaultUnlocked, isTrue);
+    expect(controller.errorCode, isNull);
+  });
+
   test('repeated bootstrap is a no-op after the first projection', () async {
     final controller = _controller(
       _CountingGateway(),
@@ -877,6 +902,38 @@ final class _FakeVaultSession implements VaultSession {
   @override
   UnlockGrant requireGrant({DateTime? at}) => UnlockGrant.opaque(
         id: 'fake-ticket',
+        expiresAt: DateTime.utc(2099, 1, 1),
+      );
+}
+
+final class _BlockingVaultSession implements VaultSession {
+  final Completer<void> _unlockCompleter = Completer<void>();
+  VaultSessionState _state = VaultSessionState.locked;
+  int unlockCalls = 0;
+
+  @override
+  VaultSessionState get state => _state;
+
+  @override
+  bool get isUnlocked => state == VaultSessionState.unlocked;
+
+  @override
+  Future<void> unlock({required String reason}) async {
+    unlockCalls++;
+    await _unlockCompleter.future;
+    _state = VaultSessionState.unlocked;
+  }
+
+  void completeUnlock() => _unlockCompleter.complete();
+
+  @override
+  Future<void> lock() async {
+    _state = VaultSessionState.locked;
+  }
+
+  @override
+  UnlockGrant requireGrant({DateTime? at}) => UnlockGrant.opaque(
+        id: 'blocking-ticket',
         expiresAt: DateTime.utc(2099, 1, 1),
       );
 }

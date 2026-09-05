@@ -35,14 +35,34 @@ final class VaultLockScreen extends StatelessWidget {
                     const SizedBox(height: 24),
                     FilledButton.icon(
                       key: const Key('unlock-vault'),
-                      onPressed: controller.unlockVault,
-                      icon: const Icon(Icons.lock_open),
+                      onPressed: controller.vaultUnlocking
+                          ? null
+                          : controller.unlockVault,
+                      icon: controller.vaultUnlocking
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.lock_open),
                       label: Text(
-                        mode == AppExperienceMode.syntheticDemo
+                        controller.vaultUnlocking
+                            ? '正在打开安全保险库…'
+                            : mode == AppExperienceMode.syntheticDemo
                             ? '进入合成体验'
                             : '解锁安全保险库',
                       ),
                     ),
+                    if (controller.errorCode != null) ...<Widget>[
+                      const SizedBox(height: 12),
+                      Text(
+                        _unlockErrorText(controller.errorCode!),
+                        key: const Key('unlock-error'),
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -51,3 +71,12 @@ final class VaultLockScreen extends StatelessWidget {
         ),
       );
 }
+
+String _unlockErrorText(String code) => switch (code) {
+      'security.unlock_cancelled' => '已取消解锁。',
+      'security.unlock_denied' => '系统未授权解锁，请重试。',
+      'security.unlock_unavailable' => '当前无法使用系统解锁。',
+      'security.unlock_expired' => '解锁授权已过期，请重试。',
+      'security.vault_locked' => '安全保险库会话无效，请重试。',
+      _ => '安全保险库打开失败（$code）。',
+    };
