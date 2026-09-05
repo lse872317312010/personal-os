@@ -20,6 +20,34 @@ internal enum class NativeVaultFailureCode(val wireValue: String, val safeMessag
     ),
     TRANSACTION_FAILED("security.vault_transaction_failed", "The vault transaction failed."),
     SCHEMA_INVALID("security.vault_schema_invalid", "The vault schema is invalid."),
+    SQLCIPHER_LIBRARY_UNAVAILABLE(
+        "security.vault_library_unavailable",
+        "The encrypted database library is unavailable.",
+    ),
+    VAULT_PATH_UNAVAILABLE(
+        "security.vault_path_unavailable",
+        "The private vault location is unavailable.",
+    ),
+    DATABASE_OPEN_FAILED(
+        "security.vault_database_open_failed",
+        "The encrypted database could not be opened.",
+    ),
+    CIPHER_VERIFICATION_FAILED(
+        "security.vault_cipher_verification_failed",
+        "The encrypted database provider could not be verified.",
+    ),
+    FOREIGN_KEYS_UNAVAILABLE(
+        "security.vault_foreign_keys_unavailable",
+        "Required database integrity enforcement is unavailable.",
+    ),
+    DATABASE_CONFIGURATION_FAILED(
+        "security.vault_configuration_failed",
+        "The encrypted database could not be configured.",
+    ),
+    JOURNAL_MODE_INVALID(
+        "security.vault_journal_invalid",
+        "The encrypted database journal mode is invalid.",
+    ),
     UNAVAILABLE("security.provider_unavailable", "The secure vault is unavailable."),
 }
 

@@ -197,6 +197,20 @@ void main() {
       PlatformSecurityFailureCode.vaultLocked: SecurityErrorCode.vaultLocked,
       PlatformSecurityFailureCode.vaultSessionInvalid:
           SecurityErrorCode.vaultLocked,
+      PlatformSecurityFailureCode.vaultLibraryUnavailable:
+          SecurityErrorCode.vaultLibraryUnavailable,
+      PlatformSecurityFailureCode.vaultPathUnavailable:
+          SecurityErrorCode.vaultPathUnavailable,
+      PlatformSecurityFailureCode.vaultDatabaseOpenFailed:
+          SecurityErrorCode.vaultDatabaseOpenFailed,
+      PlatformSecurityFailureCode.vaultCipherVerificationFailed:
+          SecurityErrorCode.vaultCipherVerificationFailed,
+      PlatformSecurityFailureCode.vaultForeignKeysUnavailable:
+          SecurityErrorCode.vaultForeignKeysUnavailable,
+      PlatformSecurityFailureCode.vaultConfigurationFailed:
+          SecurityErrorCode.vaultConfigurationFailed,
+      PlatformSecurityFailureCode.vaultJournalInvalid:
+          SecurityErrorCode.vaultJournalInvalid,
       PlatformSecurityFailureCode.unavailable:
           SecurityErrorCode.providerUnavailable,
     };

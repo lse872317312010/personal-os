@@ -12,6 +12,13 @@ enum SecurityErrorCode {
   rotationConflict('security.rotation_conflict'),
   deviceRevoked('security.device_revoked'),
   plaintextKeyExportForbidden('security.plaintext_key_export_forbidden'),
+  vaultLibraryUnavailable('security.vault_library_unavailable'),
+  vaultPathUnavailable('security.vault_path_unavailable'),
+  vaultDatabaseOpenFailed('security.vault_database_open_failed'),
+  vaultCipherVerificationFailed('security.vault_cipher_verification_failed'),
+  vaultForeignKeysUnavailable('security.vault_foreign_keys_unavailable'),
+  vaultConfigurationFailed('security.vault_configuration_failed'),
+  vaultJournalInvalid('security.vault_journal_invalid'),
   providerUnavailable('security.provider_unavailable');
 
   const SecurityErrorCode(this.wireValue);
@@ -51,6 +58,20 @@ const _safeMessages = <SecurityErrorCode, String>{
       'This device is not authorized for new data.',
   SecurityErrorCode.plaintextKeyExportForbidden:
       'Key material cannot be exported.',
+  SecurityErrorCode.vaultLibraryUnavailable:
+      'The encrypted database library is unavailable.',
+  SecurityErrorCode.vaultPathUnavailable:
+      'The private vault location is unavailable.',
+  SecurityErrorCode.vaultDatabaseOpenFailed:
+      'The encrypted database could not be opened.',
+  SecurityErrorCode.vaultCipherVerificationFailed:
+      'The encrypted database provider could not be verified.',
+  SecurityErrorCode.vaultForeignKeysUnavailable:
+      'Required database integrity enforcement is unavailable.',
+  SecurityErrorCode.vaultConfigurationFailed:
+      'The encrypted database could not be configured.',
+  SecurityErrorCode.vaultJournalInvalid:
+      'The encrypted database journal mode is invalid.',
   SecurityErrorCode.providerUnavailable:
       'Secure storage is temporarily unavailable.',
 };

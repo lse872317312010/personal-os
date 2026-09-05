@@ -134,6 +134,13 @@ enum PlatformSecurityFailureCode {
   deviceRevoked,
   vaultLocked,
   vaultSessionInvalid,
+  vaultLibraryUnavailable,
+  vaultPathUnavailable,
+  vaultDatabaseOpenFailed,
+  vaultCipherVerificationFailed,
+  vaultForeignKeysUnavailable,
+  vaultConfigurationFailed,
+  vaultJournalInvalid,
   unavailable,
 }
 
