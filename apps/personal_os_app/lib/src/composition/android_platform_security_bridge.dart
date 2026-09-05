@@ -234,6 +234,20 @@ PlatformSecurityFailureCode _failureCode(String code) => switch (code) {
         PlatformSecurityFailureCode.rotationConflict,
       'security.device_revoked' => PlatformSecurityFailureCode.deviceRevoked,
       'security.vault_locked' => PlatformSecurityFailureCode.vaultLocked,
+      'security.vault_library_unavailable' =>
+        PlatformSecurityFailureCode.vaultLibraryUnavailable,
+      'security.vault_path_unavailable' =>
+        PlatformSecurityFailureCode.vaultPathUnavailable,
+      'security.vault_database_open_failed' =>
+        PlatformSecurityFailureCode.vaultDatabaseOpenFailed,
+      'security.vault_cipher_verification_failed' =>
+        PlatformSecurityFailureCode.vaultCipherVerificationFailed,
+      'security.vault_foreign_keys_unavailable' =>
+        PlatformSecurityFailureCode.vaultForeignKeysUnavailable,
+      'security.vault_configuration_failed' =>
+        PlatformSecurityFailureCode.vaultConfigurationFailed,
+      'security.vault_journal_invalid' =>
+        PlatformSecurityFailureCode.vaultJournalInvalid,
       'security.provider_unavailable' =>
         PlatformSecurityFailureCode.unavailable,
       _ => PlatformSecurityFailureCode.unavailable,
