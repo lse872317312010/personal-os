@@ -55,7 +55,8 @@ void main() {
     expect(composition.controller.completedStep, 5);
   });
 
-  testWidgets('analysis explains missing consent in Chinese', (tester) async {
+  testWidgets('analysis is disabled and explains missing consent in Chinese',
+      (tester) async {
     await tester.pumpWidget(
       PersonalOsApp(composition: AppComposition.inMemoryDemo()),
     );
@@ -68,10 +69,13 @@ void main() {
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    await tester.tap(find.byKey(const Key('analyze-reference')));
-    await tester.pump();
-
-    expect(find.text('请先勾选本次分析授权。'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('analyze-reference')))
+          .onPressed,
+      isNull,
+    );
+    expect(find.text('下一步：先开启本次外貌分析授权。'), findsOneWidget);
   });
 
   testWidgets('task and review cannot bypass plan and feedback', (tester) async {

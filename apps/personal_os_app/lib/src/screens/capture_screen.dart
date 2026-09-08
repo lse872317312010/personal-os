@@ -30,6 +30,7 @@ final class _CaptureScreenState extends State<CaptureScreen> {
   Widget build(BuildContext context) {
     final busy = widget.controller.submission == SubmissionStatus.running ||
         widget.controller.credentialOperationRunning;
+    final analysisReady = widget.controller.analysisPreflightReady;
     return ListView(
       padding: const EdgeInsets.all(20),
       children: <Widget>[
@@ -54,22 +55,6 @@ final class _CaptureScreenState extends State<CaptureScreen> {
         const SizedBox(height: 16),
         ObservationHistoryCard(
             controller: widget.controller, mode: widget.mode),
-        if (widget.controller.sourceAvailable) ...<Widget>[
-          FilledButton.icon(
-            key: const Key('pick-photo-analyze'),
-            onPressed: busy ? null : _pickPhotoAndAnalyze,
-            icon: const Icon(Icons.photo_library_outlined),
-            label: const Text('选择照片并分析'),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            key: const Key('capture-photo-analyze'),
-            onPressed: busy ? null : _capturePhotoAndAnalyze,
-            icon: const Icon(Icons.camera_alt_outlined),
-            label: const Text('拍照并分析'),
-          ),
-          const SizedBox(height: 12),
-        ],
         const SizedBox(height: 16),
         TextField(
           key: const Key('blob-reference'),
@@ -149,10 +134,34 @@ final class _CaptureScreenState extends State<CaptureScreen> {
               ),
             ),
         ],
+        if (!analysisReady) ...<Widget>[
+          const SizedBox(height: 8),
+          Text(
+            _analysisPreflightMessage(widget.controller),
+            key: const Key('analysis-preflight-status'),
+            style: const TextStyle(color: Colors.orange),
+          ),
+        ],
+        if (widget.controller.sourceAvailable) ...<Widget>[
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            key: const Key('pick-photo-analyze'),
+            onPressed: busy || !analysisReady ? null : _pickPhotoAndAnalyze,
+            icon: const Icon(Icons.photo_library_outlined),
+            label: const Text('选择照片并分析'),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            key: const Key('capture-photo-analyze'),
+            onPressed: busy || !analysisReady ? null : _capturePhotoAndAnalyze,
+            icon: const Icon(Icons.camera_alt_outlined),
+            label: const Text('拍照并分析'),
+          ),
+        ],
         const SizedBox(height: 16),
         FilledButton(
           key: const Key('analyze-reference'),
-          onPressed: busy ? null : _analyzeBlobReference,
+          onPressed: busy || !analysisReady ? null : _analyzeBlobReference,
           child: Text(
             busy
                 ? '正在生成建议…'
@@ -163,7 +172,8 @@ final class _CaptureScreenState extends State<CaptureScreen> {
         ),
         if (widget.controller.errorCode case final error?) ...<Widget>[
           const SizedBox(height: 12),
-          Text(_errorMessage(error), style: const TextStyle(color: Colors.red)),
+          Text(captureErrorMessage(error),
+              style: const TextStyle(color: Colors.red)),
         ],
       ],
     );
@@ -230,7 +240,23 @@ final class _CaptureScreenState extends State<CaptureScreen> {
   }
 }
 
-String _errorMessage(String code) => switch (code) {
+String _analysisPreflightMessage(AppController controller) {
+  if (!controller.consentGranted) return '下一步：先开启本次外貌分析授权。';
+  if (!controller.modelConfigured) return '下一步：等待真实模型配置就绪。';
+  if (controller.externalProcessingConfigured &&
+      !controller.externalProcessingAvailable) {
+    return '下一步：配置一次性模型凭据。凭据不会保存到事件或 Flutter。';
+  }
+  if (controller.externalProcessingAvailable &&
+      !controller.externalProcessingConsentGranted &&
+      !controller.onDeviceProcessingAvailable) {
+    return '下一步：开启外部模型处理授权。每次发送前仍会单独确认。';
+  }
+  return '当前处理方式不可用，请检查模型能力。';
+}
+
+@visibleForTesting
+String captureErrorMessage(String code) => switch (code) {
       'consent_required' => '请先勾选本次分析授权。',
       'consent_persistence_failed' => '授权状态未能保存，请解锁后重试。',
       'blob_reference_required' => '资料引用格式无效，请使用安全会话提供的引用。',
@@ -247,7 +273,14 @@ String _errorMessage(String code) => switch (code) {
       'security.unlock_unavailable' => '当前无法使用解锁验证。',
       'security.unlock_expired' => '解锁会话已过期，请重新进入。',
       'security.provider_unavailable' => '安全存储暂时不可用，请稍后重试。',
-      'model.adapter_unavailable' => '真实模型尚未配置，照片未发送。',
+      // This code also covers HTTP/network failures after sending has begun.
+      // A failed response does not prove that the provider received no photo.
+      'model.adapter_unavailable' =>
+        '模型当前不可用。请检查网络、模型配置及 API 凭据。'
+            '若已确认外部发送，照片可能已发送；重试前请检查凭据状态。',
+      'model.invalid_response' =>
+        '未获得符合安全格式的分析结果。若已确认外部发送，照片可能已发送；'
+            '请检查凭据状态后再决定是否重试。',
       'model.on_device_unavailable' => '当前模型不支持设备内处理。',
       'model.external_processing_unavailable' =>
         '外部模型或运行时凭据尚未就绪，照片未发送。',

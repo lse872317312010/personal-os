@@ -135,6 +135,12 @@ final class AppController extends ChangeNotifier {
   bool get credentialOperationRunning => _credentialOperationRunning;
   bool get canConfigureExternalCredential =>
       _modelCredentials != null && _externalProcessingConfigured;
+  bool get analysisPreflightReady {
+    if (!_vaultUnlocked || !_consentGranted || !_modelConfigured) return false;
+    return _processingBoundary == AppearanceProcessingBoundary.externalProcessor
+        ? _externalProcessingAvailable
+        : _onDeviceProcessingAvailable;
+  }
   AppDestination get destination => _destination;
   SubmissionStatus get submission => _submission;
   AppearanceLoopResult? get result => _result;

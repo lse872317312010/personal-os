@@ -127,6 +127,9 @@ def main() -> int:
             "external-transmission-confirmation",
             "服务商可能收取 API 费用",
             "仅发送这一次",
+            "照片可能已发送",
+            "analysisPreflightReady",
+            "analysis-preflight-status",
         ),
     )
     errors += require_tokens(
@@ -152,6 +155,10 @@ def main() -> int:
         for token in prohibited
         if token in provider
     )
+    if "'model.adapter_unavailable' => '真实模型尚未配置，照片未发送。'" in source[CAPTURE_SCREEN]:
+        errors.append(
+            f"{CAPTURE_SCREEN}: ambiguous provider failure promises no transmission"
+        )
     gradle_lower = source[GRADLE].lower()
     for secret_name in ("openaiapikey", "openai_api_key", "openaisecret"):
         if secret_name in gradle_lower:
