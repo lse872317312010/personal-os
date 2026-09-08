@@ -171,6 +171,7 @@ void main() {
     expect(controller.externalProcessingConfigured, isTrue);
     expect(controller.externalProcessingAvailable, isFalse);
     expect(controller.onDeviceProcessingAvailable, isFalse);
+    expect(controller.analysisPreflightReady, isFalse);
   });
 
   test('runtime credential configure and clear refresh capability state',
@@ -188,12 +189,18 @@ void main() {
     expect(credentials.configureCalls, 1);
     expect(controller.externalProcessingAvailable, isTrue);
     expect(controller.credentialOperationRunning, isFalse);
+    expect(controller.analysisPreflightReady, isFalse);
+
+    await controller.setConsent(true);
+    await controller.setExternalProcessingConsent(true);
+    expect(controller.analysisPreflightReady, isTrue);
 
     await controller.clearExternalModelCredential();
 
     expect(credentials.clearCalls, 1);
     expect(controller.externalProcessingAvailable, isFalse);
     expect(controller.externalProcessingConfigured, isTrue);
+    expect(controller.analysisPreflightReady, isFalse);
   });
 
   test('one-call external credential is refreshed after analysis', () async {
