@@ -273,6 +273,10 @@ String captureErrorMessage(String code) => switch (code) {
       'security.unlock_unavailable' => '当前无法使用解锁验证。',
       'security.unlock_expired' => '解锁会话已过期，请重新进入。',
       'security.provider_unavailable' => '安全存储暂时不可用，请稍后重试。',
+      'model.media_too_large' =>
+        '照片超过安全处理上限，已在设备内停止处理且未发送。请换用较小照片。',
+      'model.media_transcode_unavailable' =>
+        '当前设备无法安全转换这张照片，已在联网前停止。请改用 JPEG、PNG 或 WebP。',
       // This code also covers HTTP/network failures after sending has begun.
       // A failed response does not prove that the provider received no photo.
       'model.adapter_unavailable' =>
