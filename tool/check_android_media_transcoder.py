@@ -7,6 +7,7 @@ TRANSCODER = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/person
 MODEL = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/model/NativeAppearanceModel.kt"
 MAIN = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/MainActivity.kt"
 GATEWAY = ROOT / "apps/personal_os_app/lib/src/composition/method_channel_appearance_analysis_gateway.dart"
+CAPTURE_SCREEN = ROOT / "apps/personal_os_app/lib/src/screens/capture_screen.dart"
 TEST = ROOT / "apps/personal_os_app/android/app/src/test/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderTest.kt"
 
 checks = {
@@ -30,6 +31,12 @@ checks = {
     GATEWAY: (
         "'model.media_too_large'",
         "'model.media_transcode_unavailable'",
+    ),
+    CAPTURE_SCREEN: (
+        "'model.media_too_large'",
+        "'model.media_transcode_unavailable'",
+        '已在设备内停止处理且未发送',
+        '已在联网前停止',
     ),
     TEST: (
         'preservesAlreadySupportedStreamingMediaWithoutBuffering',
