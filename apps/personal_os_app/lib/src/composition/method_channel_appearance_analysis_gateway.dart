@@ -10,10 +10,6 @@ final class SecureModelGatewayFailure implements Exception {
   String toString() => 'SecureModelGatewayFailure($code)';
 }
 
-/// Strict codec for the native-only appearance model boundary.
-///
-/// Requests contain only an opaque BlobRef and bounded text metadata. Photo
-/// bytes, credentials, provider errors, and raw responses remain native.
 final class MethodChannelAppearanceAnalysisGateway
     implements
         AppearanceAnalysisGateway,
@@ -185,7 +181,9 @@ String _stableFailureCode(String code) => switch (code) {
       'model.invalid_request' ||
       'model.vault_unavailable' ||
       'model.adapter_unavailable' ||
-      'model.invalid_response' =>
+      'model.invalid_response' ||
+      'model.media_too_large' ||
+      'model.media_transcode_unavailable' =>
         code,
       _ => 'model.adapter_unavailable',
     };
