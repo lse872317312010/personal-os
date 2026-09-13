@@ -12,13 +12,6 @@ import java.nio.ByteBuffer
 import kotlin.math.ceil
 import kotlin.math.sqrt
 
-/**
- * Android-only compatibility layer for provider image formats.
- *
- * JPEG/PNG/WebP stay streaming and untouched. HEIF/AVIF are decoded only when
- * the platform codec is available, down-scaled before pixel allocation, and
- * re-encoded to bounded JPEG in memory. No plaintext temporary file is used.
- */
 internal class TranscodingExternalAppearanceModelClient(
     private val delegate: ExternalAppearanceModelClient,
     private val maximumEncodedInputBytes: Int = MAXIMUM_ENCODED_INPUT_BYTES,
@@ -52,10 +45,12 @@ internal class TranscodingExternalAppearanceModelClient(
                 val output = SensitiveBoundedByteArrayOutputStream(maximumOutputBytes)
                 val compressed = try {
                     bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
+                } catch (_: MediaLimitExceededIOException) {
+                    mediaTooLarge()
                 } catch (_: IOException) {
                     false
                 }
-                if (!compressed || output.size() == 0) invalidTranscode()
+                if (!compressed || output.size() == 0) mediaTranscodeUnavailable()
                 val jpeg = output.copySensitiveBytes()
                 try {
                     return delegate.execute(
@@ -94,7 +89,7 @@ private fun decodeBoundedBitmap(
     maximumDecodedPixels: Long,
     maximumEdgePixels: Int,
 ): Bitmap {
-    if (encoded.isEmpty()) invalidTranscode()
+    if (encoded.isEmpty()) mediaTranscodeUnavailable()
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
         decodeWithImageDecoder(encoded, maximumDecodedPixels, maximumEdgePixels)
     } else {
@@ -122,8 +117,10 @@ private fun decodeWithImageDecoder(
                 decoder.setTargetSize(target.first, target.second)
             }
         }
+    } catch (failure: NativeAppearanceModelFailure) {
+        throw failure
     } catch (_: Throwable) {
-        invalidTranscode()
+        mediaTranscodeUnavailable()
     }
 }
 
@@ -134,7 +131,7 @@ private fun decodeWithBitmapFactory(
 ): Bitmap {
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(encoded, 0, encoded.size, bounds)
-    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) invalidTranscode()
+    if (bounds.outWidth <= 0 || bounds.outHeight <= 0) mediaTranscodeUnavailable()
     val sampleSize = boundedSampleSize(
         width = bounds.outWidth,
         height = bounds.outHeight,
@@ -146,7 +143,7 @@ private fun decodeWithBitmapFactory(
         inPreferredConfig = Bitmap.Config.ARGB_8888
     }
     return BitmapFactory.decodeByteArray(encoded, 0, encoded.size, options)
-        ?: invalidTranscode()
+        ?: mediaTranscodeUnavailable()
 }
 
 internal fun boundedDimensions(
@@ -156,7 +153,7 @@ internal fun boundedDimensions(
     maximumEdge: Int,
 ): Pair<Int, Int> {
     if (width <= 0 || height <= 0 || maximumPixels <= 0 || maximumEdge <= 0) {
-        invalidTranscode()
+        mediaTranscodeUnavailable()
     }
     val edgeScale = maximumEdge.toDouble() / maxOf(width, height).toDouble()
     val pixelScale = sqrt(maximumPixels.toDouble() / (width.toDouble() * height.toDouble()))
@@ -193,15 +190,16 @@ private fun InputStream.readBoundedSensitive(maximumBytes: Int): ByteArray {
             output.write(scratch, 0, count)
         }
         return output.copySensitiveBytes()
+    } catch (_: MediaLimitExceededIOException) {
+        mediaTooLarge()
     } catch (_: IOException) {
-        invalidTranscode()
+        mediaTranscodeUnavailable()
     } finally {
         scratch.fill(0)
         output.zeroize()
     }
 }
 
-/** ByteArrayOutputStream whose owned backing buffer can be explicitly cleared. */
 private class SensitiveBoundedByteArrayOutputStream(
     private val maximumBytes: Int,
 ) : ByteArrayOutputStream(minOf(maximumBytes, 64 * 1024)) {
@@ -224,10 +222,16 @@ private class SensitiveBoundedByteArrayOutputStream(
     }
 
     private fun requireCapacity(additional: Int) {
-        if (additional > maximumBytes - count) throw IOException()
+        if (additional > maximumBytes - count) throw MediaLimitExceededIOException()
     }
 }
 
-private fun invalidTranscode(): Nothing = throw NativeAppearanceModelFailure(
-    NativeAppearanceModelFailureCode.INVALID_REQUEST,
+private class MediaLimitExceededIOException : IOException()
+
+private fun mediaTooLarge(): Nothing = throw NativeAppearanceModelFailure(
+    NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE,
+)
+
+private fun mediaTranscodeUnavailable(): Nothing = throw NativeAppearanceModelFailure(
+    NativeAppearanceModelFailureCode.MEDIA_TRANSCODE_UNAVAILABLE,
 )
