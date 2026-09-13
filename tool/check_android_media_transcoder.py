@@ -4,7 +4,9 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 TRANSCODER = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoder.kt"
+MODEL = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/model/NativeAppearanceModel.kt"
 MAIN = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/MainActivity.kt"
+GATEWAY = ROOT / "apps/personal_os_app/lib/src/composition/method_channel_appearance_analysis_gateway.dart"
 TEST = ROOT / "apps/personal_os_app/android/app/src/test/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderTest.kt"
 
 checks = {
@@ -16,12 +18,25 @@ checks = {
         'request.copy(mediaType = "image/jpeg")',
         'bitmap.recycle()',
         'buf.fill(0)',
+        'MediaLimitExceededIOException',
+        'NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE',
+        'NativeAppearanceModelFailureCode.MEDIA_TRANSCODE_UNAVAILABLE',
+    ),
+    MODEL: (
+        'MEDIA_TOO_LARGE("model.media_too_large")',
+        'MEDIA_TRANSCODE_UNAVAILABLE("model.media_transcode_unavailable")',
     ),
     MAIN: ('TranscodingExternalAppearanceModelClient(',),
+    GATEWAY: (
+        "'model.media_too_large'",
+        "'model.media_transcode_unavailable'",
+    ),
     TEST: (
         'preservesAlreadySupportedStreamingMediaWithoutBuffering',
+        'rejectsOversizeEncodedMediaBeforeDelegateOrCodec',
         'boundsLargeLandscapeByEdgeAndPixelBudget',
         'legacyDecoderUsesPowerOfTwoSampleLargeEnoughForBudget',
+        'assertFalse(delegateCalled)',
     ),
 }
 
