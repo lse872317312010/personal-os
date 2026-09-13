@@ -9,6 +9,8 @@ internal enum class NativeAppearanceModelFailureCode(val wireValue: String) {
     VAULT_UNAVAILABLE("model.vault_unavailable"),
     ADAPTER_UNAVAILABLE("model.adapter_unavailable"),
     INVALID_RESPONSE("model.invalid_response"),
+    MEDIA_TOO_LARGE("model.media_too_large"),
+    MEDIA_TRANSCODE_UNAVAILABLE("model.media_transcode_unavailable"),
 }
 
 internal class NativeAppearanceModelFailure(
@@ -108,11 +110,6 @@ internal data class NativeAppearanceHumanConfirmation(
     }
 }
 
-/**
- * Vendor adapter boundary. Credentials are adapter-owned and never appear in
- * request/result objects. Implementations must consume [media] synchronously,
- * must not retain it, and must return only the structured result above.
- */
 internal fun interface NativeAppearanceModelTransport {
     fun analyze(
         request: NativeAppearanceModelRequest,
@@ -120,10 +117,6 @@ internal fun interface NativeAppearanceModelTransport {
     ): NativeAppearanceModelResult
 }
 
-/**
- * Configured native adapter metadata. Capability discovery reads these values
- * directly so it cannot drift from the transport or credential source.
- */
 internal interface NativeAppearanceModelAdapter : NativeAppearanceModelTransport {
     val processingBoundary: NativeModelProcessingBoundary
     val runtimeCredentialReady: Boolean
@@ -139,7 +132,6 @@ internal interface RuntimeCredentialNativeAppearanceModelAdapter :
     fun clearRuntimeCredential()
 }
 
-/** Keeps decrypted media native and maps all raw adapter failures to stable codes. */
 internal class NativeAppearanceModelCoordinator(
     private val mediaAccess: NativeModelMediaAccess,
     private val transport: NativeAppearanceModelTransport,
