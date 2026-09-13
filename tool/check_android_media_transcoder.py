@@ -9,6 +9,7 @@ MAIN = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/a
 GATEWAY = ROOT / "apps/personal_os_app/lib/src/composition/method_channel_appearance_analysis_gateway.dart"
 CAPTURE_SCREEN = ROOT / "apps/personal_os_app/lib/src/screens/capture_screen.dart"
 TEST = ROOT / "apps/personal_os_app/android/app/src/test/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderTest.kt"
+ROBOLECTRIC_TEST = ROOT / "apps/personal_os_app/android/app/src/test/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderRobolectricTest.kt"
 
 checks = {
     TRANSCODER: (
@@ -44,6 +45,15 @@ checks = {
         'boundsLargeLandscapeByEdgeAndPixelBudget',
         'legacyDecoderUsesPowerOfTwoSampleLargeEnoughForBudget',
         'assertFalse(delegateCalled)',
+    ),
+    ROBOLECTRIC_TEST: (
+        'RobolectricTestRunner',
+        '@Config(sdk = [35])',
+        'executesDecodeScaleEncodePipelineBeforeDelegate',
+        'request("image/heif")',
+        'assertEquals("image/jpeg", observedMediaType)',
+        'decoded.width <= 64',
+        'decoded.height <= 64',
     ),
 }
 
