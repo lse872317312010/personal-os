@@ -8,7 +8,6 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
-import java.io.OutputStream
 import java.nio.ByteBuffer
 import kotlin.math.ceil
 import kotlin.math.sqrt
@@ -50,18 +49,17 @@ internal class TranscodingExternalAppearanceModelClient(
                 maximumEdgePixels = maximumEdgePixels,
             )
             try {
-                val output = BoundedByteArrayOutputStream(maximumOutputBytes)
+                val output = SensitiveBoundedByteArrayOutputStream(maximumOutputBytes)
                 val compressed = try {
                     bitmap.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, output)
                 } catch (_: IOException) {
                     false
                 }
                 if (!compressed || output.size() == 0) invalidTranscode()
-                val jpeg = output.toSensitiveByteArray()
+                val jpeg = output.copySensitiveBytes()
                 try {
-                    val normalizedRequest = request.copy(mediaType = "image/jpeg")
                     return delegate.execute(
-                        normalizedRequest,
+                        request.copy(mediaType = "image/jpeg"),
                         ByteArrayInputStream(jpeg),
                         credential,
                     )
@@ -151,7 +149,6 @@ private fun decodeWithBitmapFactory(
         ?: invalidTranscode()
 }
 
-@JvmSynthetic
 internal fun boundedDimensions(
     width: Int,
     height: Int,
@@ -167,7 +164,6 @@ internal fun boundedDimensions(
     return maxOf(1, (width * scale).toInt()) to maxOf(1, (height * scale).toInt())
 }
 
-@JvmSynthetic
 internal fun boundedSampleSize(
     width: Int,
     height: Int,
@@ -188,7 +184,7 @@ internal fun boundedSampleSize(
 }
 
 private fun InputStream.readBoundedSensitive(maximumBytes: Int): ByteArray {
-    val output = BoundedByteArrayOutputStream(maximumBytes)
+    val output = SensitiveBoundedByteArrayOutputStream(maximumBytes)
     val scratch = ByteArray(16 * 1024)
     try {
         while (true) {
@@ -196,7 +192,7 @@ private fun InputStream.readBoundedSensitive(maximumBytes: Int): ByteArray {
             if (count == -1) break
             output.write(scratch, 0, count)
         }
-        return output.toSensitiveByteArray()
+        return output.copySensitiveBytes()
     } catch (_: IOException) {
         invalidTranscode()
     } finally {
@@ -205,34 +201,30 @@ private fun InputStream.readBoundedSensitive(maximumBytes: Int): ByteArray {
     }
 }
 
-private class BoundedByteArrayOutputStream(
+/** ByteArrayOutputStream whose owned backing buffer can be explicitly cleared. */
+private class SensitiveBoundedByteArrayOutputStream(
     private val maximumBytes: Int,
-) : OutputStream() {
-    private val delegate = ByteArrayOutputStream(minOf(maximumBytes, 64 * 1024))
-
+) : ByteArrayOutputStream(minOf(maximumBytes, 64 * 1024)) {
     override fun write(value: Int) {
         requireCapacity(1)
-        delegate.write(value)
+        super.write(value)
     }
 
     override fun write(buffer: ByteArray, offset: Int, length: Int) {
         require(offset >= 0 && length >= 0 && length <= buffer.size - offset)
         requireCapacity(length)
-        delegate.write(buffer, offset, length)
+        super.write(buffer, offset, length)
     }
 
-    fun size(): Int = delegate.size()
-
-    fun toSensitiveByteArray(): ByteArray = delegate.toByteArray()
+    fun copySensitiveBytes(): ByteArray = toByteArray()
 
     fun zeroize() {
-        val bytes = delegate.toByteArray()
-        bytes.fill(0)
-        delegate.reset()
+        buf.fill(0)
+        reset()
     }
 
     private fun requireCapacity(additional: Int) {
-        if (additional > maximumBytes - delegate.size()) throw IOException()
+        if (additional > maximumBytes - count) throw IOException()
     }
 }
 
