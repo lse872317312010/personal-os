@@ -3,8 +3,10 @@ package com.personalos.app.model
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 
 class AndroidExternalMediaTranscoderTest {
@@ -27,6 +29,34 @@ class AndroidExternalMediaTranscoderTest {
         assertEquals("image/jpeg", observed[0])
         assertSame(media, observed[1])
         assertSame(credential, observed[2])
+    }
+
+    @Test
+    fun rejectsOversizeEncodedMediaBeforeDelegateOrCodec() {
+        var delegateCalled = false
+        val delegate = ExternalAppearanceModelClient { _, _, _ ->
+            delegateCalled = true
+            mapOf("ok" to true)
+        }
+        val wrapper = TranscodingExternalAppearanceModelClient(
+            delegate = delegate,
+            maximumEncodedInputBytes = 2,
+        )
+
+        try {
+            wrapper.execute(
+                request("image/heif"),
+                ByteArrayInputStream(byteArrayOf(1, 2, 3)),
+                "sk-test".toCharArray(),
+            )
+            fail("expected NativeAppearanceModelFailure")
+        } catch (failure: NativeAppearanceModelFailure) {
+            assertEquals(
+                NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE,
+                failure.failureCode,
+            )
+        }
+        assertFalse(delegateCalled)
     }
 
     @Test
