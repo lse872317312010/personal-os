@@ -85,6 +85,7 @@ checks = {
         'AndroidJUnit4',
         '@SdkSuppress(minSdkVersion = 31)',
         'realAvifFixtureDecodesAndReachesDelegateAsJpeg',
+        '-pix_fmt yuv420p pattern.avif',
         'AVIF_FIXTURE_BASE64',
         'assertEquals("avif", String(avif, 8, 4, Charsets.US_ASCII))',
         'assertEquals("image/jpeg", request.mediaType)',
