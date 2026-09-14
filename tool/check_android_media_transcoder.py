@@ -12,6 +12,7 @@ BUILD = ROOT / "apps/personal_os_app/android/app/build.gradle.kts"
 TEST = ROOT / "apps/personal_os_app/android/app/src/test/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderTest.kt"
 ROBOLECTRIC_TEST = ROOT / "apps/personal_os_app/android/app/src/test/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderRobolectricTest.kt"
 DEVICE_TEST = ROOT / "apps/personal_os_app/android/app/src/androidTest/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderDeviceTest.kt"
+DEVICE_RUNNER = ROOT / "tool/android_mvp/run_media_codec_device_tests.sh"
 
 checks = {
     TRANSCODER: (
@@ -91,6 +92,13 @@ checks = {
         'assertEquals(6, decoded.height)',
         "credential.fill('\\u0000')",
         'avif.fill(0)',
+    ),
+    DEVICE_RUNNER: (
+        'connectedDebugAndroidTest',
+        'AndroidExternalMediaTranscoderDeviceTest',
+        'android.testInstrumentationRunnerArguments.class',
+        'No authorized Android device or emulator is connected.',
+        'Multiple Android devices are connected',
     ),
 }
 
