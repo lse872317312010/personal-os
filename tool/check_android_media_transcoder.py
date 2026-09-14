@@ -8,8 +8,10 @@ MODEL = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/
 MAIN = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/MainActivity.kt"
 GATEWAY = ROOT / "apps/personal_os_app/lib/src/composition/method_channel_appearance_analysis_gateway.dart"
 CAPTURE_SCREEN = ROOT / "apps/personal_os_app/lib/src/screens/capture_screen.dart"
+BUILD = ROOT / "apps/personal_os_app/android/app/build.gradle.kts"
 TEST = ROOT / "apps/personal_os_app/android/app/src/test/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderTest.kt"
 ROBOLECTRIC_TEST = ROOT / "apps/personal_os_app/android/app/src/test/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderRobolectricTest.kt"
+DEVICE_TEST = ROOT / "apps/personal_os_app/android/app/src/androidTest/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderDeviceTest.kt"
 
 checks = {
     TRANSCODER: (
@@ -22,6 +24,10 @@ checks = {
         '"image/heif" -> sdkInt >= Build.VERSION_CODES.O',
         '"image/avif" -> sdkInt >= Build.VERSION_CODES.S',
         'request.copy(mediaType = "image/jpeg")',
+        'decoder.setMutableRequired(true)',
+        'inMutable = true',
+        'if (!bitmap.isMutable)',
+        'bitmap.eraseColor(0)',
         'bitmap.recycle()',
         'buf.fill(0)',
         'MediaLimitExceededIOException',
@@ -42,6 +48,11 @@ checks = {
         "'model.media_transcode_unavailable'",
         '已在设备内停止处理且未发送',
         '已在联网前停止',
+    ),
+    BUILD: (
+        'testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"',
+        'androidTestImplementation("androidx.test.ext:junit:1.3.0")',
+        'androidTestImplementation("androidx.test:runner:1.7.0")',
     ),
     TEST: (
         'preservesAlreadySupportedStreamingMediaWithoutBuffering',
@@ -68,6 +79,18 @@ checks = {
         'rejectsHeifBeforeReadingMediaWhenPlatformIsTooOld',
         'assertFalse(media.readAttempted)',
         'assertFalse(delegateCalled)',
+    ),
+    DEVICE_TEST: (
+        'AndroidJUnit4',
+        '@SdkSuppress(minSdkVersion = 31)',
+        'realAvifFixtureDecodesAndReachesDelegateAsJpeg',
+        'AVIF_FIXTURE_BASE64',
+        'assertEquals("avif", String(avif, 8, 4, Charsets.US_ASCII))',
+        'assertEquals("image/jpeg", request.mediaType)',
+        'assertEquals(8, decoded.width)',
+        'assertEquals(6, decoded.height)',
+        "credential.fill('\\u0000')",
+        'avif.fill(0)',
     ),
 }
 
