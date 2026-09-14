@@ -65,6 +65,9 @@ for token in (
     "flutter build windows --debug",
     "Get-FileHash -Path $exe.FullName -Algorithm SHA256",
     "WINDOWS_SPIKE_PASS",
+    "$env:GITHUB_STEP_SUMMARY",
+    "runner_os:",
+    "Windows secure adapter and Vault open/close are not verified.",
 ):
     if token not in script:
         errors.append(f"{SCRIPT.relative_to(ROOT)}: missing {token!r}")
