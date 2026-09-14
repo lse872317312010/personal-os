@@ -35,6 +35,7 @@ concurrency:
 jobs:
   verify-build:
     name: Verify and package Android debug APK
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
@@ -112,45 +113,85 @@ jobs:
               raise SystemExit("dogfood APK does not declare the pinned model")
           PY
 
-      - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: personal-os-android-debug-${{ github.sha }}
-          path: release/*
-          if-no-files-found: error
-          retention-days: 14
-
-  publish-release:
-    name: Publish rolling GitHub Release
-    needs: verify-build
+  verify-publish-main:
+    name: Verify, build, and publish Android debug APK
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 45
     permissions:
       contents: write
 
     steps:
-      - name: Checkout release commit
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Download verified assets
-        uses: actions/download-artifact@v4
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
         with:
-          name: personal-os-android-debug-${{ github.sha }}
-          path: release
+          flutter-version: "3.47.0"
+          channel: stable
+          cache: true
 
-      - name: Verify downloaded assets
+      - name: Install Android API 36
         shell: bash
         run: |
           set -Eeuo pipefail
-          test -s release/personal-os-latest-debug.apk
-          test -s release/personal-os-latest-debug.provenance.json
-          test -s release/personal-os-latest-debug.apk.sha256
-          sha256sum --check release/personal-os-latest-debug.apk.sha256
+          sdkmanager_path="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}/cmdline-tools/latest/bin/sdkmanager"
+          if [[ ! -x "$sdkmanager_path" ]]; then
+            echo "Android sdkmanager not found at $sdkmanager_path" >&2
+            exit 1
+          fi
+          set +o pipefail
+          yes | "$sdkmanager_path" --licenses >/dev/null
+          set -o pipefail
+          "$sdkmanager_path" "platforms;android-36"
 
-      - name: Publish rolling release
+      - name: Verify repository contracts
+        run: bash tool/check_contracts.sh
+
+      - name: Verify Dart core
+        run: bash tool/check_dart_core.sh
+
+      - name: Test and build debug APK
+        run: bash tool/android_mvp/build_debug.sh
+
+      - name: Prepare and verify release assets
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          apk=apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.apk
+          provenance=apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.provenance.json
+          test -s "$apk"
+          test -s "$provenance"
+          mkdir -p release
+          cp "$apk" release/personal-os-latest-debug.apk
+          cp "$provenance" release/personal-os-latest-debug.provenance.json
+          sha256sum release/personal-os-latest-debug.apk > release/personal-os-latest-debug.apk.sha256
+          APK_SHA256="$(awk '{print $1}' release/personal-os-latest-debug.apk.sha256)" \
+          PROVENANCE_PATH="release/personal-os-latest-debug.provenance.json" \
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          provenance = json.loads(Path(os.environ["PROVENANCE_PATH"]).read_text(encoding="utf-8"))
+          expected_sha = os.environ["APK_SHA256"]
+          expected_commit = os.environ["GITHUB_SHA"]
+          if provenance.get("apk_sha256") != expected_sha:
+              raise SystemExit("provenance apk_sha256 does not match the packaged APK")
+          if provenance.get("github_sha") != expected_commit:
+              raise SystemExit("provenance github_sha does not match GITHUB_SHA")
+          if not provenance.get("app_version"):
+              raise SystemExit("provenance app_version is empty")
+          if provenance.get("model_provider") != "openai":
+              raise SystemExit("dogfood APK does not declare the OpenAI provider")
+          if provenance.get("model_id") != "gpt-5.4-mini":
+              raise SystemExit("dogfood APK does not declare the pinned model")
+          PY
+
+      - name: Publish rolling release directly
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
