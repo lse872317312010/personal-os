@@ -91,6 +91,8 @@ for token in (
     'SHA_NAME="personal-os-latest-debug.apk.sha256"',
     'sha256sum --check "${SHA_NAME}"',
     'EXPECTED_COMMIT="${GITHUB_SHA:-$(git rev-parse HEAD)}"',
+    'PERSONAL_OS_APK_SHA256="${APK_SHA256}"',
+    'PERSONAL_OS_EXPECTED_COMMIT="${EXPECTED_COMMIT}"',
     'provenance.get("github_sha") != expected_commit',
     'provenance.get("model_provider") != "openai"',
     'provenance.get("model_id") != "gpt-5.4-mini"',
@@ -106,7 +108,9 @@ for token in (
     'gh release upload "${TAG}" "${RELEASE_DIR}"/* --clobber',
     'gh release download "${TAG}"',
     'sha256sum --check "${SHA_NAME}"',
-    'provenance.get("github_sha") != os.environ["EXPECTED_COMMIT"]',
+    'PERSONAL_OS_REMOTE_APK_SHA256="${REMOTE_APK_SHA256}"',
+    'PERSONAL_OS_EXPECTED_COMMIT="${GITHUB_SHA}"',
+    'provenance.get("github_sha") != os.environ["PERSONAL_OS_EXPECTED_COMMIT"]',
     'git tag --force "${TAG}" "${GITHUB_SHA}"',
     'git push --force origin "refs/tags/${TAG}"',
     'gh release edit "${TAG}"',
@@ -118,7 +122,7 @@ try:
     upload_index = publish.index('gh release upload "${TAG}"')
     download_index = publish.index('gh release download "${TAG}"')
     remote_commit_check_index = publish.index(
-        'provenance.get("github_sha") != os.environ["EXPECTED_COMMIT"]'
+        'provenance.get("github_sha") != os.environ["PERSONAL_OS_EXPECTED_COMMIT"]'
     )
     tag_index = publish.index('git tag --force "${TAG}" "${GITHUB_SHA}"')
     notes_index = publish.index('gh release edit "${TAG}"')
