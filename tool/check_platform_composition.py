@@ -56,7 +56,11 @@ required_test = (
     "controller.errorCode, 'security.unlock_unavailable'",
     "unsupported production shell stays behind the vault gate",
     "find.byKey(const Key('unlock-vault'))",
+    "find.byKey(const Key('unlock-error'))",
+    "find.text('当前无法使用系统解锁。'), findsOneWidget",
     "find.text('今天，从一个小改变开始'), findsNothing",
+    "current production composition is never synthetic by default",
+    "AppComposition.forCurrentPlatform()",
     "synthetic demo remains explicit opt-in",
     "AppComposition.inMemoryDemo()",
 )
