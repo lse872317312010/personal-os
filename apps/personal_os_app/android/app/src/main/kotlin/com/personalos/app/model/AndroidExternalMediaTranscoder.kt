@@ -68,7 +68,11 @@ internal class TranscodingExternalAppearanceModelClient(
                     output.zeroize()
                 }
             } finally {
-                bitmap.recycle()
+                try {
+                    bitmap.eraseColor(0)
+                } finally {
+                    bitmap.recycle()
+                }
             }
         } finally {
             encoded.fill(0)
@@ -102,11 +106,16 @@ private fun decodeBoundedBitmap(
     maximumEdgePixels: Int,
 ): Bitmap {
     if (encoded.isEmpty()) mediaTranscodeUnavailable()
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+    val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
         decodeWithImageDecoder(encoded, maximumDecodedPixels, maximumEdgePixels)
     } else {
         decodeWithBitmapFactory(encoded, maximumDecodedPixels, maximumEdgePixels)
     }
+    if (!bitmap.isMutable) {
+        bitmap.recycle()
+        mediaTranscodeUnavailable()
+    }
+    return bitmap
 }
 
 private fun decodeWithImageDecoder(
@@ -125,6 +134,7 @@ private fun decodeWithImageDecoder(
             )
             decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
             decoder.memorySizePolicy = ImageDecoder.MEMORY_POLICY_LOW_RAM
+            decoder.setMutableRequired(true)
             if (target.first != info.size.width || target.second != info.size.height) {
                 decoder.setTargetSize(target.first, target.second)
             }
@@ -153,6 +163,7 @@ private fun decodeWithBitmapFactory(
     val options = BitmapFactory.Options().apply {
         inSampleSize = sampleSize
         inPreferredConfig = Bitmap.Config.ARGB_8888
+        inMutable = true
     }
     return BitmapFactory.decodeByteArray(encoded, 0, encoded.size, options)
         ?: mediaTranscodeUnavailable()
