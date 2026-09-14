@@ -80,38 +80,7 @@ jobs:
         run: bash tool/android_mvp/build_debug.sh
 
       - name: Prepare and verify release assets
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          apk=apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.apk
-          provenance=apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.provenance.json
-          test -s "$apk"
-          test -s "$provenance"
-          mkdir -p release
-          cp "$apk" release/personal-os-latest-debug.apk
-          cp "$provenance" release/personal-os-latest-debug.provenance.json
-          sha256sum release/personal-os-latest-debug.apk > release/personal-os-latest-debug.apk.sha256
-          APK_SHA256="$(awk '{print $1}' release/personal-os-latest-debug.apk.sha256)" \
-          PROVENANCE_PATH="release/personal-os-latest-debug.provenance.json" \
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          provenance = json.loads(Path(os.environ["PROVENANCE_PATH"]).read_text(encoding="utf-8"))
-          expected_sha = os.environ["APK_SHA256"]
-          expected_commit = os.environ["GITHUB_SHA"]
-          if provenance.get("apk_sha256") != expected_sha:
-              raise SystemExit("provenance apk_sha256 does not match the packaged APK")
-          if provenance.get("github_sha") != expected_commit:
-              raise SystemExit("provenance github_sha does not match GITHUB_SHA")
-          if not provenance.get("app_version"):
-              raise SystemExit("provenance app_version is empty")
-          if provenance.get("model_provider") != "openai":
-              raise SystemExit("dogfood APK does not declare the OpenAI provider")
-          if provenance.get("model_id") != "gpt-5.4-mini":
-              raise SystemExit("dogfood APK does not declare the pinned model")
-          PY
+        run: bash tool/android_mvp/prepare_release_assets.sh
 
   verify-publish-main:
     name: Verify, build, and publish Android debug APK
@@ -158,56 +127,9 @@ jobs:
         run: bash tool/android_mvp/build_debug.sh
 
       - name: Prepare and verify release assets
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          apk=apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.apk
-          provenance=apps/personal_os_app/build/app/outputs/flutter-apk/app-debug.provenance.json
-          test -s "$apk"
-          test -s "$provenance"
-          mkdir -p release
-          cp "$apk" release/personal-os-latest-debug.apk
-          cp "$provenance" release/personal-os-latest-debug.provenance.json
-          sha256sum release/personal-os-latest-debug.apk > release/personal-os-latest-debug.apk.sha256
-          APK_SHA256="$(awk '{print $1}' release/personal-os-latest-debug.apk.sha256)" \
-          PROVENANCE_PATH="release/personal-os-latest-debug.provenance.json" \
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          provenance = json.loads(Path(os.environ["PROVENANCE_PATH"]).read_text(encoding="utf-8"))
-          expected_sha = os.environ["APK_SHA256"]
-          expected_commit = os.environ["GITHUB_SHA"]
-          if provenance.get("apk_sha256") != expected_sha:
-              raise SystemExit("provenance apk_sha256 does not match the packaged APK")
-          if provenance.get("github_sha") != expected_commit:
-              raise SystemExit("provenance github_sha does not match GITHUB_SHA")
-          if not provenance.get("app_version"):
-              raise SystemExit("provenance app_version is empty")
-          if provenance.get("model_provider") != "openai":
-              raise SystemExit("dogfood APK does not declare the OpenAI provider")
-          if provenance.get("model_id") != "gpt-5.4-mini":
-              raise SystemExit("dogfood APK does not declare the pinned model")
-          PY
+        run: bash tool/android_mvp/prepare_release_assets.sh
 
       - name: Publish rolling release directly
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          tag=android-latest
-          git tag --force "$tag" "$GITHUB_SHA"
-          git push --force origin "refs/tags/$tag"
-          notes=$(printf '%s\n\n%s\n%s\n\n%s' \
-            'Automatically tested debug APK from main.' \
-            "Commit: $GITHUB_SHA" \
-            "Workflow: https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
-            'This is a debug build for dogfooding, not a production-signed release.')
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release edit "$tag" --title 'Personal OS latest Android debug' --notes "$notes" --prerelease
-          else
-            gh release create "$tag" --title 'Personal OS latest Android debug' --notes "$notes" --prerelease
-          fi
-          gh release upload "$tag" release/* --clobber
+        run: bash tool/android_mvp/publish_rolling_release.sh
