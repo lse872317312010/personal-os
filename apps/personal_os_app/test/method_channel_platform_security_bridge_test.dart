@@ -115,7 +115,7 @@ void main() {
     expect(wrapped.version, 2);
     expect(wrapped.ciphertext, orderedEquals(<int>[11, 22, 33, 44]));
 
-    final firstCopy = wrapped.ciphertext;
+    final Uint8List firstCopy = wrapped.ciphertext;
     firstCopy[0] = 99;
     expect(wrapped.ciphertext.first, 11);
   });
