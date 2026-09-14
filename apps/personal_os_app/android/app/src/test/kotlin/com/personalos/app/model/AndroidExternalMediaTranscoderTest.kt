@@ -40,6 +40,7 @@ class AndroidExternalMediaTranscoderTest {
         val wrapper = TranscodingExternalAppearanceModelClient(
             delegate = delegate,
             maximumEncodedInputBytes = 2,
+            platformSdkInt = 35,
         )
 
         try {
