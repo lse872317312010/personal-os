@@ -31,7 +31,10 @@ void main() {
           };
         case 'authenticate':
           final arguments = _arguments(call);
-          expect(arguments.keys, <String>{'reason', 'allowDeviceCredential'});
+          expect(
+            arguments.keys.toSet(),
+            <String>{'reason', 'allowDeviceCredential'},
+          );
           expect(arguments['reason'], 'Open Personal OS vault');
           expect(arguments['allowDeviceCredential'], isTrue);
           return <String, Object?>{
@@ -110,7 +113,7 @@ void main() {
     expect(wrapped.keyId, 'vault-key-ref');
     expect(wrapped.purpose, KeyPurpose.vaultMaster);
     expect(wrapped.version, 2);
-    expect(wrapped.ciphertext, Uint8List.fromList(<int>[11, 22, 33, 44]));
+    expect(wrapped.ciphertext, orderedEquals(<int>[11, 22, 33, 44]));
 
     final firstCopy = wrapped.ciphertext;
     firstCopy[0] = 99;
