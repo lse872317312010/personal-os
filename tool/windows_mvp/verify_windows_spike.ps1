@@ -41,9 +41,29 @@ try {
   }
 
   $digest = Get-FileHash -Path $exe.FullName -Algorithm SHA256
+  $hostMode = if ($generatedHost) { 'generated' } else { 'committed' }
+  $exeSha256 = $digest.Hash.ToLowerInvariant()
   Write-Host ('WINDOWS_SPIKE_PASS host={0} exe={1} sha256={2}' -f `
-      $(if ($generatedHost) { 'generated' } else { 'committed' }), `
-      $exe.Name, $digest.Hash.ToLowerInvariant())
+      $hostMode, $exe.Name, $exeSha256)
+
+  if (-not [string]::IsNullOrWhiteSpace($env:GITHUB_STEP_SUMMARY)) {
+    $commit = if ([string]::IsNullOrWhiteSpace($env:GITHUB_SHA)) {
+      'local-unbound'
+    } else {
+      $env:GITHUB_SHA
+    }
+    @(
+      '## Windows portability spike',
+      '',
+      "- commit: $commit",
+      "- runner_os: $env:RUNNER_OS",
+      "- host: $hostMode",
+      "- executable: $($exe.Name)",
+      "- sha256: $exeSha256",
+      '- result: PASS',
+      '- limitation: fail-closed shell build only; Windows secure adapter and Vault open/close are not verified.'
+    ) | Add-Content -Path $env:GITHUB_STEP_SUMMARY -Encoding utf8
+  }
 }
 finally {
   Pop-Location
