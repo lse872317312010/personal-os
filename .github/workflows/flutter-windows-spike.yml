@@ -1,0 +1,32 @@
+name: Flutter Windows Portability Spike
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-spike-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-windows-shell:
+    name: Verify fail-closed Windows shell
+    runs-on: windows-2022
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.0"
+          channel: stable
+          cache: true
+
+      - name: Verify Windows portability spike
+        shell: pwsh
+        run: ./tool/windows_mvp/verify_windows_spike.ps1
