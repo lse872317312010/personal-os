@@ -31,6 +31,7 @@ checks = {
         'bitmap.eraseColor(0)',
         'bitmap.recycle()',
         'buf.fill(0)',
+        'catch (_: Exception)',
         'MediaLimitExceededIOException',
         'NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE',
         'NativeAppearanceModelFailureCode.MEDIA_TRANSCODE_UNAVAILABLE',
@@ -103,6 +104,13 @@ checks = {
     ),
 }
 
+forbidden = {
+    TRANSCODER: (
+        'catch (_: Throwable)',
+        'catch (failure: Throwable)',
+    ),
+}
+
 errors = []
 for path, tokens in checks.items():
     try:
@@ -113,6 +121,9 @@ for path, tokens in checks.items():
     for token in tokens:
         if token not in text:
             errors.append(f"{path.relative_to(ROOT)}: missing {token!r}")
+    for token in forbidden.get(path, ()):
+        if token in text:
+            errors.append(f"{path.relative_to(ROOT)}: forbidden {token!r}")
 
 if errors:
     print("android-media-transcoder audit: FAIL", file=sys.stderr)
