@@ -25,6 +25,10 @@ required_composition = (
     "factory AppComposition.forTargetPlatform(TargetPlatform platform)",
     "? AppComposition.secureVault()\n          : AppComposition.unsupportedSecurePlatform();",
     "factory AppComposition.unsupportedSecurePlatform()",
+    "const eventStore = _UnavailableEventStore();",
+    "final class _UnavailableEventStore implements EventStore",
+    "PersistenceException.writeFailed()",
+    "PersistenceException.readFailed()",
     "DefaultVaultSession(const _UnavailableSecureUnlockPort())",
     "secureVault: const _UnavailableSecureVaultPort()",
     "modelGateway: const _UnavailableAppearanceAnalysisGateway()",
@@ -45,6 +49,10 @@ if current_platform_start >= 0 and secure_vault_start > current_platform_start:
         errors.append(
             f"{COMPOSITION.relative_to(ROOT)}: production platform dispatch must not fall back to synthetic demo"
         )
+    if "InMemoryEventStore()" in production_dispatch:
+        errors.append(
+            f"{COMPOSITION.relative_to(ROOT)}: unsupported production dispatch must not expose a writable in-memory store"
+        )
 
 required_test = (
     "non-Android production platforms fail closed without synthetic access",
@@ -53,6 +61,10 @@ required_test = (
     "controller.sourceAvailable, isFalse",
     "controller.modelConfigured, isFalse",
     "controller.onDeviceProcessingAvailable, isFalse",
+    "composition.eventStore.appendAll(const [])",
+    "PersistenceErrorCode.writeFailed",
+    "composition.eventStore.readById('unsupported-platform-event')",
+    "PersistenceErrorCode.readFailed",
     "controller.errorCode, 'security.unlock_unavailable'",
     "unsupported production shell stays behind the vault gate",
     "find.byKey(const Key('unlock-vault'))",
