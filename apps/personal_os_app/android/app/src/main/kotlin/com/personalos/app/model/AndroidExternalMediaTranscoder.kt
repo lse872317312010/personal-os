@@ -34,6 +34,9 @@ internal class TranscodingExternalAppearanceModelClient(
         if (request.mediaType !in TRANSCODED_MEDIA_TYPES) {
             return delegate.execute(request, media, credential)
         }
+        if (!platformCanDecodeTranscodedMedia(request.mediaType, Build.VERSION.SDK_INT)) {
+            mediaTranscodeUnavailable()
+        }
         val encoded = media.readBoundedSensitive(maximumEncodedInputBytes)
         try {
             val bitmap = decodeBoundedBitmap(
@@ -83,6 +86,13 @@ internal class TranscodingExternalAppearanceModelClient(
         private val TRANSCODED_MEDIA_TYPES = setOf("image/heif", "image/avif")
     }
 }
+
+internal fun platformCanDecodeTranscodedMedia(mediaType: String, sdkInt: Int): Boolean =
+    when (mediaType) {
+        "image/heif" -> sdkInt >= Build.VERSION_CODES.O
+        "image/avif" -> sdkInt >= Build.VERSION_CODES.S
+        else -> false
+    }
 
 private fun decodeBoundedBitmap(
     encoded: ByteArray,
