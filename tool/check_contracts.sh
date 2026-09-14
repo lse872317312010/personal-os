@@ -18,5 +18,6 @@ python3 tool/check_external_provider_boundary.py
 python3 tool/check_android_media_transcoder.py
 python3 tool/check_model_failure_passthrough.py
 python3 tool/check_android_release_delivery.py
+python3 tool/check_platform_composition.py
 
 echo 'repository contracts: PASS'
