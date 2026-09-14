@@ -17,7 +17,7 @@ import org.junit.runner.RunWith
  * The fixture is generated in-house from an 8x6 asymmetric PNG pattern with:
  *
  * ffmpeg -i source.png -frames:v 1 -c:v libaom-av1 -still-picture 1 \
- *   -pix_fmt yuv444p pattern.avif
+ *   -pix_fmt yuv420p pattern.avif
  *
  * It is embedded as Base64 so the repository does not need an opaque binary
  * test asset. This test is deliberately separate from Robolectric because host
@@ -99,6 +99,6 @@ class AndroidExternalMediaTranscoderDeviceTest {
 
     companion object {
         private const val AVIF_FIXTURE_BASE64 =
-            "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUEAAAD5bWV0YQAAAAAAAAAvaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAFBpY3R1cmVIYW5kbGVyAAAAAA5waXRtAAAAAAABAAAAHmlsb2MAAAAARAAAAQABAAAAAQAAASEAAAA1AAAAKGlpbmYAAAAAAAEAAAAaaW5mZQIAAAAAAQAAYXYwMUNvbG9yAAAAAGppcHJwAAAAS2lwY28AAAAUaXNwZQAAAAAAAAAIAAAABgAAABBwaXhpAAAAAAMICAgAAAAMYXYxQ4EgAAAAAAATY29scm5jbHgAAQACAAIAAAAAF2lwbWEAAAAAAAAAAQABBAECgwQAAAA9bWRhdAoIOAi9bQECAhAyKRgAABBABRvuAPXrHuO5y8fF9XSamjYRiQhTB/Eh5FCEPu1a10rhjVxg"
+            "AAAAIGZ0eXBhdmlmAAAAAGF2aWZtaWYxbWlhZk1BMUIAAAD5bWV0YQAAAAAAAAAvaGRscgAAAAAAAAAAcGljdAAAAAAAAAAAAAAAAFBpY3R1cmVIYW5kbGVyAAAAAA5waXRtAAAAAAABAAAAHmlsb2MAAAAARAAAAQABAAAAAQAAASEAAAAwAAAAKGlpbmYAAAAAAAEAAAAaaW5mZQIAAAAAAQAAYXYwMUNvbG9yAAAAAGppcHJwAAAAS2lwY28AAAAUaXNwZQAAAAAAAAAIAAAABgAAABBwaXhpAAAAAAMICAgAAAAMYXYxQ4EADAAAAAATY29scm5jbHgAAQACAAIAAAAAF2lwbWEAAAAAAAAAAQABBAECgwQAAAA4bWRhdAoIGAi9bICBAQIyJBgAAABRuUBAj/WC3c/Dp0VeS2LU5gA96RNk1ScoE/3bdYbhIA=="
     }
 }
