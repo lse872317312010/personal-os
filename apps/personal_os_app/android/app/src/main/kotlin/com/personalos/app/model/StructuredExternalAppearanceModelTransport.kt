@@ -111,11 +111,10 @@ internal class StructuredExternalAppearanceModelTransport(
         }
     }
 
-    override fun analyzeWithCredential(
+    override fun preflightBeforeCredentialUse(
         request: NativeAppearanceModelRequest,
         media: InputStream,
-        credential: CharArray,
-    ): NativeAppearanceModelResult {
+    ) {
         validateRequest(request)
         val exactLength = (media as? NativeExactLengthMediaStream)?.exactLengthBytes
         if (exactLength != null && exactLength > maximumMediaBytes) {
@@ -123,6 +122,14 @@ internal class StructuredExternalAppearanceModelTransport(
                 NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE,
             )
         }
+    }
+
+    override fun analyzeWithCredential(
+        request: NativeAppearanceModelRequest,
+        media: InputStream,
+        credential: CharArray,
+    ): NativeAppearanceModelResult {
+        validateRequest(request)
         val boundedMedia = CompleteBoundedInputStream(media, maximumMediaBytes)
         val prefix = boundedMedia.readPrefix(16)
         try {
