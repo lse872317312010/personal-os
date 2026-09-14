@@ -16,5 +16,6 @@ python3 -m unittest tool/tests/test_audit_remote_branches.py
 python3 tool/evidence_ledger.py --ledger evidence/mvp/status.json
 python3 tool/check_external_provider_boundary.py
 python3 tool/check_android_media_transcoder.py
+python3 tool/check_model_failure_passthrough.py
 
 echo 'repository contracts: PASS'
