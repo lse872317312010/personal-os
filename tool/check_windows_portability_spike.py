@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+WORKFLOW = ROOT / ".github/workflows/flutter-windows-spike.yml"
+SCRIPT = ROOT / "tool/windows_mvp/verify_windows_spike.ps1"
+
+errors: list[str] = []
+
+
+def read(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except OSError as exc:
+        errors.append(f"{path.relative_to(ROOT)}: {exc}")
+        return ""
+
+
+workflow = read(WORKFLOW)
+script = read(SCRIPT)
+
+for token in (
+    "on:\n  workflow_dispatch:",
+    "permissions:\n  contents: read",
+    "runs-on: windows-2022",
+    'flutter-version: "3.47.0"',
+    "shell: pwsh",
+    "run: ./tool/windows_mvp/verify_windows_spike.ps1",
+):
+    if token not in workflow:
+        errors.append(f"{WORKFLOW.relative_to(ROOT)}: missing {token!r}")
+
+for token in (
+    "pull_request:",
+    "push:",
+    "actions/upload-artifact@",
+    "contents: write",
+):
+    if token in workflow:
+        errors.append(f"{WORKFLOW.relative_to(ROOT)}: forbidden {token!r}")
+
+for token in (
+    "Set-StrictMode -Version Latest",
+    "$ErrorActionPreference = 'Stop'",
+    "flutter config --enable-windows-desktop",
+    "flutter test test/app_composition_test.dart",
+    "flutter create --platforms=windows --project-name personal_os_app --org com.personalos .",
+    "git diff --exit-code -- pubspec.yaml lib test/app_composition_test.dart",
+    "flutter analyze",
+    "flutter build windows --debug",
+    "Get-FileHash -Path $exe.FullName -Algorithm SHA256",
+    "WINDOWS_SPIKE_PASS",
+):
+    if token not in script:
+        errors.append(f"{SCRIPT.relative_to(ROOT)}: missing {token!r}")
+
+for token in (
+    "Invoke-WebRequest",
+    "curl ",
+    "actions/upload-artifact",
+):
+    if token in script:
+        errors.append(f"{SCRIPT.relative_to(ROOT)}: forbidden {token!r}")
+
+if errors:
+    print("windows-portability-spike audit: FAIL", file=sys.stderr)
+    for error in errors:
+        print(error, file=sys.stderr)
+    raise SystemExit(1)
+
+print("windows-portability-spike audit: PASS")
