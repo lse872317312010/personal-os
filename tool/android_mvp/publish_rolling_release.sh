@@ -54,18 +54,20 @@ gh release download "${TAG}" \
 )
 
 readonly REMOTE_APK_SHA256="$(sha256sum "${REMOTE_DIR}/${APK_NAME}" | awk '{print $1}')"
-REMOTE_APK_SHA256="${REMOTE_APK_SHA256}" \
-EXPECTED_COMMIT="${GITHUB_SHA}" \
-PROVENANCE_PATH="${REMOTE_DIR}/${PROVENANCE_NAME}" \
+PERSONAL_OS_REMOTE_APK_SHA256="${REMOTE_APK_SHA256}" \
+PERSONAL_OS_EXPECTED_COMMIT="${GITHUB_SHA}" \
+PERSONAL_OS_PROVENANCE_PATH="${REMOTE_DIR}/${PROVENANCE_NAME}" \
 python3 - <<'PY'
 import json
 import os
 from pathlib import Path
 
-provenance = json.loads(Path(os.environ["PROVENANCE_PATH"]).read_text(encoding="utf-8"))
-if provenance.get("apk_sha256") != os.environ["REMOTE_APK_SHA256"]:
+provenance = json.loads(
+    Path(os.environ["PERSONAL_OS_PROVENANCE_PATH"]).read_text(encoding="utf-8")
+)
+if provenance.get("apk_sha256") != os.environ["PERSONAL_OS_REMOTE_APK_SHA256"]:
     raise SystemExit("remote release provenance does not match remote APK")
-if provenance.get("github_sha") != os.environ["EXPECTED_COMMIT"]:
+if provenance.get("github_sha") != os.environ["PERSONAL_OS_EXPECTED_COMMIT"]:
     raise SystemExit("remote release provenance does not match the candidate commit")
 if provenance.get("model_provider") != "openai":
     raise SystemExit("remote release provenance has unexpected model provider")
