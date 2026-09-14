@@ -85,9 +85,7 @@ private val APPEARANCE_V1_PROMPT = ExternalAppearancePromptContract(
     maximumHumanConfirmations = 32,
 )
 
-/**
- * Provider-neutral external transport with strict request and response bounds.
- */
+/** Provider-neutral external transport with strict request and response bounds. */
 internal class StructuredExternalAppearanceModelTransport(
     credentials: NativeModelCredentialProvider,
     private val client: ExternalAppearanceModelClient,
@@ -263,7 +261,7 @@ private class CompleteBoundedInputStream(
                 return -1
             }
             throw NativeAppearanceModelFailure(
-                NativeAppearanceModelFailureCode.INVALID_REQUEST,
+                NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE,
             )
         }
         val value = super.read()
