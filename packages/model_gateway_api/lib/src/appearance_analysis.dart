@@ -17,8 +17,7 @@ abstract final class AppearanceModelGatewayFailureCode {
   static const adapterUnavailable = 'model.adapter_unavailable';
   static const invalidResponse = 'model.invalid_response';
   static const mediaTooLarge = 'model.media_too_large';
-  static const mediaTranscodeUnavailable =
-      'model.media_transcode_unavailable';
+  static const mediaTranscodeUnavailable = 'model.media_transcode_unavailable';
 
   static const values = <String>{
     invalidRequest,
