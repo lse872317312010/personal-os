@@ -116,7 +116,10 @@ final class _ThrowingGateway implements AppearanceAnalysisGateway {
   Future<AppearanceAnalysisResult> analyze(
     AppearanceAnalysisInput input,
   ) async {
-    throw failure;
+    final value = failure;
+    if (value is Exception) throw value;
+    if (value is Error) throw value;
+    throw StateError('unsupported test failure');
   }
 }
 
