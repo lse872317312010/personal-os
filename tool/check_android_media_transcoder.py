@@ -71,8 +71,8 @@ checks = {
     ),
     MAIN: ('TranscodingExternalAppearanceModelClient(',),
     GATEWAY: (
-        "'model.media_too_large'",
-        "'model.media_transcode_unavailable'",
+        'AppearanceModelGatewayFailureCode.mediaTooLarge',
+        'AppearanceModelGatewayFailureCode.mediaTranscodeUnavailable',
     ),
     CONTROLLER: (
         'final usedExternalCredential =',
