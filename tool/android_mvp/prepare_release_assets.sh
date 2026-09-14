@@ -26,17 +26,19 @@ printf '%s  %s\n' "${APK_SHA256}" "${APK_NAME}" > "${OUTPUT_DIR}/${SHA_NAME}"
 )
 
 readonly EXPECTED_COMMIT="${GITHUB_SHA:-$(git rev-parse HEAD)}"
-APK_SHA256="${APK_SHA256}" \
-EXPECTED_COMMIT="${EXPECTED_COMMIT}" \
-PROVENANCE_PATH="${OUTPUT_DIR}/${PROVENANCE_NAME}" \
+PERSONAL_OS_APK_SHA256="${APK_SHA256}" \
+PERSONAL_OS_EXPECTED_COMMIT="${EXPECTED_COMMIT}" \
+PERSONAL_OS_PROVENANCE_PATH="${OUTPUT_DIR}/${PROVENANCE_NAME}" \
 python3 - <<'PY'
 import json
 import os
 from pathlib import Path
 
-provenance = json.loads(Path(os.environ["PROVENANCE_PATH"]).read_text(encoding="utf-8"))
-expected_sha = os.environ["APK_SHA256"]
-expected_commit = os.environ["EXPECTED_COMMIT"]
+provenance = json.loads(
+    Path(os.environ["PERSONAL_OS_PROVENANCE_PATH"]).read_text(encoding="utf-8")
+)
+expected_sha = os.environ["PERSONAL_OS_APK_SHA256"]
+expected_commit = os.environ["PERSONAL_OS_EXPECTED_COMMIT"]
 
 if provenance.get("apk_sha256") != expected_sha:
     raise SystemExit("provenance apk_sha256 does not match the packaged APK")
