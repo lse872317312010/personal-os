@@ -6,6 +6,7 @@ import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class StructuredExternalAppearanceModelTransportTest {
@@ -45,7 +46,7 @@ class StructuredExternalAppearanceModelTransportTest {
     }
 
     @Test
-    fun rejectsKnownOversizeVaultMediaBeforeClientCall() {
+    fun rejectsKnownOversizeVaultMediaBeforeClientCallAndKeepsCredential() {
         var clientCalled = false
         val transport = transportWithClient(maximumMediaBytes = 3) { _, _, _ ->
             clientCalled = true
@@ -64,6 +65,7 @@ class StructuredExternalAppearanceModelTransportTest {
             failure.failureCode,
         )
         assertFalse(clientCalled)
+        assertTrue(transport.runtimeCredentialReady)
         assertArrayEquals(ByteArray(owned.size), owned)
     }
 
