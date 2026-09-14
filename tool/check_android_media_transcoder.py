@@ -10,6 +10,7 @@ MEDIA_ACCESS = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/pers
 MODEL = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/model/NativeAppearanceModel.kt"
 MAIN = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/MainActivity.kt"
 GATEWAY = ROOT / "apps/personal_os_app/lib/src/composition/method_channel_appearance_analysis_gateway.dart"
+CONTROLLER = ROOT / "apps/personal_os_app/lib/src/controller/app_controller.dart"
 CAPTURE_SCREEN = ROOT / "apps/personal_os_app/lib/src/screens/capture_screen.dart"
 BUILD = ROOT / "apps/personal_os_app/android/app/build.gradle.kts"
 TEST = ROOT / "apps/personal_os_app/android/app/src/test/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderTest.kt"
@@ -72,6 +73,12 @@ checks = {
     GATEWAY: (
         "'model.media_too_large'",
         "'model.media_transcode_unavailable'",
+    ),
+    CONTROLLER: (
+        'final usedExternalCredential =',
+        '_processingBoundary == AppearanceProcessingBoundary.externalProcessor;',
+        'if (usedExternalCredential &&',
+        'await _refreshModelCapabilities();',
     ),
     CAPTURE_SCREEN: (
         "'model.media_too_large'",
