@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_device_security/device_security.dart';
 import 'package:personal_os_domain/domain.dart';
+import 'package:personal_os_events/events.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
 import 'package:personal_os_in_memory_policy/in_memory_policy.dart';
 import 'package:personal_os_model_fixture/model_fixture.dart';
@@ -49,14 +50,34 @@ final class AppComposition {
 
   /// The runtime composition used by the shipped application.
   ///
-  /// Android is the primary vault platform, so it must exercise the native
-  /// authenticated vault path by default. Other platforms keep the synthetic
-  /// composition until they have an equivalent secure adapter. Tests and
-  /// previews should continue to request [inMemoryDemo] explicitly.
+  /// Android is the primary vault platform and exercises the native
+  /// authenticated vault path by default. Platforms without an equivalent
+  /// secure adapter must fail closed rather than silently entering the
+  /// synthetic demo. Tests and previews may request [inMemoryDemo] explicitly.
   factory AppComposition.forCurrentPlatform() =>
-      defaultTargetPlatform == TargetPlatform.android
+      AppComposition.forTargetPlatform(defaultTargetPlatform);
+
+  /// Explicit target-platform selection keeps the production platform policy
+  /// testable without mutating Flutter's process-wide platform override.
+  factory AppComposition.forTargetPlatform(TargetPlatform platform) =>
+      platform == TargetPlatform.android
           ? AppComposition.secureVault()
-          : AppComposition.inMemoryDemo();
+          : AppComposition.unsupportedSecurePlatform();
+
+  /// Fail-closed shell for a shipped platform that does not yet have a trusted
+  /// vault adapter. The UI can start and explain that unlock is unavailable,
+  /// but it cannot unlock, ingest media, persist user events, or invoke a
+  /// synthetic/real model gateway.
+  factory AppComposition.unsupportedSecurePlatform() {
+    const eventStore = _UnavailableEventStore();
+    return _build(
+      eventStore: eventStore,
+      mode: AppExperienceMode.secureVault,
+      vaultSession: DefaultVaultSession(const _UnavailableSecureUnlockPort()),
+      secureVault: const _UnavailableSecureVaultPort(),
+      modelGateway: const _UnavailableAppearanceAnalysisGateway(),
+    );
+  }
 
   /// Secure composition never falls back to a synthetic model gateway.
   factory AppComposition.secureVault({
@@ -92,6 +113,7 @@ final class AppComposition {
     required AppExperienceMode mode,
     Iterable<ConsentGrant> initialGrants = const <ConsentGrant>[],
     VaultSession? vaultSession,
+    SecureVaultPort? secureVault,
     SecureSessionCoordinator? sessionCoordinator,
     ControlledSourcePort? sourcePort,
     SourceBlobIngestionPort? sourceBlobIngestion,
@@ -169,10 +191,76 @@ final class AppComposition {
           authoritySource: 'local-vault-session',
         ),
         vaultSession: vaultSession,
+        secureVault: secureVault,
         sessionCoordinator: sessionCoordinator,
       ),
     );
   }
+}
+
+final class _UnavailableEventStore implements EventStore {
+  const _UnavailableEventStore();
+
+  @override
+  Future<void> appendAll(List<EventEnvelope> events) async {
+    throw const PersistenceException.writeFailed();
+  }
+
+  @override
+  Future<List<EventEnvelope>> readBySubject(
+    ObjectRef subject, {
+    int? limit,
+  }) async {
+    throw const PersistenceException.readFailed();
+  }
+
+  @override
+  Future<EventEnvelope?> readById(String eventId) async {
+    throw const PersistenceException.readFailed();
+  }
+}
+
+final class _UnavailableSecureUnlockPort implements SecureUnlockPort {
+  const _UnavailableSecureUnlockPort();
+
+  @override
+  Future<UnlockGrant> requestUnlock(UnlockRequest request) async {
+    throw const SecurityException(SecurityErrorCode.unlockUnavailable);
+  }
+}
+
+final class _UnavailableSecureVaultPort implements SecureVaultPort {
+  const _UnavailableSecureVaultPort();
+
+  @override
+  Future<OpaqueVaultSession> open({required UnlockGrant grant}) async {
+    throw const SecurityException(SecurityErrorCode.providerUnavailable);
+  }
+
+  @override
+  Future<void> close(OpaqueVaultSession session) async {
+    throw const SecurityException(SecurityErrorCode.providerUnavailable);
+  }
+}
+
+final class _UnavailableAppearanceAnalysisGateway
+    implements AppearanceAnalysisGateway, AppearanceModelCapabilityGateway {
+  const _UnavailableAppearanceAnalysisGateway();
+
+  @override
+  Future<AppearanceAnalysisResult> analyze(AppearanceAnalysisInput input) async {
+    throw AppearanceModelGatewayFailure(
+      AppearanceModelGatewayFailureCode.adapterUnavailable,
+    );
+  }
+
+  @override
+  Future<AppearanceModelCapabilities> inspectCapabilities() async =>
+      AppearanceModelCapabilities(
+        configured: false,
+        supportedBoundaries: const <AppearanceProcessingBoundary>{},
+        runtimeCredentialReady: false,
+      );
 }
 
 final class _SystemClock implements Clock {
