@@ -4,9 +4,12 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -61,6 +64,45 @@ class AndroidExternalMediaTranscoderRobolectricTest {
         encoded.fill(0)
     }
 
+    @Test
+    @Config(sdk = [30])
+    fun rejectsAvifBeforeReadingMediaWhenPlatformIsTooOld() {
+        assertUnsupportedCodecFailsBeforeRead("image/avif")
+    }
+
+    @Test
+    @Config(sdk = [25])
+    fun rejectsHeifBeforeReadingMediaWhenPlatformIsTooOld() {
+        assertUnsupportedCodecFailsBeforeRead("image/heif")
+    }
+
+    private fun assertUnsupportedCodecFailsBeforeRead(mediaType: String) {
+        var delegateCalled = false
+        val delegate = ExternalAppearanceModelClient { _, _, _ ->
+            delegateCalled = true
+            mapOf("ok" to true)
+        }
+        val media = ThrowOnReadInputStream()
+        val wrapper = TranscodingExternalAppearanceModelClient(delegate)
+
+        try {
+            wrapper.execute(
+                request(mediaType),
+                media,
+                "sk-test".toCharArray(),
+            )
+            fail("expected NativeAppearanceModelFailure")
+        } catch (failure: NativeAppearanceModelFailure) {
+            assertEquals(
+                NativeAppearanceModelFailureCode.MEDIA_TRANSCODE_UNAVAILABLE,
+                failure.failureCode,
+            )
+        }
+
+        assertFalse(media.readAttempted)
+        assertFalse(delegateCalled)
+    }
+
     private fun request(mediaType: String) = ExternalAppearanceModelRequest(
         observationContext = "test",
         locale = "zh-CN",
@@ -77,4 +119,19 @@ class AndroidExternalMediaTranscoderRobolectricTest {
         ),
         timeoutMillis = 1_000,
     )
+
+    private class ThrowOnReadInputStream : InputStream() {
+        var readAttempted = false
+            private set
+
+        override fun read(): Int {
+            readAttempted = true
+            throw AssertionError("media must not be read")
+        }
+
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            readAttempted = true
+            throw AssertionError("media must not be read")
+        }
+    }
 }
