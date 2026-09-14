@@ -18,12 +18,14 @@ internal class TranscodingExternalAppearanceModelClient(
     private val maximumOutputBytes: Int = MAXIMUM_OUTPUT_BYTES,
     private val maximumDecodedPixels: Long = MAXIMUM_DECODED_PIXELS,
     private val maximumEdgePixels: Int = MAXIMUM_EDGE_PIXELS,
+    private val platformSdkInt: Int = Build.VERSION.SDK_INT,
 ) : ExternalAppearanceModelClient {
     init {
         require(maximumEncodedInputBytes in 1..MAXIMUM_ENCODED_INPUT_BYTES)
         require(maximumOutputBytes in 1..MAXIMUM_OUTPUT_BYTES)
         require(maximumDecodedPixels in 1..MAXIMUM_DECODED_PIXELS)
         require(maximumEdgePixels in 1..MAXIMUM_EDGE_PIXELS)
+        require(platformSdkInt >= 0)
     }
 
     override fun execute(
@@ -34,7 +36,7 @@ internal class TranscodingExternalAppearanceModelClient(
         if (request.mediaType !in TRANSCODED_MEDIA_TYPES) {
             return delegate.execute(request, media, credential)
         }
-        if (!platformCanDecodeTranscodedMedia(request.mediaType, Build.VERSION.SDK_INT)) {
+        if (!platformCanDecodeTranscodedMedia(request.mediaType, platformSdkInt)) {
             mediaTranscodeUnavailable()
         }
         val encoded = media.readBoundedSensitive(maximumEncodedInputBytes)
