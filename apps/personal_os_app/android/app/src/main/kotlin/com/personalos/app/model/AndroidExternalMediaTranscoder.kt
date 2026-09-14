@@ -141,7 +141,7 @@ private fun decodeWithImageDecoder(
         }
     } catch (failure: NativeAppearanceModelFailure) {
         throw failure
-    } catch (_: Throwable) {
+    } catch (_: Exception) {
         mediaTranscodeUnavailable()
     }
 }
