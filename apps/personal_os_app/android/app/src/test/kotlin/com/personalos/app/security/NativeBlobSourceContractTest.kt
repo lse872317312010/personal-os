@@ -40,10 +40,14 @@ class NativeBlobSourceContractTest {
     }
 
     @Test
-    fun modelMediaBufferIsZeroedAfterSuccess() {
+    fun modelMediaStreamExposesExactNativeLengthAndZeroesAfterSuccess() {
         val owned = byteArrayOf(7, 8, 9)
 
-        val result = consumeOwnedBlobBytes(owned) { stream -> stream.readBytes().sum() }
+        val result = consumeOwnedBlobBytes(owned) { stream ->
+            assertTrue(stream is NativeExactLengthMediaStream)
+            assertEquals(3L, (stream as NativeExactLengthMediaStream).exactLengthBytes)
+            stream.readBytes().sum()
+        }
 
         assertEquals(24, result)
         assertArrayEquals(byteArrayOf(0, 0, 0), owned)
