@@ -115,10 +115,11 @@ It is evidence of local implementation only, not CI or device verification.
   forcing the HEIF compatibility path; it validates wrapper mechanics rather
   than claiming host-side HEIF codec coverage.
 - Added a separate Android instrumentation test with an in-house generated,
-  embedded 342-byte AVIF fixture. On API 31+ it exercises the real platform AVIF
-  decoder through the production wrapper and verifies the provider delegate
-  receives an 8x6 JPEG. The fixture generation command is recorded in the test,
-  avoiding external image licensing and opaque binary assets.
+  embedded 337-byte, 8-bit YUV420 AVIF fixture. On API 31+ it exercises the real
+  platform AVIF decoder through the production wrapper and verifies the provider
+  delegate receives an 8x6 JPEG. The fixture generation command is recorded in
+  the test, avoiding external image licensing and opaque binary assets; YUV420
+  is pinned in the static audit to keep the fixture on a baseline chroma path.
 - Added `tool/android_mvp/run_media_codec_device_tests.sh` to run only the codec
   instrumentation class on one attached authorized device/emulator. It is not
   part of the default unit/build path and does not require a GitHub Actions run.
@@ -159,15 +160,15 @@ It is evidence of local implementation only, not CI or device verification.
 
 - `bash tool/check_contracts.sh`: last known PASS before the current media-codec
   commits; the audit source has been extended for codec gates, decoded-pixel
-  erasure, device instrumentation, and the focused runner, and must be re-run at
-  the next Android/Kotlin toolchain milestone.
+  erasure, device instrumentation, the YUV420 fixture, and the focused runner,
+  and must be re-run at the next Android/Kotlin toolchain milestone.
 - `bash tool/verify_dogfood_assets.sh`: PASS
 - Evidence validator rejects the unchanged template: PASS
 - Evidence validator accepts a synthetically valid `BLOCKED` record: PASS
 - Dart/Flutter tests: NOT RUN (SDK unavailable in the local environment)
 - Android JVM/Gradle tests: NOT RUN (Android SDK and Gradle wrapper unavailable)
 - Robolectric tests: SOURCE ADDED, NOT RUN in this environment
-- Real AVIF device test: SOURCE + IN-HOUSE FIXTURE ADDED, NOT RUN
+- Real AVIF device test: SOURCE + IN-HOUSE YUV420 FIXTURE ADDED, NOT RUN
 - Real HEIF fixture decode: NOT RUN; reproducible fixture source still pending
 - Redmi device flow: NOT RUN
 
