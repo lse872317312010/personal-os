@@ -4,12 +4,14 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 TRANSCODER = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoder.kt"
+TRANSPORT = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/model/StructuredExternalAppearanceModelTransport.kt"
 MODEL = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/model/NativeAppearanceModel.kt"
 MAIN = ROOT / "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/MainActivity.kt"
 GATEWAY = ROOT / "apps/personal_os_app/lib/src/composition/method_channel_appearance_analysis_gateway.dart"
 CAPTURE_SCREEN = ROOT / "apps/personal_os_app/lib/src/screens/capture_screen.dart"
 BUILD = ROOT / "apps/personal_os_app/android/app/build.gradle.kts"
 TEST = ROOT / "apps/personal_os_app/android/app/src/test/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderTest.kt"
+TRANSPORT_TEST = ROOT / "apps/personal_os_app/android/app/src/test/kotlin/com/personalos/app/model/StructuredExternalAppearanceModelTransportTest.kt"
 ROBOLECTRIC_TEST = ROOT / "apps/personal_os_app/android/app/src/test/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderRobolectricTest.kt"
 DEVICE_TEST = ROOT / "apps/personal_os_app/android/app/src/androidTest/kotlin/com/personalos/app/model/AndroidExternalMediaTranscoderDeviceTest.kt"
 DEVICE_RUNNER = ROOT / "tool/android_mvp/run_media_codec_device_tests.sh"
@@ -35,6 +37,11 @@ checks = {
         'MediaLimitExceededIOException',
         'NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE',
         'NativeAppearanceModelFailureCode.MEDIA_TRANSCODE_UNAVAILABLE',
+    ),
+    TRANSPORT: (
+        'class CompleteBoundedInputStream(',
+        'if (consumed == maximumBytes)',
+        'NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE',
     ),
     MODEL: (
         'MEDIA_TOO_LARGE("model.media_too_large")',
@@ -66,6 +73,11 @@ checks = {
         'boundsLargeLandscapeByEdgeAndPixelBudget',
         'legacyDecoderUsesPowerOfTwoSampleLargeEnoughForBudget',
         'assertFalse(delegateCalled)',
+    ),
+    TRANSPORT_TEST: (
+        'rejectsMediaAboveConfiguredLimitAsMediaTooLarge',
+        'maximumMediaBytes = 3',
+        'NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE',
     ),
     ROBOLECTRIC_TEST: (
         'RobolectricTestRunner',
