@@ -46,6 +46,34 @@ if workflow.count("contents: write") != 1:
     errors.append(
         f"{WORKFLOW.relative_to(ROOT)}: expected exactly one job-scoped contents: write"
     )
+
+try:
+    verify_start = workflow.index("  verify-build:\n")
+    publish_start = workflow.index("  verify-publish-main:\n")
+    if verify_start >= publish_start:
+        errors.append(f"{WORKFLOW.relative_to(ROOT)}: verify-build must precede publish job")
+    else:
+        verify_block = workflow[verify_start:publish_start]
+        publish_block = workflow[publish_start:]
+        if "contents: write" in verify_block:
+            errors.append(
+                f"{WORKFLOW.relative_to(ROOT)}: PR/dispatch verify job must not have write permission"
+            )
+        if "contents: write" not in publish_block:
+            errors.append(
+                f"{WORKFLOW.relative_to(ROOT)}: main-push publish job must own the only write permission"
+            )
+        if "publish_rolling_release.sh" in verify_block:
+            errors.append(
+                f"{WORKFLOW.relative_to(ROOT)}: PR/dispatch verify job must never publish a release"
+            )
+        if "publish_rolling_release.sh" not in publish_block:
+            errors.append(
+                f"{WORKFLOW.relative_to(ROOT)}: main-push job must publish through the audited script"
+            )
+except ValueError:
+    pass
+
 if workflow.count("run: bash tool/android_mvp/prepare_release_assets.sh") != 2:
     errors.append(
         f"{WORKFLOW.relative_to(ROOT)}: both build paths must use the same release preparation script"
@@ -101,7 +129,7 @@ try:
 except ValueError:
     pass
 
-if 'gh release create' in publish:
+if "gh release create" in publish:
     errors.append(
         f"{PUBLISH.relative_to(ROOT)}: rolling publication must fail closed if android-latest is missing"
     )
