@@ -4,6 +4,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parent.parent
 WORKFLOW = ROOT / ".github/workflows/flutter-windows-spike.yml"
+CONTRACT_WORKFLOW = ROOT / ".github/workflows/repo-contracts.yml"
 SCRIPT = ROOT / "tool/windows_mvp/verify_windows_spike.ps1"
 
 errors: list[str] = []
@@ -18,6 +19,7 @@ def read(path: Path) -> str:
 
 
 workflow = read(WORKFLOW)
+contract_workflow = read(CONTRACT_WORKFLOW)
 script = read(SCRIPT)
 
 for token in (
@@ -39,6 +41,18 @@ for token in (
 ):
     if token in workflow:
         errors.append(f"{WORKFLOW.relative_to(ROOT)}: forbidden {token!r}")
+
+for token in (
+    '"apps/personal_os_app/test/app_composition_test.dart"',
+    '"tool/windows_mvp/**"',
+    '"tool/check_platform_composition.py"',
+    '"tool/check_windows_portability_spike.py"',
+    '".github/workflows/flutter-windows-spike.yml"',
+):
+    if contract_workflow.count(token) < 2:
+        errors.append(
+            f"{CONTRACT_WORKFLOW.relative_to(ROOT)}: pull-request and main-push filters must both watch {token!r}"
+        )
 
 for token in (
     "Set-StrictMode -Version Latest",
