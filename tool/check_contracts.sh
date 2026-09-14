@@ -21,5 +21,6 @@ python3 tool/check_android_release_delivery.py
 python3 tool/check_platform_composition.py
 python3 tool/check_windows_portability_spike.py
 python3 tool/check_platform_security_channel.py
+python3 tool/check_windows_secure_adapter_contract.py
 
 echo 'repository contracts: PASS'
