@@ -5,7 +5,10 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 GENERIC = ROOT / "apps/personal_os_app/lib/src/composition/method_channel_platform_security_bridge.dart"
 ANDROID = ROOT / "apps/personal_os_app/lib/src/composition/android_platform_security_bridge.dart"
+WINDOWS = ROOT / "apps/personal_os_app/lib/src/composition/windows_platform_security_bridge.dart"
 TEST = ROOT / "apps/personal_os_app/test/method_channel_platform_security_bridge_test.dart"
+WINDOWS_TEST = ROOT / "apps/personal_os_app/test/windows_platform_security_bridge_test.dart"
+COMPOSITION = ROOT / "apps/personal_os_app/lib/src/composition/app_composition.dart"
 CONTRACTS = ROOT / "tool/check_contracts.sh"
 
 errors: list[str] = []
@@ -21,7 +24,10 @@ def read(path: Path) -> str:
 
 generic = read(GENERIC)
 android = read(ANDROID)
+windows = read(WINDOWS)
 test = read(TEST)
+windows_test = read(WINDOWS_TEST)
+composition = read(COMPOSITION)
 contracts = read(CONTRACTS)
 
 for token in (
@@ -40,10 +46,14 @@ for token in (
     if token not in generic:
         errors.append(f"{GENERIC.relative_to(ROOT)}: missing {token!r}")
 
-if "personal_os/internal/android_vault" in generic:
-    errors.append(
-        f"{GENERIC.relative_to(ROOT)}: shared codec must not bind an Android channel name"
-    )
+for forbidden in (
+    "personal_os/internal/android_vault",
+    "personal_os/internal/windows_vault",
+):
+    if forbidden in generic:
+        errors.append(
+            f"{GENERIC.relative_to(ROOT)}: shared codec must not bind platform channel {forbidden!r}"
+        )
 
 for token in (
     "extends MethodChannelPlatformSecurityBridge",
@@ -53,15 +63,24 @@ for token in (
     if token not in android:
         errors.append(f"{ANDROID.relative_to(ROOT)}: missing {token!r}")
 
-for forbidden in (
-    "Future<DeviceSecurityCapabilities> inspectCapabilities()",
-    "PlatformSecurityFailureCode _failureCode",
-    "Future<PlatformWrappedKey> wrapKey(",
+for token in (
+    "extends MethodChannelPlatformSecurityBridge",
+    "personal_os/internal/windows_vault",
+    "method_channel_platform_security_bridge.dart",
 ):
-    if forbidden in android:
-        errors.append(
-            f"{ANDROID.relative_to(ROOT)}: Android binding duplicates shared codec {forbidden!r}"
-        )
+    if token not in windows:
+        errors.append(f"{WINDOWS.relative_to(ROOT)}: missing {token!r}")
+
+for binding, source in (("Android", android), ("Windows", windows)):
+    for forbidden in (
+        "Future<DeviceSecurityCapabilities> inspectCapabilities()",
+        "PlatformSecurityFailureCode _failureCode",
+        "Future<PlatformWrappedKey> wrapKey(",
+    ):
+        if forbidden in source:
+            errors.append(
+                f"{binding} binding duplicates shared codec {forbidden!r}"
+            )
 
 for token in (
     "decodes capabilities and forwards bounded authentication input",
@@ -73,6 +92,20 @@ for token in (
 ):
     if token not in test:
         errors.append(f"{TEST.relative_to(ROOT)}: missing {token!r}")
+
+for token in (
+    "default Windows binding uses the frozen private channel ABI",
+    "personal_os/internal/windows_vault",
+    "missing Windows native channel fails closed",
+    "PlatformSecurityFailureCode.unavailable",
+):
+    if token not in windows_test:
+        errors.append(f"{WINDOWS_TEST.relative_to(ROOT)}: missing {token!r}")
+
+if "WindowsPlatformSecurityBridge(" in composition:
+    errors.append(
+        f"{COMPOSITION.relative_to(ROOT)}: Windows native bridge must not enter production composition before native secure-vault evidence"
+    )
 
 if "python3 tool/check_platform_security_channel.py" not in contracts:
     errors.append(
