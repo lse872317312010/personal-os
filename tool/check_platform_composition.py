@@ -54,6 +54,9 @@ required_test = (
     "controller.modelConfigured, isFalse",
     "controller.onDeviceProcessingAvailable, isFalse",
     "controller.errorCode, 'security.unlock_unavailable'",
+    "unsupported production shell stays behind the vault gate",
+    "find.byKey(const Key('unlock-vault'))",
+    "find.text('今天，从一个小改变开始'), findsNothing",
     "synthetic demo remains explicit opt-in",
     "AppComposition.inMemoryDemo()",
 )
