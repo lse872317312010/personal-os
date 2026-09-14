@@ -1,5 +1,6 @@
 package com.personalos.app.model
 
+import com.personalos.app.security.NativeExactLengthMediaStream
 import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
@@ -116,6 +117,12 @@ internal class StructuredExternalAppearanceModelTransport(
         credential: CharArray,
     ): NativeAppearanceModelResult {
         validateRequest(request)
+        val exactLength = (media as? NativeExactLengthMediaStream)?.exactLengthBytes
+        if (exactLength != null && exactLength > maximumMediaBytes) {
+            throw NativeAppearanceModelFailure(
+                NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE,
+            )
+        }
         val boundedMedia = CompleteBoundedInputStream(media, maximumMediaBytes)
         val prefix = boundedMedia.readPrefix(16)
         try {
