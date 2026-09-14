@@ -11,6 +11,42 @@ abstract interface class AppearanceModelCredentialGateway {
   Future<void> clearRuntimeCredential();
 }
 
+abstract final class AppearanceModelGatewayFailureCode {
+  static const invalidRequest = 'model.invalid_request';
+  static const vaultUnavailable = 'model.vault_unavailable';
+  static const adapterUnavailable = 'model.adapter_unavailable';
+  static const invalidResponse = 'model.invalid_response';
+  static const mediaTooLarge = 'model.media_too_large';
+  static const mediaTranscodeUnavailable =
+      'model.media_transcode_unavailable';
+
+  static const values = <String>{
+    invalidRequest,
+    vaultUnavailable,
+    adapterUnavailable,
+    invalidResponse,
+    mediaTooLarge,
+    mediaTranscodeUnavailable,
+  };
+}
+
+/// Stable, redacted failure crossing a model-gateway boundary.
+///
+/// Only enumerated wire codes are accepted so provider messages, filesystem
+/// paths, credentials, and raw response details cannot be smuggled through the
+/// application layer as an error string.
+final class AppearanceModelGatewayFailure implements Exception {
+  AppearanceModelGatewayFailure(String code)
+      : code = AppearanceModelGatewayFailureCode.values.contains(code)
+            ? code
+            : AppearanceModelGatewayFailureCode.adapterUnavailable;
+
+  final String code;
+
+  @override
+  String toString() => 'AppearanceModelGatewayFailure($code)';
+}
+
 final class AppearanceModelCapabilities {
   AppearanceModelCapabilities({
     required this.configured,
