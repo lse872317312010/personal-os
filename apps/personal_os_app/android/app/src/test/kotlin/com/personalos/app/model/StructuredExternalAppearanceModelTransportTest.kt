@@ -1,5 +1,6 @@
 package com.personalos.app.model
 
+import com.personalos.app.security.consumeOwnedBlobBytes
 import java.io.InputStream
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
@@ -44,7 +45,30 @@ class StructuredExternalAppearanceModelTransportTest {
     }
 
     @Test
-    fun rejectsMediaAboveConfiguredLimitAsMediaTooLarge() {
+    fun rejectsKnownOversizeVaultMediaBeforeClientCall() {
+        var clientCalled = false
+        val transport = transportWithClient(maximumMediaBytes = 3) { _, _, _ ->
+            clientCalled = true
+            completeExternalResponse()
+        }
+        val owned = jpegBytes()
+
+        val failure = assertThrows(NativeAppearanceModelFailure::class.java) {
+            consumeOwnedBlobBytes(owned) { media ->
+                transport.analyze(externalRequest(), media)
+            }
+        }
+
+        assertEquals(
+            NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE,
+            failure.failureCode,
+        )
+        assertFalse(clientCalled)
+        assertArrayEquals(ByteArray(owned.size), owned)
+    }
+
+    @Test
+    fun rejectsUnknownLengthMediaAboveConfiguredLimitAsMediaTooLarge() {
         val transport = transportWithClient(maximumMediaBytes = 3) { _, media, _ ->
             media.readBytes()
             completeExternalResponse()
