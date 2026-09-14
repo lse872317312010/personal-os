@@ -219,7 +219,8 @@ final class _CaptureScreenState extends State<CaptureScreen> {
             title: const Text('确认发送到外部模型'),
             content: const Text(
               '本次照片和观察说明将离开设备，交给外部模型处理。'
-              '服务商可能收取 API 费用；一次性凭据无论成功或失败都会被清除。'
+              '服务商可能收取 API 费用；进入实际模型调用后，一次性凭据会在本次调用结束时清除。'
+              '若仅因本地大小预检失败，凭据会保留，便于更换照片后重试。'
               '应用不会把凭据或原始响应写入事件记录。',
             ),
             actions: <Widget>[
