@@ -1,5 +1,6 @@
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
+import 'package:personal_os_events/events.dart';
 import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 import 'package:test/test.dart';
