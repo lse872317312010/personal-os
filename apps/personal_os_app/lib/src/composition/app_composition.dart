@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_device_security/device_security.dart';
 import 'package:personal_os_domain/domain.dart';
+import 'package:personal_os_events/events.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
 import 'package:personal_os_in_memory_policy/in_memory_policy.dart';
 import 'package:personal_os_model_fixture/model_fixture.dart';
@@ -68,7 +69,7 @@ final class AppComposition {
   /// but it cannot unlock, ingest media, persist user events, or invoke a
   /// synthetic/real model gateway.
   factory AppComposition.unsupportedSecurePlatform() {
-    final eventStore = InMemoryEventStore();
+    const eventStore = _UnavailableEventStore();
     return _build(
       eventStore: eventStore,
       mode: AppExperienceMode.secureVault,
@@ -194,6 +195,28 @@ final class AppComposition {
         sessionCoordinator: sessionCoordinator,
       ),
     );
+  }
+}
+
+final class _UnavailableEventStore implements EventStore {
+  const _UnavailableEventStore();
+
+  @override
+  Future<void> appendAll(List<EventEnvelope> events) async {
+    throw const PersistenceException.writeFailed();
+  }
+
+  @override
+  Future<List<EventEnvelope>> readBySubject(
+    ObjectRef subject, {
+    int? limit,
+  }) async {
+    throw const PersistenceException.readFailed();
+  }
+
+  @override
+  Future<EventEnvelope?> readById(String eventId) async {
+    throw const PersistenceException.readFailed();
   }
 }
 
