@@ -88,8 +88,13 @@ final class AnalyzeAppearanceUseCase {
           processingBoundary: command.processingBoundary,
         ),
       );
+    } on AppearanceModelGatewayFailure catch (error) {
+      // The gateway API admits only enumerated redacted wire codes. Preserve
+      // those actionable codes without exposing adapter/provider diagnostics.
+      throw AppearanceUseCaseFailure(error.code);
     } catch (_) {
-      // Model adapters are not allowed to expose paths, URIs, or raw errors.
+      // Unknown adapter failures are never allowed to expose paths, URIs,
+      // credentials, provider messages, or raw response details.
       throw const AppearanceUseCaseFailure(
         AppearanceFailureCode.analysisFailed,
       );
