@@ -113,6 +113,40 @@ void main() {
     expect(received?.arguments, isNull);
   });
 
+  test('preserves enumerated native media failure without platform details',
+      () async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (_) async {
+      throw PlatformException(
+        code: AppearanceModelGatewayFailureCode.mediaTooLarge,
+        message: 'codec/private/path must not escape',
+        details: '/data/user/0/private.jpg',
+      );
+    });
+
+    await expectLater(
+      gateway.analyze(
+        AppearanceAnalysisInput(
+          imageRef: 'blob://1234567890abcdef',
+          observationContext: 'context',
+        ),
+      ),
+      throwsA(
+        isA<AppearanceModelGatewayFailure>()
+            .having(
+              (failure) => failure.code,
+              'code',
+              AppearanceModelGatewayFailureCode.mediaTooLarge,
+            )
+            .having(
+              (failure) => failure.toString(),
+              'redacted',
+              allOf(isNot(contains('private')), isNot(contains('/data/'))),
+            ),
+      ),
+    );
+  });
+
   test('maps malformed native output to a stable redacted failure', () async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (_) async => <String, Object?>{
@@ -127,11 +161,11 @@ void main() {
         ),
       ),
       throwsA(
-        isA<SecureModelGatewayFailure>()
+        isA<AppearanceModelGatewayFailure>()
             .having(
               (failure) => failure.code,
               'code',
-              'model.invalid_response',
+              AppearanceModelGatewayFailureCode.invalidResponse,
             )
             .having(
               (failure) => failure.toString(),
@@ -160,11 +194,11 @@ void main() {
         ),
       ),
       throwsA(
-        isA<SecureModelGatewayFailure>()
+        isA<AppearanceModelGatewayFailure>()
             .having(
               (failure) => failure.code,
               'code',
-              'model.adapter_unavailable',
+              AppearanceModelGatewayFailureCode.adapterUnavailable,
             )
             .having(
               (failure) => failure.toString(),
