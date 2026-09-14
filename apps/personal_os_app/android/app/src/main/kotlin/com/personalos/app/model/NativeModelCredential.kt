@@ -68,8 +68,9 @@ internal class EphemeralNativeModelCredentialProvider :
  * Base class for external transports that require a runtime credential.
  *
  * The credential never enters a request, result, MethodChannel value, event,
- * exception, or log. The provider owns zeroization after [analyzeWithCredential]
- * returns or throws.
+ * exception, or log. [preflightBeforeCredentialUse] runs before ownership of
+ * the one-call credential is consumed and must not read media or start I/O.
+ * The provider owns zeroization after [analyzeWithCredential] returns or throws.
  */
 internal abstract class CredentialedNativeAppearanceModelTransport(
     private val credentials: NativeModelCredentialProvider,
@@ -110,9 +111,18 @@ internal abstract class CredentialedNativeAppearanceModelTransport(
     final override fun analyze(
         request: NativeAppearanceModelRequest,
         media: InputStream,
-    ): NativeAppearanceModelResult = credentials.useCredential { credential ->
-        analyzeWithCredential(request, media, credential)
+    ): NativeAppearanceModelResult {
+        preflightBeforeCredentialUse(request, media)
+        return credentials.useCredential { credential ->
+            analyzeWithCredential(request, media, credential)
+        }
     }
+
+    /** Metadata-only, synchronous validation before consuming the one-call credential. */
+    protected open fun preflightBeforeCredentialUse(
+        request: NativeAppearanceModelRequest,
+        media: InputStream,
+    ) = Unit
 
     protected abstract fun analyzeWithCredential(
         request: NativeAppearanceModelRequest,

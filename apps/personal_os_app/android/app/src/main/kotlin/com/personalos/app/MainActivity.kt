@@ -9,6 +9,7 @@ import com.personalos.app.model.EphemeralNativeModelCredentialProvider
 import com.personalos.app.model.NativeAppearanceModelChannel
 import com.personalos.app.model.OpenAiResponsesAppearanceModelClient
 import com.personalos.app.model.StructuredExternalAppearanceModelTransport
+import com.personalos.app.model.TranscodingExternalAppearanceModelClient
 import com.personalos.app.security.NativeVaultChannel
 import com.personalos.app.source.ControlledCameraCapture
 import com.personalos.app.source.ControlledPhotoPicker
@@ -61,8 +62,10 @@ class MainActivity : FlutterFragmentActivity() {
         val modelAdapter = if (BuildConfig.PERSONAL_OS_OPENAI_ENABLED) {
             StructuredExternalAppearanceModelTransport(
                 credentials = EphemeralNativeModelCredentialProvider(),
-                client = OpenAiResponsesAppearanceModelClient(
-                    model = BuildConfig.PERSONAL_OS_OPENAI_MODEL,
+                client = TranscodingExternalAppearanceModelClient(
+                    OpenAiResponsesAppearanceModelClient(
+                        model = BuildConfig.PERSONAL_OS_OPENAI_MODEL,
+                    ),
                 ),
             )
         } else {

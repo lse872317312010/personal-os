@@ -1,5 +1,6 @@
 package com.personalos.app.model
 
+import com.personalos.app.security.NativeExactLengthMediaStream
 import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
@@ -85,9 +86,7 @@ private val APPEARANCE_V1_PROMPT = ExternalAppearancePromptContract(
     maximumHumanConfirmations = 32,
 )
 
-/**
- * Provider-neutral external transport with strict request and response bounds.
- */
+/** Provider-neutral external transport with strict request and response bounds. */
 internal class StructuredExternalAppearanceModelTransport(
     credentials: NativeModelCredentialProvider,
     private val client: ExternalAppearanceModelClient,
@@ -108,6 +107,19 @@ internal class StructuredExternalAppearanceModelTransport(
         ) {
             throw NativeAppearanceModelFailure(
                 NativeAppearanceModelFailureCode.INVALID_REQUEST,
+            )
+        }
+    }
+
+    override fun preflightBeforeCredentialUse(
+        request: NativeAppearanceModelRequest,
+        media: InputStream,
+    ) {
+        validateRequest(request)
+        val exactLength = (media as? NativeExactLengthMediaStream)?.exactLengthBytes
+        if (exactLength != null && exactLength > maximumMediaBytes) {
+            throw NativeAppearanceModelFailure(
+                NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE,
             )
         }
     }
@@ -263,7 +275,7 @@ private class CompleteBoundedInputStream(
                 return -1
             }
             throw NativeAppearanceModelFailure(
-                NativeAppearanceModelFailureCode.INVALID_REQUEST,
+                NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE,
             )
         }
         val value = super.read()

@@ -15,6 +15,10 @@ PROTOCOL = Path(
     "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/model/"
     "OpenAiResponsesProtocol.kt"
 )
+CLIENT_TEST = Path(
+    "apps/personal_os_app/android/app/src/test/kotlin/com/personalos/app/model/"
+    "OpenAiResponsesAppearanceModelClientTest.kt"
+)
 MAIN_ACTIVITY = Path(
     "apps/personal_os_app/android/app/src/main/kotlin/com/personalos/app/"
     "MainActivity.kt"
@@ -35,6 +39,7 @@ def main() -> int:
     files = (
         PROVIDER,
         PROTOCOL,
+        CLIENT_TEST,
         MAIN_ACTIVITY,
         GRADLE,
         MANIFEST,
@@ -83,6 +88,20 @@ def main() -> int:
         ),
     )
     errors += require_tokens(
+        source[CLIENT_TEST],
+        CLIENT_TEST,
+        (
+            "executesPinnedHttpsRequestAndParsesCompletedStructuredResponse",
+            "mapsNonSuccessHttpStatusToRedactedAdapterFailure",
+            "rejectsNonJsonSuccessResponseAsInvalidResponse",
+            "rejectsUnsupportedProviderMediaBeforeOpeningNetworkConnection",
+            "cancellationDoesNotPoisonLaterCalls",
+            'assertEquals("Bearer sk-test-only", connection.headers["Authorization"])',
+            'assertTrue(body.contains("\\\"store\\\":false"))',
+            'assertTrue(body.contains("\\\"strict\\\":true"))',
+        ),
+    )
+    errors += require_tokens(
         source[MAIN_ACTIVITY],
         MAIN_ACTIVITY,
         (
@@ -99,6 +118,7 @@ def main() -> int:
             'providers.gradleProperty("personalOsOpenAiModel")',
             '"PERSONAL_OS_OPENAI_ENABLED"',
             '"PERSONAL_OS_OPENAI_MODEL"',
+            'testImplementation("junit:junit:4.13.2")',
         ),
     )
     errors += require_tokens(
@@ -126,6 +146,8 @@ def main() -> int:
             "_confirmExternalTransmission()",
             "external-transmission-confirmation",
             "服务商可能收取 API 费用",
+            "进入实际模型调用后，一次性凭据会在本次调用结束时清除",
+            "若仅因本地大小预检失败，凭据会保留",
             "仅发送这一次",
             "照片可能已发送",
             "analysisPreflightReady",
@@ -158,6 +180,10 @@ def main() -> int:
     if "'model.adapter_unavailable' => '真实模型尚未配置，照片未发送。'" in source[CAPTURE_SCREEN]:
         errors.append(
             f"{CAPTURE_SCREEN}: ambiguous provider failure promises no transmission"
+        )
+    if "一次性凭据无论成功或失败都会被清除" in source[CAPTURE_SCREEN]:
+        errors.append(
+            f"{CAPTURE_SCREEN}: credential disclosure ignores preflight retention"
         )
     gradle_lower = source[GRADLE].lower()
     for secret_name in ("openaiapikey", "openai_api_key", "openaisecret"):

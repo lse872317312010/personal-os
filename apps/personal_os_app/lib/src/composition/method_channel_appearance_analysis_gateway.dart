@@ -1,19 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
 
-final class SecureModelGatewayFailure implements Exception {
-  const SecureModelGatewayFailure(this.code);
-
-  final String code;
-
-  @override
-  String toString() => 'SecureModelGatewayFailure($code)';
-}
-
-/// Strict codec for the native-only appearance model boundary.
-///
-/// Requests contain only an opaque BlobRef and bounded text metadata. Photo
-/// bytes, credentials, provider errors, and raw responses remain native.
 final class MethodChannelAppearanceAnalysisGateway
     implements
         AppearanceAnalysisGateway,
@@ -33,9 +20,11 @@ final class MethodChannelAppearanceAnalysisGateway
       );
       return _boolean(configured);
     } on PlatformException catch (error) {
-      throw SecureModelGatewayFailure(_stableFailureCode(error.code));
+      throw AppearanceModelGatewayFailure(_stableFailureCode(error.code));
     } on Object {
-      throw const SecureModelGatewayFailure('model.invalid_response');
+      throw AppearanceModelGatewayFailure(
+        AppearanceModelGatewayFailureCode.invalidResponse,
+      );
     }
   }
 
@@ -44,9 +33,11 @@ final class MethodChannelAppearanceAnalysisGateway
     try {
       await _channel.invokeMethod<void>('clearRuntimeCredential');
     } on PlatformException catch (error) {
-      throw SecureModelGatewayFailure(_stableFailureCode(error.code));
+      throw AppearanceModelGatewayFailure(_stableFailureCode(error.code));
     } on Object {
-      throw const SecureModelGatewayFailure('model.adapter_unavailable');
+      throw AppearanceModelGatewayFailure(
+        AppearanceModelGatewayFailureCode.adapterUnavailable,
+      );
     }
   }
 
@@ -56,9 +47,11 @@ final class MethodChannelAppearanceAnalysisGateway
     try {
       raw = await _channel.invokeMethod<Object?>('inspectCapabilities');
     } on PlatformException catch (error) {
-      throw SecureModelGatewayFailure(_stableFailureCode(error.code));
+      throw AppearanceModelGatewayFailure(_stableFailureCode(error.code));
     } on Object {
-      throw const SecureModelGatewayFailure('model.adapter_unavailable');
+      throw AppearanceModelGatewayFailure(
+        AppearanceModelGatewayFailureCode.adapterUnavailable,
+      );
     }
     try {
       final value = _map(raw);
@@ -72,7 +65,9 @@ final class MethodChannelAppearanceAnalysisGateway
             _boolean(value['runtimeCredentialReady']),
       );
     } on Object {
-      throw const SecureModelGatewayFailure('model.invalid_response');
+      throw AppearanceModelGatewayFailure(
+        AppearanceModelGatewayFailureCode.invalidResponse,
+      );
     }
   }
 
@@ -90,14 +85,18 @@ final class MethodChannelAppearanceAnalysisGateway
         'processingBoundary': input.processingBoundary.name,
       });
     } on PlatformException catch (error) {
-      throw SecureModelGatewayFailure(_stableFailureCode(error.code));
+      throw AppearanceModelGatewayFailure(_stableFailureCode(error.code));
     } on Object {
-      throw const SecureModelGatewayFailure('model.adapter_unavailable');
+      throw AppearanceModelGatewayFailure(
+        AppearanceModelGatewayFailureCode.adapterUnavailable,
+      );
     }
     try {
       return _decodeResult(raw);
     } on Object {
-      throw const SecureModelGatewayFailure('model.invalid_response');
+      throw AppearanceModelGatewayFailure(
+        AppearanceModelGatewayFailureCode.invalidResponse,
+      );
     }
   }
 }
@@ -182,10 +181,12 @@ AppearanceProcessingBoundary _processingBoundary(Object? value) =>
     };
 
 String _stableFailureCode(String code) => switch (code) {
-      'model.invalid_request' ||
-      'model.vault_unavailable' ||
-      'model.adapter_unavailable' ||
-      'model.invalid_response' =>
+      AppearanceModelGatewayFailureCode.invalidRequest ||
+      AppearanceModelGatewayFailureCode.vaultUnavailable ||
+      AppearanceModelGatewayFailureCode.adapterUnavailable ||
+      AppearanceModelGatewayFailureCode.invalidResponse ||
+      AppearanceModelGatewayFailureCode.mediaTooLarge ||
+      AppearanceModelGatewayFailureCode.mediaTranscodeUnavailable =>
         code,
-      _ => 'model.adapter_unavailable',
+      _ => AppearanceModelGatewayFailureCode.adapterUnavailable,
     };
