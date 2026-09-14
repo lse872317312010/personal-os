@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_os_storage_api/storage_api.dart';
 
 import 'package:personal_os_app/src/app.dart';
 import 'package:personal_os_app/src/composition/app_composition.dart';
@@ -28,6 +29,27 @@ void main() {
       expect(controller.externalProcessingConfigured, isFalse);
       expect(controller.analysisPreflightReady, isFalse);
       expect(controller.observationCount, 0);
+
+      await expectLater(
+        composition.eventStore.appendAll(const []),
+        throwsA(
+          isA<PersistenceException>().having(
+            (error) => error.code,
+            'code',
+            PersistenceErrorCode.writeFailed,
+          ),
+        ),
+      );
+      await expectLater(
+        composition.eventStore.readById('unsupported-platform-event'),
+        throwsA(
+          isA<PersistenceException>().having(
+            (error) => error.code,
+            'code',
+            PersistenceErrorCode.readFailed,
+          ),
+        ),
+      );
 
       controller.unlockVault();
       await Future<void>.delayed(Duration.zero);
