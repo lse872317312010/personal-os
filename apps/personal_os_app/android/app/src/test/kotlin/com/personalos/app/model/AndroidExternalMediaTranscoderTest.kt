@@ -1,7 +1,6 @@
 package com.personalos.app.model
 
 import java.io.ByteArrayInputStream
-import java.io.InputStream
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -57,6 +56,15 @@ class AndroidExternalMediaTranscoderTest {
             )
         }
         assertFalse(delegateCalled)
+    }
+
+    @Test
+    fun codecAvailabilityMatchesAndroidPlatformIntroductionLevels() {
+        assertFalse(platformCanDecodeTranscodedMedia("image/heif", 25))
+        assertTrue(platformCanDecodeTranscodedMedia("image/heif", 26))
+        assertFalse(platformCanDecodeTranscodedMedia("image/avif", 30))
+        assertTrue(platformCanDecodeTranscodedMedia("image/avif", 31))
+        assertFalse(platformCanDecodeTranscodedMedia("image/jpeg", 36))
     }
 
     @Test
