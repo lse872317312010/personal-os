@@ -88,10 +88,30 @@ It is evidence of local implementation only, not CI or device verification.
   redirects and storage, streams Base64 media, bounds time and response bytes,
   and converts only a completed strict-schema response into the provider-neutral
   result.
-- Restricted the OpenAI client to the provider's overlapping JPEG, PNG, and
-  WebP input set. HEIF/AVIF are rejected before networking instead of being
-  mislabeled or sent to an unsupported endpoint; native transcoding is not yet
-  implemented.
+- Restricted the OpenAI client itself to JPEG, PNG, and WebP. HEIF/AVIF now pass
+  through an Android-only compatibility wrapper that performs bounded in-memory
+  decode/downscale/re-encode to JPEG before the provider client is invoked. No
+  plaintext temporary file is used.
+- Bound HEIF/AVIF preprocessing to 15 MiB encoded input, 12 million decoded
+  pixels, a 4096-pixel maximum edge, and 15 MiB JPEG output. Sensitive encoded
+  and JPEG byte arrays plus owned output buffers are explicitly cleared; decoded
+  Bitmaps are recycled after use.
+- Added stable `model.media_too_large` and
+  `model.media_transcode_unavailable` failures. They are preserved through the
+  native channel and Flutter gateway, and secure UI explicitly states that these
+  preprocessing failures occur before provider transmission.
+- Added platform fail-fast gates before sensitive media is read: HEIF requires
+  Android 8.0 / API 26 or newer, and AVIF requires Android 12 / API 31 or newer.
+  Unsupported platforms return the stable transcode-unavailable error without
+  consuming the media stream or invoking the provider delegate.
+- Added pure JVM regressions for provider HTTP framing, media size/dimension
+  bounds, codec SDK thresholds, and streaming passthrough. Added Robolectric
+  regressions for the Android decode/downscale/JPEG pipeline and for proving old
+  platforms reject AVIF/HEIF before any InputStream read or provider call.
+- The current Robolectric pipeline test intentionally uses generated PNG bytes
+  while forcing the HEIF compatibility path; it validates the wrapper mechanics,
+  not real HEIF/AVIF codec support. Real-format fixtures and device codec behavior
+  remain a separate validation milestone.
 - Documented the unavoidable immutable authorization-header copy required by
   `HttpsURLConnection`; it remains inside the synchronous call and is neither
   persisted nor logged. The owned native credential array is still zeroized
@@ -127,18 +147,22 @@ It is evidence of local implementation only, not CI or device verification.
 
 ## Local verification
 
-- `bash tool/check_contracts.sh`: PASS
+- `bash tool/check_contracts.sh`: last known PASS before the current media-codec
+  commits; the audit source has been extended for the new codec gates and must be
+  re-run at the next Android/Kotlin toolchain milestone.
 - `bash tool/verify_dogfood_assets.sh`: PASS
 - Evidence validator rejects the unchanged template: PASS
 - Evidence validator accepts a synthetically valid `BLOCKED` record: PASS
 - Dart/Flutter tests: NOT RUN (SDK unavailable in the local environment)
 - Android JVM/Gradle tests: NOT RUN (Android SDK and Gradle wrapper unavailable)
+- Robolectric tests: SOURCE ADDED, NOT RUN in this environment
+- Real HEIF/AVIF fixture decode: NOT RUN
 - Redmi device flow: NOT RUN
 
 ## Next local milestone
 
-Make the OpenAI request/response protocol independently executable under JVM
-tests, then design bounded native HEIF/AVIF transcoding without plaintext files
-or unbounded decoded pixel allocation. CI, actual provider traffic, APK
-assembly, and device verification remain deferred until an explicit milestone
-run is available.
+Add small, redistributable real HEIF and AVIF fixtures (or an equivalent
+reproducible fixture generator) and validate orientation plus actual platform
+codec behavior. Then run one concentrated Android/JVM/Robolectric build/test
+milestone, fix any compile/runtime regressions, assemble a dogfood APK, and only
+then spend a GitHub Actions run if local tooling still cannot cover the build.
