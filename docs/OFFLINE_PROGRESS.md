@@ -94,8 +94,11 @@ It is evidence of local implementation only, not CI or device verification.
   plaintext temporary file is used.
 - Bound HEIF/AVIF preprocessing to 15 MiB encoded input, 12 million decoded
   pixels, a 4096-pixel maximum edge, and 15 MiB JPEG output. Sensitive encoded
-  and JPEG byte arrays plus owned output buffers are explicitly cleared; decoded
-  Bitmaps are recycled after use.
+  and JPEG byte arrays plus owned output buffers are explicitly cleared.
+- Require decoded HEIF/AVIF Bitmaps to be mutable. ImageDecoder requests a
+  software mutable bitmap and the BitmapFactory fallback sets `inMutable`; an
+  unexpected immutable bitmap fails closed. Successful and failed provider calls
+  overwrite decoded pixels with zero before the bitmap is recycled.
 - Added stable `model.media_too_large` and
   `model.media_transcode_unavailable` failures. They are preserved through the
   native channel and Flutter gateway, and secure UI explicitly states that these
@@ -108,10 +111,17 @@ It is evidence of local implementation only, not CI or device verification.
   bounds, codec SDK thresholds, and streaming passthrough. Added Robolectric
   regressions for the Android decode/downscale/JPEG pipeline and for proving old
   platforms reject AVIF/HEIF before any InputStream read or provider call.
-- The current Robolectric pipeline test intentionally uses generated PNG bytes
-  while forcing the HEIF compatibility path; it validates the wrapper mechanics,
-  not real HEIF/AVIF codec support. Real-format fixtures and device codec behavior
-  remain a separate validation milestone.
+- The Robolectric pipeline test intentionally uses generated PNG bytes while
+  forcing the HEIF compatibility path; it validates wrapper mechanics rather
+  than claiming host-side HEIF codec coverage.
+- Added a separate Android instrumentation test with an in-house generated,
+  embedded 342-byte AVIF fixture. On API 31+ it exercises the real platform AVIF
+  decoder through the production wrapper and verifies the provider delegate
+  receives an 8x6 JPEG. The fixture generation command is recorded in the test,
+  avoiding external image licensing and opaque binary assets.
+- Added `tool/android_mvp/run_media_codec_device_tests.sh` to run only the codec
+  instrumentation class on one attached authorized device/emulator. It is not
+  part of the default unit/build path and does not require a GitHub Actions run.
 - Documented the unavoidable immutable authorization-header copy required by
   `HttpsURLConnection`; it remains inside the synchronous call and is neither
   persisted nor logged. The owned native credential array is still zeroized
@@ -148,21 +158,24 @@ It is evidence of local implementation only, not CI or device verification.
 ## Local verification
 
 - `bash tool/check_contracts.sh`: last known PASS before the current media-codec
-  commits; the audit source has been extended for the new codec gates and must be
-  re-run at the next Android/Kotlin toolchain milestone.
+  commits; the audit source has been extended for codec gates, decoded-pixel
+  erasure, device instrumentation, and the focused runner, and must be re-run at
+  the next Android/Kotlin toolchain milestone.
 - `bash tool/verify_dogfood_assets.sh`: PASS
 - Evidence validator rejects the unchanged template: PASS
 - Evidence validator accepts a synthetically valid `BLOCKED` record: PASS
 - Dart/Flutter tests: NOT RUN (SDK unavailable in the local environment)
 - Android JVM/Gradle tests: NOT RUN (Android SDK and Gradle wrapper unavailable)
 - Robolectric tests: SOURCE ADDED, NOT RUN in this environment
-- Real HEIF/AVIF fixture decode: NOT RUN
+- Real AVIF device test: SOURCE + IN-HOUSE FIXTURE ADDED, NOT RUN
+- Real HEIF fixture decode: NOT RUN; reproducible fixture source still pending
 - Redmi device flow: NOT RUN
 
 ## Next local milestone
 
-Add small, redistributable real HEIF and AVIF fixtures (or an equivalent
-reproducible fixture generator) and validate orientation plus actual platform
-codec behavior. Then run one concentrated Android/JVM/Robolectric build/test
-milestone, fix any compile/runtime regressions, assemble a dogfood APK, and only
-then spend a GitHub Actions run if local tooling still cannot cover the build.
+Run the contract, JVM, and Robolectric suites under an Android/Gradle toolchain,
+then run `tool/android_mvp/run_media_codec_device_tests.sh` on an API 31+ device
+or emulator to validate the real AVIF decoder and decoded-pixel cleanup path.
+After that, add a reproducible real HEIF fixture and orientation regression,
+assemble one dogfood APK, and spend a GitHub Actions run only if the concentrated
+local/device milestone cannot cover the build.
