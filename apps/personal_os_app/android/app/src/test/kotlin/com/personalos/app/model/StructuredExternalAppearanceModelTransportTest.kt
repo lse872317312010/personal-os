@@ -44,7 +44,7 @@ class StructuredExternalAppearanceModelTransportTest {
     }
 
     @Test
-    fun rejectsMediaAboveConfiguredLimit() {
+    fun rejectsMediaAboveConfiguredLimitAsMediaTooLarge() {
         val transport = transportWithClient(maximumMediaBytes = 3) { _, media, _ ->
             media.readBytes()
             completeExternalResponse()
@@ -58,7 +58,7 @@ class StructuredExternalAppearanceModelTransportTest {
         }
 
         assertEquals(
-            NativeAppearanceModelFailureCode.INVALID_REQUEST,
+            NativeAppearanceModelFailureCode.MEDIA_TOO_LARGE,
             failure.failureCode,
         )
     }
