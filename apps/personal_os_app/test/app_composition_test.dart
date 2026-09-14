@@ -55,8 +55,16 @@ void main() {
 
     expect(composition.controller.vaultUnlocked, isFalse);
     expect(composition.controller.errorCode, 'security.unlock_unavailable');
+    expect(find.byKey(const Key('unlock-error')), findsOneWidget);
+    expect(find.text('当前无法使用系统解锁。'), findsOneWidget);
     expect(find.text('我的 Personal OS'), findsOneWidget);
     expect(find.text('今天，从一个小改变开始'), findsNothing);
+  });
+
+  test('current production composition is never synthetic by default', () {
+    final composition = AppComposition.forCurrentPlatform();
+
+    expect(composition.mode, AppExperienceMode.secureVault);
   });
 
   test('synthetic demo remains explicit opt-in', () {
