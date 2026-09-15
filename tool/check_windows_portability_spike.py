@@ -43,11 +43,14 @@ for token in (
         errors.append(f"{WORKFLOW.relative_to(ROOT)}: forbidden {token!r}")
 
 for token in (
+    '"architecture/WINDOWS_SECURE_ADAPTER.md"',
     '"apps/personal_os_app/test/app_composition_test.dart"',
     '"apps/personal_os_app/test/method_channel_platform_security_bridge_test.dart"',
+    '"apps/personal_os_app/test/windows_platform_security_bridge_test.dart"',
     '"tool/windows_mvp/**"',
     '"tool/check_platform_composition.py"',
     '"tool/check_platform_security_channel.py"',
+    '"tool/check_windows_secure_adapter_contract.py"',
     '"tool/check_windows_native_security.py"',
     '"tool/check_windows_portability_spike.py"',
     '".github/workflows/flutter-windows-spike.yml"',
@@ -60,11 +63,15 @@ for token in (
 for token in (
     "Set-StrictMode -Version Latest",
     "$ErrorActionPreference = 'Stop'",
+    "[System.Management.Automation.Language.Parser]::ParseFile(",
     "flutter config --enable-windows-desktop",
     "flutter test test/app_composition_test.dart",
     "flutter test test/method_channel_platform_security_bridge_test.dart",
+    "flutter test test/windows_platform_security_bridge_test.dart",
     "flutter create --platforms=windows --project-name personal_os_app --org com.personalos .",
-    "git diff --exit-code -- pubspec.yaml lib test",
+    "git restore --source=HEAD --worktree --staged -- $authoredPaths",
+    "git status --porcelain --untracked-files=all --",
+    "Remove-Item -Path $templateWidgetTest -Force",
     "install_windows_security_channel.ps1",
     "& $securityInstaller",
     "flutter analyze",
@@ -75,7 +82,8 @@ for token in (
     "runner_os:",
     "security_wire_contract: PASS",
     "native_user_presence_compile: PASS",
-    "Windows user-presence runtime behavior is not verified; key protection, SQLCipher Vault open/close, and controlled media remain unavailable.",
+    "compile evidence only; Windows user-presence runtime behavior is not verified",
+    "production composition remains fail-closed",
 ):
     if token not in script:
         errors.append(f"{SCRIPT.relative_to(ROOT)}: missing {token!r}")
