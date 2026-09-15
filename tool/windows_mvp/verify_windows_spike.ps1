@@ -12,24 +12,56 @@ if (-not (Test-Path $securityInstaller)) {
   throw 'Windows native security installer is missing.'
 }
 
+$installerTokens = $null
+$installerParseErrors = $null
+[System.Management.Automation.Language.Parser]::ParseFile(
+  $securityInstaller,
+  [ref]$installerTokens,
+  [ref]$installerParseErrors
+) | Out-Null
+if ($installerParseErrors.Count -ne 0) {
+  throw 'Windows native security installer failed PowerShell parser validation.'
+}
+
 Push-Location $appDir
 try {
   flutter --version
   flutter config --enable-windows-desktop
   flutter pub get
 
-  # Prove production dispatch and the shared security wire contract stay
-  # fail-closed before generating a desktop host.
+  # Prove production dispatch stays fail-closed while both platform bindings use
+  # the shared, redacted security wire contract.
   flutter test test/app_composition_test.dart
   flutter test test/method_channel_platform_security_bridge_test.dart
+  flutter test test/windows_platform_security_bridge_test.dart
 
   $generatedHost = -not (Test-Path (Join-Path $appDir 'windows'))
+  $templateWidgetTest = Join-Path $appDir 'test/widget_test.dart'
+  $widgetTestExisted = Test-Path $templateWidgetTest
   if ($generatedHost) {
     flutter create --platforms=windows --project-name personal_os_app --org com.personalos .
 
-    # Platform generation may add Windows/tooling files, but it must not
-    # silently rewrite authored Dart application code, tests, or dependencies.
-    git diff --exit-code -- pubspec.yaml lib test
+    # `flutter create` may refresh tracked app/config files or create a template
+    # widget test. The spike only needs the generated Windows host, so restore
+    # authored project files before analyze/build and remove only a widget test
+    # that did not exist before this command.
+    $authoredPaths = @(
+      git ls-files -- analysis_options.yaml pubspec.yaml pubspec.lock lib test
+    )
+    if ($authoredPaths.Count -gt 0) {
+      git restore --source=HEAD --worktree --staged -- $authoredPaths
+    }
+    if (-not $widgetTestExisted -and (Test-Path $templateWidgetTest)) {
+      Remove-Item -Path $templateWidgetTest -Force
+    }
+
+    $authoredStatus = @(
+      git status --porcelain --untracked-files=all -- `
+        analysis_options.yaml pubspec.yaml pubspec.lock lib test
+    )
+    if ($authoredStatus.Count -ne 0) {
+      throw 'Flutter Windows host generation modified authored Dart/config files.'
+    }
   }
 
   if (-not (Test-Path (Join-Path $appDir 'windows'))) {
@@ -72,7 +104,7 @@ try {
       '- security_wire_contract: PASS',
       '- native_user_presence_compile: PASS',
       '- result: PASS',
-      '- limitation: Windows user-presence runtime behavior is not verified; key protection, SQLCipher Vault open/close, and controlled media remain unavailable.'
+      '- limitation: compile evidence only; Windows user-presence runtime behavior is not verified, production composition remains fail-closed, and TPM key protection / SQLCipher Vault / controlled media remain unavailable.'
     ) | Add-Content -Path $env:GITHUB_STEP_SUMMARY -Encoding utf8
   }
 }
