@@ -1,91 +1,107 @@
-# 领域概念模型
+# 领域概念模型 v0.2
 
-状态：M0 概念模型。用于统一语言和验证需求，不规定数据库、类、服务或 API。
+状态：revised MVP concept model；不规定数据库和具体MCP SDK。
 
 ## 1. 核心概念
 
 | 概念 | 含义 | 关键属性 |
 |---|---|---|
-| Person | Personal OS 服务的主体 | 身份边界、授权主体 |
-| Domain | 健身、饮食、外形、关系等决策领域 | 名称、范围、风险级别 |
-| Goal | 希望达到或维持的结果 | 时间范围、优先级、状态、成功标准 |
-| Constraint | 限制可选行动的条件 | 类型、强度、有效期、可协商性 |
-| Preference | 主观选择倾向，不等于客观事实 | 适用范围、权重、来源、更新时间 |
-| Source | 信息来自哪里 | 用户、设备、文件、外部资料、模型 |
-| Observation | 对某一时点状态的记录 | 时间、来源、质量、敏感度 |
-| Claim | 关于个人或环境的可判断陈述 | 类型、证据、置信度、有效期、状态 |
-| Baseline | 某领域在某一时间的版本化状态快照 | 观察集合、确认状态、版本 |
-| Opportunity | 从基线与目标差距产生的候选改善点 | 影响、成本、周期、风险、可逆性 |
-| Recommendation | 针对机会提出的行动建议 | 依据、未知项、替代方案、确认要求 |
-| Plan | 为实现目标组织的一组有限周期行动 | 开始/结束、预算、复盘点、状态 |
-| Task | 可执行和可验证的最小行动单元 | 完成条件、频率、依赖、停止条件 |
-| ExecutionRecord | 任务实际发生了什么 | 完成、跳过、困难、成本、不良反应 |
-| Outcome | 周期内观察到的结果 | 指标、变化、主观评价、混杂因素 |
-| Review | 对目标、计划与结果的结构化复盘 | 结论、置信度、修订、下一步 |
-| Decision | 用户或系统在约束下作出的选择 | 选项、理由、授权、影响范围 |
-| Consent | 对数据使用或外部动作的明确授权 | 对象、用途、范围、有效期、撤销状态 |
+| Person | Personal OS服务主体 | 身份与数据所有权 |
+| Domain | 外形、健身等领域 | 名称、范围、风险 |
+| PersonalAsset | 用户已拥有的条件、资源、能力或长期信息 | 类型、值、单位、来源、有效期、版本 |
+| Goal | 希望达到或维持的结果 | 成功指标、时间、优先级、状态 |
+| Constraint | 限制策略和行动的条件 | 类型、强度、有效期、可协商性 |
+| Observation | 某一时间点的记录 | 值、来源、质量、敏感度 |
+| Claim | 可被支持、质疑、过期或撤回的陈述 | 证据、可信状态、有效期 |
+| Strategy | Agent为Goal提出的总体方法 | 假设、条件、预期结果、评价指标、版本 |
+| Plan | Strategy在有限周期内的执行展开 | 起止时间、预算、状态 |
+| Task | 最小可执行行动 | 完成条件、截止/频率、停止条件 |
+| Execution | Task真实发生的情况 | 完成、跳过、偏离、时间、原因 |
+| Outcome | 执行后可观测的结果 | 指标、基线、结果、时间、来源 |
+| Feedback | 用户主观体验和评价 | 内容、评分、时间、对象引用 |
+| Review | 对Strategy、Execution和Outcome的结构化复盘 | 结论、证据、未知项、下一步 |
+| AgentRef | 外部Agent或Harness身份 | 名称、类型、版本、实例标识 |
+| AgentSession | Agent访问Personal OS的短期会话 | 权限、状态、创建/失效时间 |
+| Attachment | 加密保存的大对象 | BlobRef、类型、时间、敏感度 |
 
-## 2. 信息类型必须分离
+## 2. 信息类型
 
-`Observation`、`Claim` 和 `Recommendation` 不能混为一体：
+- UserFact：用户明确陈述并确认；
+- Observation：人工、设备或导入观测；
+- DeterministicOutcome：可以直接核验的结果；
+- SubjectiveFeedback：用户感受和评价；
+- AgentInference：Agent对事实意义的推断；
+- Recommendation：Agent提出的行动；
+- Unknown：信息不足；
+- Conflict：来源或结论冲突。
 
-- Observation：记录“看到了什么”；
-- Claim：表达“这些信息可能意味着什么”；
-- Recommendation：表达“基于目标建议做什么”。
-
-同一结论允许存在多个版本或相互冲突的 Claim。用户确认不会把推断变成绝对真理，只会改变其状态和使用权重。
+信息类型和D0–D4敏感度是两条独立轴。
 
 ## 3. 最小关系
 
-- Person 拥有 Goals、Constraints、Preferences 与 Consents；
-- Domain 组织 Observations、Baselines、Opportunities 和 Plans；
-- Source 支持 Observation 或 Claim；
-- Baseline 聚合某一时点有效的 Observations 与 Claims；
-- Goal 与 Baseline 的差距产生 Opportunities；
-- Recommendation 针对 Opportunity，并受 Constraints 与 Consent 限制；
-- Plan 选择 Recommendations 并分解为 Tasks；
-- ExecutionRecord 记录 Task 的实际执行；
-- Outcome 汇总新的观察；
-- Review 比较 Goal、Baseline、Plan 与 Outcome，并产生 Decisions；
-- Decision 可以修订 Goal、Constraint、Preference、Claim 或下一轮 Plan。
+- Person拥有PersonalAssets、Goals和Constraints；
+- Goal拥有Strategy时间线；
+- Strategy引用Goal、相关资产、假设和评价指标；
+- Strategy可以引用predecessor形成版本链；
+- Plan实现一个Strategy并包含Tasks；
+- Execution记录Task真实发生了什么；
+- Outcome与Feedback评价Strategy或Plan；
+- Review引用Strategy、Execution、Outcome和Feedback；
+- Review可以产生Strategy新版本；
+- AgentSession授权Agent读取或提交领域命令；
+- Agent写入通过Source/AgentRef保留来源；
+- Attachment通过BlobRef与资产、Observation或Outcome关联。
 
 ## 4. 生命周期
 
-### Claim
-
-`proposed → confirmed / disputed → expired / withdrawn`
-
 ### Goal
 
-`draft → active → paused → achieved / abandoned / replaced`
+draft → active → paused → achieved / abandoned / replaced
+
+### Strategy
+
+proposed → accepted / rejected  
+accepted → active  
+active → completed / abandoned  
+completed → effective / ineffective / inconclusive / execution_insufficient  
+ineffective或inconclusive → revised  
+effective → reusable或revised
 
 ### Plan
 
-`draft → approved → active → paused → completed / stopped`
+draft → approved → active → paused → completed / stopped
 
-### Consent
+### Task
 
-`requested → granted → expired / revoked`
+pending → completed / skipped / blocked / cancelled
 
-撤销 Consent 后，后续使用必须停止；历史记录是否保留取决于数据政策和审计必要性，不能由技术实现默认决定。
+### AgentSession
 
-## 5. 领域不变量
+requested → active → expired / revoked / closed
 
-1. 没有 Source 的高影响 Claim 不得被当作已确认事实；
-2. Recommendation 必须能追溯到 Goal、Opportunity 和依据；
-3. 高风险 Recommendation 未经授权不得进入 active Plan；
-4. ExecutionRecord 只能记录真实发生的行为；
-5. Review 不得覆盖历史，只能创建修订版本；
-6. 过期或撤销的 Claim 不得继续参与当前决策，除非明确说明用途；
-7. D4 信息不得成为任何领域对象的持久内容；
-8. 跨领域读取必须同时满足必要性、权限和敏感度规则。
+## 5. 不变量
 
-## 6. 尚未进入本模型的内容
+1. Strategy必须引用Goal；
+2. Active Strategy必须有评价指标；
+3. Agent创建的Strategy初始为proposed；
+4. Execution只能记录真实行为；
+5. Agent不得修改既有Execution或DeterministicOutcome；
+6. Review不得覆盖历史，只能产生新记录；
+7. Strategy不能仅凭Agent声明进入effective；
+8. AgentInference不能覆盖UserFact；
+9. 所有Agent写入必须关联AgentRef和Session；
+10. D4不能进入领域对象、MCP和导出上下文；
+11. 给定同一事件序列必须重建相同状态。
 
-- Agent、工作流引擎、向量库、事件总线等技术概念；
-- 具体 UI 页面和交互组件；
-- 数据库表、API 或序列化格式；
-- 模型供应商和提示词结构。
+## 6. 与技术层分离
 
-这些内容只能在 M2 根据冻结需求映射。
+领域模型不包含：
 
+- OpenAI、Anthropic、Codex或Claude专属类型；
+- Prompt和模型参数；
+- MCP传输细节；
+- SQLite表；
+- Flutter Widget；
+- Graphiti或向量索引。
+
+Agent Gateway把领域Queries/Commands映射为MCP，但不能改变本模型语义。
