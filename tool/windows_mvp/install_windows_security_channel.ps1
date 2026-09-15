@@ -53,7 +53,7 @@ function Replace-Once(
   }
   $first = $content.IndexOf($needle, [System.StringComparison]::Ordinal)
   if ($first -lt 0) {
-    throw "Template drift in $path: missing expected anchor '$needle'"
+    throw "Template drift in ${path}: missing expected anchor '$needle'"
   }
   $second = $content.IndexOf(
     $needle,
@@ -61,7 +61,7 @@ function Replace-Once(
     [System.StringComparison]::Ordinal
   )
   if ($second -ge 0) {
-    throw "Template drift in $path: anchor is not unique '$needle'"
+    throw "Template drift in ${path}: anchor is not unique '$needle'"
   }
   return $content.Substring(0, $first) + $replacement +
     $content.Substring($first + $needle.Length)
