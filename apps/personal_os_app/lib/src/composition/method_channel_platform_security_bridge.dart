@@ -4,13 +4,14 @@ import 'package:flutter/services.dart';
 import 'package:personal_os_device_security/device_security.dart';
 import 'package:personal_os_security_api/security_api.dart';
 
-/// Platform-neutral Flutter adapter for the private native security channel.
+/// Shared Flutter-side codec for a private platform-security MethodChannel.
 ///
-/// Platform-specific wrappers choose an isolated channel name. This adapter
-/// owns the shared wire contract and maps only allowlisted platform codes; it
-/// never forwards PlatformException messages or details across the boundary.
+/// Native implementations may differ by operating system, but they must expose
+/// the same allowlisted wire contract. Native exception messages/details never
+/// cross this adapter boundary.
 class MethodChannelPlatformSecurityBridge implements PlatformSecurityBridge {
-  MethodChannelPlatformSecurityBridge(MethodChannel channel) : _channel = channel;
+  MethodChannelPlatformSecurityBridge({required MethodChannel channel})
+      : _channel = channel;
 
   final MethodChannel _channel;
 
@@ -253,8 +254,7 @@ PlatformSecurityFailureCode _failureCode(String code) => switch (code) {
         PlatformSecurityFailureCode.vaultConfigurationFailed,
       'security.vault_journal_invalid' =>
         PlatformSecurityFailureCode.vaultJournalInvalid,
-      'security.provider_unavailable' =>
-        PlatformSecurityFailureCode.unavailable,
+      'security.provider_unavailable' => PlatformSecurityFailureCode.unavailable,
       _ => PlatformSecurityFailureCode.unavailable,
     };
 
