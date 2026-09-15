@@ -2,14 +2,16 @@ import 'package:flutter/services.dart';
 
 import 'method_channel_platform_security_bridge.dart';
 
-/// Windows-specific channel selection for the shared native security protocol.
+/// Windows binding for the shared platform-security MethodChannel codec.
 ///
-/// The Dart side does not infer that Windows Hello, TPM, DPAPI, or SQLCipher is
-/// available. Native capability inspection remains the only source of truth.
+/// This fixes the Dart/native ABI name without making Windows production-ready.
+/// Production composition must remain fail-closed until a reviewed native
+/// implementation provides this channel and the encrypted-vault adapters.
 final class WindowsPlatformSecurityBridge
     extends MethodChannelPlatformSecurityBridge {
   WindowsPlatformSecurityBridge({MethodChannel? channel})
       : super(
-          channel ?? const MethodChannel('personal_os/internal/windows_vault'),
+          channel: channel ??
+              const MethodChannel('personal_os/internal/windows_vault'),
         );
 }
