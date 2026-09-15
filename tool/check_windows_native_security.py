@@ -83,6 +83,9 @@ for token in (
     '"windows_security_channel.cpp"',
     'windowsapp.lib',
     'ole32.lib',
+    'function Detect-Newline([string]$content)',
+    'Template drift in ${path}: missing expected anchor',
+    'Template drift in ${path}: anchor is not unique',
     '#include "windows_security_channel.h"',
     'RegisterWindowsSecurityChannel(',
     'UnregisterWindowsSecurityChannel(',
@@ -92,8 +95,17 @@ for token in (
     if token not in installer:
         errors.append(f"{INSTALLER.relative_to(ROOT)}: missing {token!r}")
 
+for forbidden in (
+    'Template drift in $path:',
+):
+    if forbidden in installer:
+        errors.append(
+            f"{INSTALLER.relative_to(ROOT)}: parse-unsafe PowerShell interpolation {forbidden!r}"
+        )
+
 for token in (
     'install_windows_security_channel.ps1',
+    '[System.Management.Automation.Language.Parser]::ParseFile(',
     '& $securityInstaller',
     'flutter build windows --debug',
     'native_user_presence_compile: PASS',
