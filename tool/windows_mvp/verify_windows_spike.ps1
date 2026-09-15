@@ -1,5 +1,6 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $true
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $appDir = Join-Path $repoRoot 'apps/personal_os_app'
