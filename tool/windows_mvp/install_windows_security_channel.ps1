@@ -79,6 +79,12 @@ $cmake = Replace-Once `
 $cmake = Replace-Once `
   $cmakePath `
   $cmake `
+  'apply_standard_settings(${BINARY_NAME})' `
+  "apply_standard_settings(`${BINARY_NAME})${cmakeNewline}target_compile_features(`${BINARY_NAME} PRIVATE cxx_std_20)" `
+  'target_compile_features(${BINARY_NAME} PRIVATE cxx_std_20)'
+$cmake = Replace-Once `
+  $cmakePath `
+  $cmake `
   'target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")' `
   "target_link_libraries(`${BINARY_NAME} PRIVATE `"dwmapi.lib`")${cmakeNewline}target_link_libraries(`${BINARY_NAME} PRIVATE `"windowsapp.lib`" `"ole32.lib`")" `
   'target_link_libraries(${BINARY_NAME} PRIVATE "windowsapp.lib" "ole32.lib")'
