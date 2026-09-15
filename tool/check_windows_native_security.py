@@ -81,6 +81,7 @@ for token in (
     "'windows_security_channel.h'",
     "'windows_security_channel.cpp'",
     '"windows_security_channel.cpp"',
+    'target_compile_features(${BINARY_NAME} PRIVATE cxx_std_20)',
     'windowsapp.lib',
     'ole32.lib',
     'function Detect-Newline([string]$content)',
