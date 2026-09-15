@@ -29,6 +29,17 @@ try {
   flutter config --enable-windows-desktop
   flutter pub get
 
+  # Flutter tooling may refresh tracked config during pub resolution. Restore
+  # the authored sources before running tests so the spike always validates the
+  # exact repository content rather than tool-generated edits. pubspec.lock is
+  # intentionally excluded because this app does not track it.
+  $authoredPaths = @(
+    git ls-files -- analysis_options.yaml pubspec.yaml lib test
+  )
+  if ($authoredPaths.Count -gt 0) {
+    git restore --source=HEAD --worktree --staged -- $authoredPaths
+  }
+
   # Prove production dispatch stays fail-closed while both platform bindings use
   # the shared, redacted security wire contract.
   flutter test test/app_composition_test.dart
@@ -41,13 +52,9 @@ try {
   if ($generatedHost) {
     flutter create --platforms=windows --project-name personal_os_app --org com.personalos .
 
-    # `flutter create` may refresh tracked app/config files or create a template
-    # widget test. The spike only needs the generated Windows host, so restore
-    # authored project files before analyze/build and remove only a widget test
-    # that did not exist before this command.
-    $authoredPaths = @(
-      git ls-files -- analysis_options.yaml pubspec.yaml pubspec.lock lib test
-    )
+    # The temporary host may refresh tracked app/config files or create a
+    # template widget test. Keep only `windows/`; restore the exact authored
+    # source tree and remove only a widget test that did not exist beforehand.
     if ($authoredPaths.Count -gt 0) {
       git restore --source=HEAD --worktree --staged -- $authoredPaths
     }
@@ -55,11 +62,15 @@ try {
       Remove-Item -Path $templateWidgetTest -Force
     }
 
-    $authoredStatus = @(
-      git status --porcelain --untracked-files=all -- `
-        analysis_options.yaml pubspec.yaml pubspec.lock lib test
+    $trackedAuthoredStatus = @(
+      git status --porcelain --untracked-files=no -- `
+        analysis_options.yaml pubspec.yaml lib test
     )
-    if ($authoredStatus.Count -ne 0) {
+    $untrackedAuthoredStatus = @(
+      git ls-files --others --exclude-standard -- lib test
+    )
+    if ($trackedAuthoredStatus.Count -ne 0 -or
+        $untrackedAuthoredStatus.Count -ne 0) {
       throw 'Flutter Windows host generation modified authored Dart/config files.'
     }
   }
