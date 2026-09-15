@@ -2,6 +2,9 @@ name: Flutter Windows Portability Spike
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - codex/windows-secure-boundary-20260915
 
 permissions:
   contents: read
