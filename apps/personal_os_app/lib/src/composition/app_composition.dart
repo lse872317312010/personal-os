@@ -11,8 +11,8 @@ import 'package:personal_os_model_gateway_api/model_gateway_api.dart';
 import 'package:personal_os_policy/policy.dart';
 import 'package:personal_os_policy_application/policy_application.dart';
 import 'package:personal_os_security_api/security_api.dart';
-import 'package:personal_os_storage_api/storage_api.dart';
 import 'package:personal_os_source_api/source_api.dart';
+import 'package:personal_os_storage_api/storage_api.dart';
 
 import '../controller/app_controller.dart';
 import 'android_platform_security_bridge.dart';
@@ -21,11 +21,12 @@ import 'method_channel_controlled_source_port.dart';
 import 'method_channel_source_blob_ingestion_port.dart';
 import 'native_sqlcipher_event_store.dart';
 import 'native_sqlcipher_session_coordinator.dart';
+import 'windows_platform_security_bridge.dart';
 
 enum AppExperienceMode { syntheticDemo, secureVault }
 
-/// Replace this composition root with encrypted persistence, keystore-backed
-/// unlock, and a real model adapter. Widgets never reach those adapters.
+/// Composition root for the shipped application and explicit test/demo modes.
+/// Widgets never reach persistence, security, source, or model adapters directly.
 final class AppComposition {
   AppComposition({
     required this.controller,
@@ -48,26 +49,50 @@ final class AppComposition {
     );
   }
 
-  /// The runtime composition used by the shipped application.
+  /// Runtime composition used by the shipped application.
   ///
-  /// Android is the primary vault platform and exercises the native
-  /// authenticated vault path by default. Platforms without an equivalent
-  /// secure adapter must fail closed rather than silently entering the
-  /// synthetic demo. Tests and previews may request [inMemoryDemo] explicitly.
+  /// Android owns the current complete native vault path. Windows has a
+  /// dedicated security protocol boundary but storage remains deliberately
+  /// unavailable until a trusted Windows Vault adapter is implemented. Every
+  /// other unsupported platform fails closed rather than entering demo mode.
   factory AppComposition.forCurrentPlatform() =>
       AppComposition.forTargetPlatform(defaultTargetPlatform);
 
-  /// Explicit target-platform selection keeps the production platform policy
-  /// testable without mutating Flutter's process-wide platform override.
+  /// Explicit target selection keeps production dispatch testable without
+  /// mutating Flutter's process-wide platform override.
   factory AppComposition.forTargetPlatform(TargetPlatform platform) =>
-      platform == TargetPlatform.android
-          ? AppComposition.secureVault()
-          : AppComposition.unsupportedSecurePlatform();
+      switch (platform) {
+        TargetPlatform.android => AppComposition.secureVault(),
+        TargetPlatform.windows => AppComposition.windowsSecureBoundary(),
+        _ => AppComposition.unsupportedSecurePlatform(),
+      };
 
-  /// Fail-closed shell for a shipped platform that does not yet have a trusted
-  /// vault adapter. The UI can start and explain that unlock is unavailable,
-  /// but it cannot unlock, ingest media, persist user events, or invoke a
-  /// synthetic/real model gateway.
+  /// Windows production boundary before encrypted storage is available.
+  ///
+  /// User-presence/authentication can be wired to the dedicated Windows native
+  /// channel without duplicating the Dart security protocol. Even if native
+  /// authentication succeeds, [_UnavailableSecureVaultPort] still refuses to
+  /// open a Vault, so the shell cannot expose or persist protected state until
+  /// Windows key protection + SQLCipher are implemented and reviewed.
+  factory AppComposition.windowsSecureBoundary({
+    PlatformSecurityBridge? securityBridge,
+    MethodChannel? securityChannel,
+  }) {
+    final bridge = securityBridge ??
+        WindowsPlatformSecurityBridge(channel: securityChannel);
+    const eventStore = _UnavailableEventStore();
+    return _build(
+      eventStore: eventStore,
+      mode: AppExperienceMode.secureVault,
+      vaultSession: DefaultVaultSession(DeviceSecureUnlockAdapter(bridge)),
+      secureVault: const _UnavailableSecureVaultPort(),
+      modelGateway: const _UnavailableAppearanceAnalysisGateway(),
+    );
+  }
+
+  /// Fail-closed shell for a shipped platform without a trusted native adapter.
+  /// The UI can start and explain that unlock is unavailable, but it cannot
+  /// unlock, ingest media, persist user events, or invoke any model gateway.
   factory AppComposition.unsupportedSecurePlatform() {
     const eventStore = _UnavailableEventStore();
     return _build(
@@ -79,7 +104,7 @@ final class AppComposition {
     );
   }
 
-  /// Secure composition never falls back to a synthetic model gateway.
+  /// Android secure composition never falls back to a synthetic model gateway.
   factory AppComposition.secureVault({
     PlatformSecurityBridge? securityBridge,
     MethodChannel? channel,
