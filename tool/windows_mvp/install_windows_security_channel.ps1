@@ -34,6 +34,13 @@ function Write-Utf8File([string]$path, [string]$content) {
   [System.IO.File]::WriteAllText($path, $content, $utf8NoBom)
 }
 
+function Detect-Newline([string]$content) {
+  if ($content.Contains("`r`n")) {
+    return "`r`n"
+  }
+  return "`n"
+}
+
 function Replace-Once(
   [string]$path,
   [string]$content,
@@ -62,39 +69,45 @@ function Replace-Once(
 
 $cmakePath = Join-Path $runnerDir 'CMakeLists.txt'
 $cmake = Read-Utf8File $cmakePath
+$cmakeNewline = Detect-Newline $cmake
 $cmake = Replace-Once `
   $cmakePath `
   $cmake `
   '  "flutter_window.cpp"' `
-  "  `"flutter_window.cpp`"`n  `"windows_security_channel.cpp`"" `
+  "  `"flutter_window.cpp`"${cmakeNewline}  `"windows_security_channel.cpp`"" `
   '  "windows_security_channel.cpp"'
 $cmake = Replace-Once `
   $cmakePath `
   $cmake `
   'target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")' `
-  "target_link_libraries(`${BINARY_NAME} PRIVATE `"dwmapi.lib`")`ntarget_link_libraries(`${BINARY_NAME} PRIVATE `"windowsapp.lib`" `"ole32.lib`")" `
+  "target_link_libraries(`${BINARY_NAME} PRIVATE `"dwmapi.lib`")${cmakeNewline}target_link_libraries(`${BINARY_NAME} PRIVATE `"windowsapp.lib`" `"ole32.lib`")" `
   'target_link_libraries(${BINARY_NAME} PRIVATE "windowsapp.lib" "ole32.lib")'
 Write-Utf8File $cmakePath $cmake
 
 $windowPath = Join-Path $runnerDir 'flutter_window.cpp'
 $window = Read-Utf8File $windowPath
+$windowNewline = Detect-Newline $window
 $window = Replace-Once `
   $windowPath `
   $window `
   '#include "flutter/generated_plugin_registrant.h"' `
-  "#include `"flutter/generated_plugin_registrant.h`"`n#include `"windows_security_channel.h`"" `
+  "#include `"flutter/generated_plugin_registrant.h`"${windowNewline}#include `"windows_security_channel.h`"" `
   '#include "windows_security_channel.h"'
 $window = Replace-Once `
   $windowPath `
   $window `
   '  RegisterPlugins(flutter_controller_->engine());' `
-  "  RegisterPlugins(flutter_controller_->engine());`n  RegisterWindowsSecurityChannel(`n      flutter_controller_->engine()->messenger(), GetHandle());" `
+  "  RegisterPlugins(flutter_controller_->engine());${windowNewline}  RegisterWindowsSecurityChannel(${windowNewline}      flutter_controller_->engine()->messenger(), GetHandle());" `
   '  RegisterWindowsSecurityChannel('
+$destroyNeedle =
+  "  if (flutter_controller_) {${windowNewline}    flutter_controller_ = nullptr;${windowNewline}  }"
+$destroyReplacement =
+  "  if (flutter_controller_) {${windowNewline}    UnregisterWindowsSecurityChannel(${windowNewline}        flutter_controller_->engine()->messenger());${windowNewline}    flutter_controller_ = nullptr;${windowNewline}  }"
 $window = Replace-Once `
   $windowPath `
   $window `
-  "  if (flutter_controller_) {`n    flutter_controller_ = nullptr;`n  }" `
-  "  if (flutter_controller_) {`n    UnregisterWindowsSecurityChannel(`n        flutter_controller_->engine()->messenger());`n    flutter_controller_ = nullptr;`n  }" `
+  $destroyNeedle `
+  $destroyReplacement `
   '    UnregisterWindowsSecurityChannel('
 Write-Utf8File $windowPath $window
 
