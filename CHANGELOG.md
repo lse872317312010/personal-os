@@ -1,5 +1,35 @@
 # Changelog
 
+## 2026-09-15 — Android external-agent strategy loop
+
+### Accepted
+
+- MVP只保留Android，Redmi Turbo继续作为Primary Vault和dogfooding设备；
+- Personal OS保存个人资产、目标、策略、执行、结果和复盘；
+- 推理完全由Codex或其他外部Agent/Harness承担；
+- MCP作为首选在线接口，JSON/JSONL Bundle作为离线兼容接口；
+- MVP必须完成同一Goal的Strategy v1与v2两轮真实迭代；
+- 更换Agent后必须能够延续同一历史。
+
+### Changed
+
+- App内模型分析从MVP主线移除；
+- Model Gateway方向调整为Agent Gateway；
+- Strategy、Execution、Outcome、Review和AgentSession成为核心建模对象；
+- UI、MCP和Bundle统一经过Application Commands/Queries；
+- M2/M3验证门改为Android Vault、MCP兼容和两轮策略闭环。
+
+### Deferred
+
+- Android内置OpenAI Responses调用；
+- Windows客户端和secure adapter；
+- 多设备E2EE、Relay与Restricted Collector；
+- 多Agent编排、自动模型选择、渐进披露和个人模型训练。
+
+### Preserved
+
+- Dart-first core、EventStore、Policy、SQLCipher、Keystore、Encrypted Blob、任务反馈、导出恢复和APK provenance继续作为新方向基础。
+
 ## 2026-08-24 — Mobile MVP theme preference
 
 - Added volatile in-memory system/light/dark theme selection; it resets on process restart.
