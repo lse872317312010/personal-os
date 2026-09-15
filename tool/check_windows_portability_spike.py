@@ -44,6 +44,7 @@ for token in (
 
 for token in (
     '"apps/personal_os_app/test/app_composition_test.dart"',
+    '"apps/personal_os_app/test/method_channel_platform_security_bridge_test.dart"',
     '"tool/windows_mvp/**"',
     '"tool/check_platform_composition.py"',
     '"tool/check_windows_portability_spike.py"',
@@ -59,15 +60,17 @@ for token in (
     "$ErrorActionPreference = 'Stop'",
     "flutter config --enable-windows-desktop",
     "flutter test test/app_composition_test.dart",
+    "flutter test test/method_channel_platform_security_bridge_test.dart",
     "flutter create --platforms=windows --project-name personal_os_app --org com.personalos .",
-    "git diff --exit-code -- pubspec.yaml lib test/app_composition_test.dart",
+    "git diff --exit-code -- pubspec.yaml lib test",
     "flutter analyze",
     "flutter build windows --debug",
     "Get-FileHash -Path $exe.FullName -Algorithm SHA256",
     "WINDOWS_SPIKE_PASS",
     "$env:GITHUB_STEP_SUMMARY",
     "runner_os:",
-    "Windows secure adapter and Vault open/close are not verified.",
+    "security_wire_contract: PASS",
+    "Windows native user-presence, key protection, SQLCipher Vault open/close, and device runtime behavior are not verified.",
 ):
     if token not in script:
         errors.append(f"{SCRIPT.relative_to(ROOT)}: missing {token!r}")
