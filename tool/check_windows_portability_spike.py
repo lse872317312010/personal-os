@@ -63,6 +63,7 @@ for token in (
 for token in (
     "Set-StrictMode -Version Latest",
     "$ErrorActionPreference = 'Stop'",
+    "$PSNativeCommandUseErrorActionPreference = $true",
     "[System.Management.Automation.Language.Parser]::ParseFile(",
     "flutter config --enable-windows-desktop",
     "git ls-files -- analysis_options.yaml pubspec.yaml lib test",
