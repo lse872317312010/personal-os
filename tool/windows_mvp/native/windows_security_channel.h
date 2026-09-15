@@ -10,4 +10,9 @@
 void RegisterWindowsSecurityChannel(flutter::BinaryMessenger* messenger,
                                     HWND owner_window);
 
+// Must run before the Flutter engine is destroyed. It disables pending async
+// replies and removes the messenger handler so no verification completion can
+// target a dead engine.
+void UnregisterWindowsSecurityChannel(flutter::BinaryMessenger* messenger);
+
 #endif  // PERSONAL_OS_WINDOWS_SECURITY_CHANNEL_H_
