@@ -11,11 +11,13 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <utility>
 
 namespace {
 
@@ -38,6 +40,18 @@ using UserConsentVerificationResult =
 
 struct ChannelState {
   std::atomic_bool active{true};
+  std::atomic_bool authentication_in_flight{false};
+};
+
+struct AuthenticationGuard {
+  explicit AuthenticationGuard(std::shared_ptr<ChannelState> state)
+      : state(std::move(state)) {}
+
+  ~AuthenticationGuard() {
+    state->authentication_in_flight.store(false, std::memory_order_release);
+  }
+
+  std::shared_ptr<ChannelState> state;
 };
 
 std::mutex g_state_mutex;
@@ -149,6 +163,7 @@ winrt::fire_and_forget InspectCapabilitiesAsync(
 winrt::fire_and_forget AuthenticateAsync(
     std::shared_ptr<ChannelState> state, HWND owner_window, std::string reason,
     bool allow_device_credential, FlutterResultPtr result) {
+  AuthenticationGuard authentication_guard(state);
   try {
     if (owner_window == nullptr || !allow_device_credential) {
       SendErrorIfActive(state, result.get(), kUnlockUnavailable);
@@ -157,8 +172,11 @@ winrt::fire_and_forget AuthenticateAsync(
 
     const auto availability =
         co_await UserConsentVerifier::CheckAvailabilityAsync();
+    if (!state->active.load(std::memory_order_acquire)) {
+      co_return;
+    }
     if (!IsAvailable(availability)) {
-      SendErrorIfActive(state, result.get(), kUnlockUnavailable);
+      result->Error(kUnlockUnavailable);
       co_return;
     }
 
@@ -185,6 +203,9 @@ winrt::fire_and_forget AuthenticateAsync(
           result->Error(kProviderUnavailable);
           co_return;
         }
+        // This staging adapter issues a short-lived opaque authentication fact,
+        // but no native Vault/key method accepts it yet. Successful user
+        // presence therefore cannot unlock or persist protected state.
         flutter::EncodableMap response;
         response[flutter::EncodableValue("id")] =
             flutter::EncodableValue(ticket_id);
@@ -231,6 +252,11 @@ void HandleMethodCall(
     if (!ReadAuthenticationArguments(
             call, &reason, &allow_device_credential)) {
       result->Error(kProviderUnavailable);
+      return;
+    }
+    if (state->authentication_in_flight.exchange(
+            true, std::memory_order_acq_rel)) {
+      result->Error(kUnlockUnavailable);
       return;
     }
     AuthenticateAsync(state, owner_window, std::move(reason),
