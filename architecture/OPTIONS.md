@@ -1,67 +1,89 @@
-# M2 候选方案比较 v0.1
+# 架构方案结论 v0.2
 
-状态：platform decision frozen；implementation pending
+状态：direction frozen；implementation pending
 
-## 1. 数据权威模式
+## 1. 已接受组合
 
-| 方案 | 优点 | 主要问题 | 结论 |
+| 维度 | 决定 |
+|---|---|
+| 用户平台 | Android only MVP |
+| 首个设备 | Redmi Turbo |
+| UI | Flutter |
+| Core | 纯Dart domain/application/events/policy |
+| 权威数据 | Android local Vault |
+| 结构化存储 | SQLite/SQLCipher事件与投影 |
+| 密钥 | Android Keystore |
+| 附件 | 独立Encrypted Blob Vault |
+| 推理 | 外部Agent/Harness |
+| 在线接口 | MCP |
+| 离线接口 | Context/Proposal Bundle |
+| 导出 | 版本化JSON/JSONL |
+| Agent写入 | 统一Application Commands |
+| 模型厂商 | 不绑定 |
+
+## 2. Agent接口方案
+
+### 直接厂商API嵌入App
+
+优点：调用路径短。  
+问题：绑定Provider、credential和媒体协议；App承担推理与模型生命周期。  
+结论：退出MVP主线。
+
+### 自定义REST接口
+
+优点：简单、通用、容易测试。  
+问题：每个Harness需要自定义集成，缺少Agent资源/工具发现语义。  
+结论：可作为内部或兼容接口，不作为首选标准。
+
+### MCP Agent Gateway
+
+优点：Codex及其他Agent/Harness可发现资源和工具；数据与推理解耦；利于替换Agent。  
+问题：Android网络可达、Session、TLS和生命周期需要验证。  
+结论：Recommended online interface。
+
+### Context/Proposal Bundle
+
+优点：无需后台服务；适用于云端Agent和不可直连环境；最容易验证Schema。  
+问题：不是实时交互，需要导出导入。  
+结论：Required MVP compatibility path，且应先于实时MCP实现。
+
+## 3. MCP宿主候选
+
+| 方案 | 优点 | 问题 | 当前判断 |
 |---|---|---|---|
-| Cloud-first | 多设备简单、集中计算 | 违反原始敏感数据本地优先；离线和退出风险高 | Reject |
-| 纯单机 local-only | 隐私和实现简单 | 无跨设备补采、同步和灾难恢复 | Reject as final architecture |
-| Local-authoritative hybrid | 离线可用；云只做密文中继；可支持受限采集端 | 密钥、冲突、删除传播更复杂 | Recommended |
+| Android前台临时HTTP | 数据不离开权威端；生命周期清晰 | 局域网和客户端可达性 | 首选Spike |
+| PC Companion | stdio兼容好 | 引入第二平台和副本 | MVP延期 |
+| 云端Remote MCP | 云Agent易访问 | 权威同步、认证和隐私复杂 | 延期 |
+| 文件Bundle | 无网络暴露 | 非实时 | MVP必备 |
 
-## 2. 客户端候选
+## 4. 当前不重新比较
 
-### A. Flutter + Dart core
+以下结论继续成立：
 
-Flutter 官方支持移动、桌面和 Web，单代码库对首个 MVP 有明显效率优势。优点是迭代快、UI 一致、减少 FFI；缺点是核心契约、加密和平台密钥能力依赖 Dart/插件质量。
+- SQLCipher + Keystore适合Android Vault；
+- append-only事件适合策略版本和审计；
+- Blob与结构化数据分离；
+- CRDT不作为核心事件存储；
+- Flutter UI不能直接读写数据库；
+- Rust只有测量证明必要时才引入。
 
-适合：先验证 Android/Windows 用户闭环，核心复杂度尚可控。
+## 5. 已延期候选
 
-### B. Flutter UI + Rust core
+- Windows/Tauri/Rust desktop；
+- E2EE Relay；
+- Restricted Collector；
+- Graphiti、Mem0和向量索引；
+- 多Agent orchestrator；
+- 自动模型选择；
+- 高级披露控制；
+- 个人模型训练。
 
-Flutter 负责跨平台 UI，Rust 实现事件、投影、加密边界和契约测试。优点是核心可复用到 CLI/服务、类型与内存安全强；缺点是 FFI、异步、错误模型、移动构建和调试复杂度明显增加。
+## 6. 下一次技术决策
 
-适合：M1 核心预计快速复杂化，且确定需要多前端复用时。
+在继续编码前依次冻结：
 
-### C. Tauri 2 + Web UI + Rust core
-
-Tauri 2 官方覆盖主要桌面和移动平台，并以 WebView + Rust/原生能力组合。桌面体积和 Rust 集成有吸引力；但移动 UX、插件覆盖和跨 WebView 差异需要专项验证。
-
-适合：Windows/桌面优先、Web 技术团队、移动端不是首个关键体验时。
-
-### D. 原生 Android/iOS + 独立桌面
-
-平台体验和密钥/系统能力最好，但早期维护面最大，不适合单用户 MVP 起步，除非首个设备明确只做 Android。
-
-## 3. 本地数据层
-
-### SQLite + 显式事件表/投影表 — Recommended baseline
-
-- 事务成熟；
-- WAL 允许读写并行，但同一时间仍只有一个 writer；
-- 事件、投影、outbox 和 migration 可放在同一事务边界；
-- 必须用 SQLite Backup API 或等价一致性方法，不能只复制 WAL 模式下的 `.db` 文件。
-
-### SQLCipher — Recommended candidate for Vault encryption
-
-提供 SQLite 全库 AES-256 加密和跨平台接口。仍需 OS Keystore/Keychain 保护数据库主密钥，并单独处理 Blob、日志和临时文件。
-
-### CRDT/Automerge — Not primary event store
-
-Automerge 适合 local-first 离线协作和多端同步，但 M1 明确要求高语义冲突不能自动合并。CRDT 可用于未来低风险自由文本或协作视图，不应替代核心事件、Consent、删除和状态机语义。
-
-## 4. 已选组合
-
-- 数据权威：local-authoritative hybrid；
-- 本地核心：SQLite 事件表 + 投影表 + outbox；
-- 本地加密：SQLCipher 候选 + OS hardware-backed keystore/keychain；
-- Blob：独立对象加密，按对象密钥和敏感度管理；
-- 同步：客户端生成不可变事件包；云端只存 E2EE 密文和最小路由元数据；
-- 冲突：下载并集后由本地 M1 投影器检测和显式解决；
-- CRDT：仅限未来低风险子域；
-- 客户端：Flutter，Redmi Turbo / Android 先行；
-- 核心：v1 Dart-first，业务包不依赖 Flutter；Rust 只在测量证明必要时引入；
-- Tauri：不再与 Flutter 做对称竞赛，仅作为未来 Windows Restricted Collector 的条件候选。
-
-该结论冻结方向，不替代真机证据。Flutter 仍需完成 Android 与 Windows vertical slice 的 Safety Gate、契约测试和资源测量。
+1. 最小领域Schema；
+2. Context/Proposal Envelope；
+3. MCP Resource/Tool Schema；
+4. Android Session与传输；
+5. 旧代码迁移方案。
