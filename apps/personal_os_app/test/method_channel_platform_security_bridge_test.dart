@@ -10,9 +10,9 @@ void main() {
   const channel = MethodChannel('personal_os/test/security');
   final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
 
-  tearDown(() async {
-    await messenger.setMockMethodCallHandler(channel, null);
-    await messenger.setMockMethodCallHandler(
+  tearDown(() {
+    messenger.setMockMethodCallHandler(channel, null);
+    messenger.setMockMethodCallHandler(
       const MethodChannel('personal_os/internal/windows_vault'),
       null,
     );
@@ -20,7 +20,7 @@ void main() {
 
   test('shared bridge decodes capabilities and authentication ticket', () async {
     final calls = <MethodCall>[];
-    await messenger.setMockMethodCallHandler(channel, (call) async {
+    messenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call);
       switch (call.method) {
         case 'inspectCapabilities':
@@ -75,7 +75,7 @@ void main() {
   });
 
   test('platform exception text and details are redacted', () async {
-    await messenger.setMockMethodCallHandler(channel, (call) async {
+    messenger.setMockMethodCallHandler(channel, (call) async {
       throw PlatformException(
         code: 'security.unlock_denied',
         message: 'native secret message',
@@ -121,7 +121,7 @@ void main() {
   test('Windows wrapper selects the isolated windows vault channel', () async {
     const windowsChannel = MethodChannel('personal_os/internal/windows_vault');
     MethodCall? captured;
-    await messenger.setMockMethodCallHandler(windowsChannel, (call) async {
+    messenger.setMockMethodCallHandler(windowsChannel, (call) async {
       captured = call;
       return <String, Object?>{
         'protectionLevel': 'unavailable',
