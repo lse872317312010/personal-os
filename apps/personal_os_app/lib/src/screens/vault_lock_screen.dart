@@ -48,8 +48,8 @@ final class VaultLockScreen extends StatelessWidget {
                         controller.vaultUnlocking
                             ? '正在打开安全保险库…'
                             : mode == AppExperienceMode.syntheticDemo
-                            ? '进入合成体验'
-                            : '解锁安全保险库',
+                                ? '进入合成体验'
+                                : '解锁安全保险库',
                       ),
                     ),
                     if (controller.errorCode != null) ...<Widget>[
@@ -77,6 +77,7 @@ String _unlockErrorText(String code) => switch (code) {
       'security.unlock_denied' => '系统未授权解锁，请重试。',
       'security.unlock_unavailable' => '当前无法使用系统解锁。',
       'security.unlock_expired' => '解锁授权已过期，请重试。',
+      'security.provider_unavailable' => '当前平台的安全服务尚未配置。',
       'security.vault_locked' => '安全保险库会话无效，请重试。',
       'security.vault_library_unavailable' => '加密数据库原生库加载失败（vault_library）。',
       'security.vault_path_unavailable' => '应用私有数据库目录不可用（vault_path）。',
