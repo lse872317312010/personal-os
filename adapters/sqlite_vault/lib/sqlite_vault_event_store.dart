@@ -190,6 +190,66 @@ final class SqliteVaultEventStore implements EventStore {
     }
   }
 
+  /// Reads the current materialized state for a single domain object.
+  Future<ObjectProjection?> readProjection(ObjectRef subject) async {
+    try {
+      final rows = await _database.query(
+        'SELECT state_json FROM projections WHERE projection_type = ? '
+        'AND subject_type = ? AND subject_id = ? LIMIT 1',
+        <Object?>['core', subject.type, subject.id.value],
+      );
+      return rows.isEmpty
+          ? null
+          : ObjectProjectionJsonCodec.decodeString(
+              rows.single['state_json']! as String,
+            );
+    } on PersistenceException {
+      rethrow;
+    } on Object {
+      throw const PersistenceException.readFailed();
+    }
+  }
+
+  /// Lists current projections without replaying the event log.
+  ///
+  /// [state] is optional and is matched against the reducer's materialized
+  /// state. Results are newest-first and stable by subject ID.
+  Future<List<ObjectProjection>> listProjections({
+    required String subjectType,
+    String? state,
+    int limit = 100,
+  }) async {
+    if (subjectType.trim().isEmpty || limit <= 0 || limit > 500) {
+      throw const VaultSchemaViolation();
+    }
+    try {
+      final stateFilter =
+          state == null ? '' : " AND json_extract(state_json, '$.state') = ?";
+      final rows = await _database.query(
+        'SELECT state_json FROM projections WHERE projection_type = ? '
+        'AND subject_type = ?$stateFilter '
+        'ORDER BY updated_at DESC, subject_id ASC LIMIT ?',
+        <Object?>[
+          'core',
+          subjectType,
+          if (state != null) state,
+          limit,
+        ],
+      );
+      return rows
+          .map(
+            (row) => ObjectProjectionJsonCodec.decodeString(
+              row['state_json']! as String,
+            ),
+          )
+          .toList(growable: false);
+    } on PersistenceException {
+      rethrow;
+    } on Object {
+      throw const PersistenceException.readFailed();
+    }
+  }
+
   static void _validate(EventEnvelope event) {
     if (event.sensitivity == Sensitivity.d4) {
       throw const VaultSchemaViolation.d4();
