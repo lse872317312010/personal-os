@@ -6,8 +6,15 @@ import 'package:personal_os_storage_api/storage_api.dart';
 final class SqliteVaultSchema {
   const SqliteVaultSchema._();
 
-  static const int version = 1;
+  static const int version = 2;
+
+  /// Bootstrap asset retained for existing drivers.
   static const String migrationAsset = 'migrations/0001_vault_schema.sql';
+
+  static const List<String> migrationAssets = <String>[
+    'migrations/0001_vault_schema.sql',
+    'migrations/0002_strategy_loop_queries.sql',
+  ];
 
   static const Set<String> persistedSensitivities = <String>{
     'D0',
