@@ -6,7 +6,10 @@ import sqlite3
 
 
 ROOT = Path(__file__).resolve().parents[1]
-MIGRATION = ROOT / "migrations" / "0001_vault_schema.sql"
+MIGRATIONS = [
+    ROOT / "migrations" / "0001_vault_schema.sql",
+    ROOT / "migrations" / "0002_strategy_loop_queries.sql",
+]
 REQUIRED_TABLES = {
     "schema_metadata",
     "event_log",
@@ -61,7 +64,8 @@ def event_values(event_id: str, sensitivity: str = "D2") -> tuple[object, ...]:
 
 def main() -> None:
     db = sqlite3.connect(":memory:", isolation_level=None)
-    db.executescript(MIGRATION.read_text(encoding="utf-8"))
+    for migration in MIGRATIONS:
+        db.executescript(migration.read_text(encoding="utf-8"))
 
     tables = {
         row[0]
@@ -82,6 +86,12 @@ def main() -> None:
         )
     }
     assert "event_subjects_subject_idx" in indexes
+    assert "event_log_type_recorded_idx" in indexes
+    assert "projections_type_updated_idx" in indexes
+    assert "projections_state_idx" in indexes
+    assert db.execute(
+        "SELECT schema_version FROM schema_metadata WHERE singleton_id=1"
+    ).fetchone()[0] == 2
     blob_columns = {
         row[1] for row in db.execute("PRAGMA table_info(blob_metadata)")
     }
@@ -299,7 +309,7 @@ def main() -> None:
     else:
         raise AssertionError("duplicate subject ordinal unexpectedly persisted")
 
-    print("sqlite_vault schema v1: PASS (SQLite only; SQLCipher not exercised)")
+    print("sqlite_vault schema v2: PASS (SQLite only; SQLCipher not exercised)")
 
 
 if __name__ == "__main__":

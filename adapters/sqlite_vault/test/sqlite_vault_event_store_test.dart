@@ -104,6 +104,21 @@ void main() {
       expect(bySubject.single.subjectRefs.single.revision!.value, 9);
     });
 
+    test('reads the current materialized projection without replay', () async {
+      final db = FakeSqlExecutor();
+      final store = SqliteVaultEventStore(db);
+      await store.appendAll(<EventEnvelope>[_goal('e1')]);
+
+      final projection = await store.readProjection(
+        ObjectRef(type: 'goal', id: EntityId('goal-1')),
+      );
+
+      expect(projection, isNotNull);
+      expect(projection!.state, GoalState.draft.name);
+      expect(projection.revision, Revision(1));
+      expect(projection.lastEventId, 'e1');
+    });
+
     test('loads every existing deletion projection before reducing', () async {
       final db = FakeSqlExecutor();
       final store = SqliteVaultEventStore(db);

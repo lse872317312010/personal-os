@@ -2,8 +2,15 @@ import 'package:personal_os_sqlite_vault_schema/sqlite_vault_schema.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('schema v1 exposes all required tables', () {
-    expect(SqliteVaultSchema.version, 1);
+  test('schema v2 exposes all required tables', () {
+    expect(SqliteVaultSchema.version, 2);
+    expect(
+      SqliteVaultSchema.migrationAssets,
+      <String>[
+        'migrations/0001_vault_schema.sql',
+        'migrations/0002_strategy_loop_queries.sql',
+      ],
+    );
     expect(
       SqliteVaultSchema.tables,
       containsAll(<String>{
