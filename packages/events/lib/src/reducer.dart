@@ -122,6 +122,10 @@ ReductionResult reduceCore({
     revision: (current?.revision ?? Revision(0)).next,
     state: transition,
     lastEventId: event.eventId,
+    attributes: <String, Object?>{
+      ...?current?.attributes,
+      ...event.payload,
+    }..remove('expected_revision'),
   );
   var nextProjections = <String, ObjectProjection>{
     ...projections,
@@ -250,6 +254,29 @@ String? _transition(EventEnvelope event, String? from) =>
       EventTypes.executionRecorded when from == null => 'recorded',
       EventTypes.outcomeRecorded when from == null => 'recorded',
       EventTypes.constraintRecorded when from == null => 'recorded',
+      EventTypes.personalAssetRecorded when from == null => 'active',
+      EventTypes.personalAssetSuperseded when from == 'active' => 'superseded',
+      EventTypes.personalAssetArchived
+          when from == 'active' || from == 'superseded' =>
+        'archived',
+      EventTypes.strategyProposed when from == null => 'proposed',
+      EventTypes.strategyAccepted when from == 'proposed' => 'accepted',
+      EventTypes.strategyActivated when from == 'accepted' => 'active',
+      EventTypes.strategyCompleted when from == 'active' => 'completed',
+      EventTypes.strategyAbandoned
+          when from == 'proposed' ||
+              from == 'accepted' ||
+              from == 'active' =>
+        'abandoned',
+      EventTypes.agentSessionOpened when from == null => 'opened',
+      EventTypes.agentSessionProposalSubmitted when from == 'opened' =>
+        'proposalSubmitted',
+      EventTypes.agentSessionClosed
+          when from == 'opened' || from == 'proposalSubmitted' =>
+        'closed',
+      EventTypes.agentSessionFailed
+          when from == 'opened' || from == 'proposalSubmitted' =>
+        'failed',
       EventTypes.claimProposed when from == null => ClaimState.proposed.name,
       EventTypes.claimConfirmed when from == ClaimState.proposed.name =>
         ClaimState.confirmed.name,
@@ -354,6 +381,18 @@ const _knownTypes = <String>{
   EventTypes.executionRecorded,
   EventTypes.outcomeRecorded,
   EventTypes.constraintRecorded,
+  EventTypes.personalAssetRecorded,
+  EventTypes.personalAssetSuperseded,
+  EventTypes.personalAssetArchived,
+  EventTypes.strategyProposed,
+  EventTypes.strategyAccepted,
+  EventTypes.strategyActivated,
+  EventTypes.strategyCompleted,
+  EventTypes.strategyAbandoned,
+  EventTypes.agentSessionOpened,
+  EventTypes.agentSessionProposalSubmitted,
+  EventTypes.agentSessionClosed,
+  EventTypes.agentSessionFailed,
   EventTypes.claimProposed,
   EventTypes.claimConfirmed,
   EventTypes.claimDisputed,
