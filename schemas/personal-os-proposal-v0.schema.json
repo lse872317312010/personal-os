@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-os.local/schemas/personal-os-proposal-v0.schema.json",
+  "title": "Personal OS Proposal Bundle v0",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "protocol_version",
+    "proposal_id",
+    "session_id",
+    "created_at",
+    "strategy"
+  ],
+  "properties": {
+    "protocol_version": {
+      "const": "personal-os.mcp.v0"
+    },
+    "proposal_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "context_refs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/objectRef"
+      },
+      "uniqueItems": true
+    },
+    "strategy": {
+      "$ref": "#/$defs/strategyProposal"
+    },
+    "review": {
+      "$ref": "#/$defs/reviewProposal"
+    }
+  },
+  "$defs": {
+    "objectRef": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type", "id", "revision"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["id", "instruction"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instruction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "success_measure": {
+          "type": "string"
+        },
+        "due_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "strategyProposal": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["title", "rationale", "goal_refs", "asset_refs", "actions"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        },
+        "goal_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/objectRef"
+          },
+          "minItems": 1
+        },
+        "asset_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/objectRef"
+          }
+        },
+        "parent_strategy": {
+          "$ref": "#/$defs/objectRef"
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/action"
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "reviewProposal": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["strategy_ref", "outcome_refs", "summary", "keep", "change"],
+      "properties": {
+        "strategy_ref": {
+          "$ref": "#/$defs/objectRef"
+        },
+        "outcome_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/objectRef"
+          },
+          "minItems": 1
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "keep": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "change": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
