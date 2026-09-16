@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-os.local/schemas/personal-os-context-v0.schema.json",
+  "title": "Personal OS Context Bundle v0",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "protocol_version",
+    "bundle_id",
+    "session_id",
+    "created_at",
+    "scope",
+    "objects"
+  ],
+  "properties": {
+    "protocol_version": {
+      "const": "personal-os.mcp.v0"
+    },
+    "bundle_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["purpose", "object_types"],
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        },
+        "object_types": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "personal_asset",
+              "goal",
+              "strategy",
+              "execution",
+              "outcome",
+              "review"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "from": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "to": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "objects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["ref", "data"],
+        "properties": {
+          "ref": {
+            "$ref": "#/$defs/objectRef"
+          },
+          "data": {
+            "type": "object"
+          },
+          "redacted_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "cursor": {
+      "type": "string"
+    },
+    "has_more": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "objectRef": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type", "id", "revision"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
