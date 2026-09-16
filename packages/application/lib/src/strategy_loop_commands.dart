@@ -20,6 +20,7 @@ final class SubmitStrategyProposalCommand extends StrategyLoopCommand {
     required super.actor,
     required super.correlationId,
     required this.sessionId,
+    required this.expectedSessionRevision,
     required this.title,
     required this.rationale,
     required Iterable<ObjectRef> goalRefs,
@@ -37,6 +38,7 @@ final class SubmitStrategyProposalCommand extends StrategyLoopCommand {
         assumptions = List<String>.unmodifiable(assumptions);
 
   final EntityId sessionId;
+  final int expectedSessionRevision;
   final String title;
   final String rationale;
   final List<ObjectRef> goalRefs;
