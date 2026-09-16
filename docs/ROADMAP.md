@@ -1,84 +1,126 @@
 # 发展路线与里程碑
 
-## 总体路径
+## 当前产品方向
 
-1. M0：产品章程与范围冻结
-2. M1：Core Data Model & Event Log
-3. M2：技术选型与总体架构
-4. M3：单领域 MVP dogfooding
-5. M4：多领域协同
-6. M5：Personal OS 平台化
-7. M6：可选的产品化与商业化
+Personal OS是Android-first、Agent-agnostic的个人策略资产与反馈闭环系统。外部Agent负责推理，Android负责权威数据、执行监督和结果历史。
 
-## M0：产品章程与范围冻结 — Completed
+## M0：产品与领域契约 — Completed
 
-已冻结产品使命、原则与非目标、首批领域、“最小分析能力 + 完整行动反馈闭环”的 MVP 主线、MVP 范围与验收标准、核心实体/状态语义，以及 D0–D4 数据规则和 R0–R4 行动风险边界。
+已完成：
 
-退出记录见 [M0_EXIT_REVIEW.md](M0_EXIT_REVIEW.md)。8 月 17 日原始对话提炼保留为证据债务，不阻塞核心语义建模，但在 M3 dogfooding 前必须补齐。
+- 个人状态、目标、约束、计划、任务和反馈概念；
+- 事实、推断、建议和未知项分离；
+- D0–D4数据分类；
+- 风险和人工确认边界。
 
-## M1：Core Data Model & Event Log — Completed
+2026-09-15产品使命发生方向修正：不再以App内模型分析为MVP主线，改为外部Agent通过MCP维护资产、策略和复盘。
 
-目标：把 M0 概念模型转成稳定、技术无关、可验证的核心数据与事件契约。
+## M1：Core Data Model & Event Log — Completed，需要增量扩展
 
-交付物：
+现有事件、状态机、Consent、删除、冲突和Schema演进继续保留。
 
-- 核心实体字段、标识、版本和引用规则；
-- Claim、Goal、Plan、Task、Consent 等状态机；
-- append-only 事件信封与事件类型目录；
-- 由事件重建当前状态的规则；
-- 纠错、撤销、过期、冲突和删除语义；
-- 敏感度、权限、来源与审计元数据；
-- 示例事件流和契约测试用例；
-- 面向 M2 的存储与同步需求，不选择具体数据库。
+新增工作：
 
-退出条件：给定同一事件序列，不依赖特定实现即可确定性重建核心状态；关键不变量、失败行为和隐私语义有可执行测试描述。
+- [ ] PersonalAsset明确化；
+- [ ] Strategy一等实体与版本状态机；
+- [ ] Execution、Outcome、Review证据关系；
+- [ ] AgentSession、AgentRef和调用审计；
+- [ ] Context/Proposal Envelope；
+- [ ] 新增契约fixtures并验证旧事件兼容。
 
-当前进度：
+## M2：Android权威Vault基线 — In Progress
 
-- [x] 核心数据模型 v0.1 草案
-- [x] 事件日志契约 v0.1 草案
-- [x] 完成状态机与事件类型首轮审查
-- [x] 定义 Actor、权限与 Consent 最小格式
-- [x] 补充 3 条以上端到端事件序列
-- [x] 建立契约测试清单
-- [x] 定义删除、压缩与快照语义
-- [x] 完成并发冲突、Schema 演进和敏感度继承审查
-- [x] M1 退出评审
+保留并完成：
 
-## M2：技术选型与总体架构
+- [x] Flutter Android Shell；
+- [x] Dart-first core和ports/adapters边界；
+- [x] Android Keystore primitive；
+- [x] SQLCipher/EventStore实现；
+- [x] Encrypted Blob与受控照片输入；
+- [x] Task/Review基础UI；
+- [ ] 按新领域模型完成Schema和projection迁移；
+- [ ] Redmi冷启动、杀进程、锁屏和恢复验证；
+- [ ] Android无损JSON/JSONL导出与恢复；
+- [ ] 移除生产流程对内置模型的依赖。
 
-根据冻结需求和 M1 契约选择客户端、后端、本地/云端、数据库、模型与 Agent 编排方案，以及权限、加密、同步、备份、可观测性和测试架构。
+Windows、多设备同步、Relay和云端模型路由从M2退出条件中移除并延期。
 
-状态：In Progress。
+## M3：MCP Agent Gateway
 
-- [x] 固化 local-first、隐私、受限采集端和跨设备约束
-- [x] 冻结 local-authoritative encrypted hybrid 架构原则
-- [x] 建立逻辑组件、设备角色、数据流和初版威胁模型
-- [x] 完成 Flutter/Tauri、SQLite/SQLCipher、CRDT 候选初评
-- [x] 明确 Redmi Turbo / Android 为首个 dogfooding 设备，并冻结手机优先交互
-- [ ] 完成 Flutter 在 Android 真机与 Windows 的垂直 spike
-- [x] 冻结 Flutter 客户端 + Dart-first core + 平台 adapters 边界
-- [x] 冻结 v1 密钥恢复策略：可信设备迁移优先，离线恢复包与恢复码兜底，服务端不能单独解密
-- [x] 定义同步协议、设备角色和中继最小元数据草案
-- [x] 定义密钥层级、轮换和恢复候选
-- [x] 完成恢复包协议/测试设计，并覆盖验证、轮换、撤销、备份分离和失败路径
-- [x] 用 M1 事件序列完成第一轮架构走查
-- [ ] 完成 M2 退出评审
+目标：外部Agent可以安全、稳定地维护Personal OS。
 
-退出证据与真实平台门禁统一维护在 [M2 Verification Matrix](M2_VERIFICATION_MATRIX.md)，fake/simulation 不可替代真机与跨平台证据。
+- [ ] 定义厂商无关MCP Resources和Tools；
+- [ ] 读取活动Goal和相关Context；
+- [ ] 查询资产与策略历史；
+- [ ] 维护PersonalAsset和Observation；
+- [ ] 创建Strategy、Plan和Review；
+- [ ] 只读/读写Session；
+- [ ] 稳定错误码与审计；
+- [ ] Android前台临时Streamable HTTP MCP；
+- [ ] Context Bundle与Proposal Bundle；
+- [ ] 使用Codex完成首个真实连接；
+- [ ] 使用第二种Agent/Harness验证可替换性。
 
-## M3：单领域 MVP dogfooding
+退出条件：两个不同Agent使用同一协议读取并延续同一Goal历史。
 
-用外形优化纵向切片完成至少一个真实周期，验证从基线到复盘校准的闭环。
+## M4：两轮策略Dogfooding
 
-## M4：多领域协同
+目标：验证真实策略闭环，而不是只验证接口。
 
-让健身、饮食、外形和社交共享目标、约束与反馈，并处理时间、预算、健康和恢复冲突。
+第一轮：
 
-## M5：Personal OS 平台化
+- 建立一个真实Goal；
+- Agent创建Strategy v1与Plan；
+- App监督有限周期执行；
+- 保存Execution、Outcome和Feedback。
 
-通过稳定领域协议扩展金融投资、职业资本、时间配置、消费及城市/区位等模块。
+第二轮：
 
-## M6：产品化与商业化（可选）
+- Agent读取第一轮历史；
+- 创建Review与Strategy v2；
+- 执行第二轮；
+- 对比结果并记录策略变化。
 
-前置条件是多用户隔离、合规、安全审计、模型风险治理、授权撤销、数据迁移和真实用户研究。
+退出条件见ACCEPTANCE_CRITERIA。
+
+## M5：策略资产增强
+
+MVP成功后再加入：
+
+- 策略效果统计；
+- 相似条件检索；
+- 跨领域策略迁移；
+- Graphiti或其他可重建时态索引；
+- 多Agent候选比较；
+- 自动模型/Harness选择；
+- 更精细的Agent授权与披露；
+- 数据连接器和传感器输入。
+
+## M6：多设备与平台化
+
+后续候选：
+
+- Windows Secondary Trusted Device；
+- Android↔Windows E2EE；
+- Encrypted Relay；
+- Restricted Collector；
+- iOS/Web；
+- 多用户和商业化。
+
+## 当前明确暂停
+
+- Android内置OpenAI Responses调用；
+- 特定模型ID和API Key输入体验；
+- Windows portability后续开发；
+- Windows secure adapter；
+- 多设备同步；
+- 多Agent编排；
+- 自动策略选择；
+- 高级渐进披露；
+- 个人模型训练。
+
+## 最近三个执行节点
+
+1. 完成文档方向重构并由用户审核；
+2. 对现有代码做保留/改造/移除影响分析；
+3. 冻结MCP Schema和Strategy生命周期后再恢复开发。

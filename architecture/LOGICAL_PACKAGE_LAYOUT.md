@@ -1,47 +1,79 @@
-# M2 逻辑包与依赖边界 v0.1
+# 逻辑包与依赖边界 v0.2
 
-状态：accepted at architecture level
+状态：proposed for implementation review
 
-```text
-apps/personal_os_app
-packages/domain
-packages/events
-packages/policy
-packages/application
-packages/storage_api
-packages/sync_api
-packages/model_gateway_api
-adapters/sqlite_vault
-adapters/blob_vault
-adapters/platform_security
-adapters/sync_relay
-adapters/model_local
-adapters/model_cloud
-```
+## 目标布局
+
+apps/personal_os_app  
+packages/domain  
+packages/events  
+packages/policy  
+packages/application  
+packages/storage_api  
+packages/agent_gateway_api  
+packages/exchange_schema  
+adapters/sqlite_vault  
+adapters/blob_vault  
+adapters/device_security  
+adapters/mcp_gateway  
+adapters/bundle_exchange
+
+现有sync_api、model_gateway_api、sync_relay和model provider adapters暂时保留但退出MVP组合根，待代码影响分析决定归档或删除。
 
 ## 职责
 
-| 包 | 职责 | 禁止事项 |
+| 包 | 职责 | 禁止 |
 |---|---|---|
-| `domain` | 实体、值对象、状态 | UI、数据库、网络依赖 |
-| `events` | M1 事件信封、事件类型、reducer | 平台插件依赖 |
-| `policy` | D0–D4、R0–R4、Consent 与授权判定 | 绕过失败关闭规则 |
-| `application` | commands、queries、用例编排、事务边界 | 直接调用 Flutter widget |
-| `*_api` | 存储、同步、模型能力 ports | 绑定具体供应商 |
-| `adapters/*` | SQLite/SQLCipher、Blob、Keystore、Relay、模型实现 | 反向定义业务语义 |
-| `personal_os_app` | Flutter 路由、页面、状态呈现、平台组合根 | 直接改写事件或投影 |
+| domain | PersonalAsset、Goal、Strategy、Plan、Execution、Outcome、Review | UI、网络、数据库 |
+| events | 事件信封、事件目录、reducer | 平台与MCP依赖 |
+| policy | 信息类型、D0–D4、AgentSession、Capability和风险 | 绕过失败关闭 |
+| application | Commands、Queries、事务和用例 | 直接访问Flutter或HTTP |
+| storage_api | Event、Projection、Blob、Audit ports | SQLCipher具体类型 |
+| agent_gateway_api | Agent可见资源、命令和稳定错误 | MCP SDK与厂商类型 |
+| exchange_schema | Context/Proposal/Export版本化Schema | 业务存储实现 |
+| sqlite_vault | SQLCipher事件和投影实现 | 定义领域语义 |
+| blob_vault | 加密附件实现 | 暴露原始路径 |
+| device_security | Keystore与Vault Session | 保存业务数据 |
+| mcp_gateway | MCP传输与Schema映射 | 直接写数据库 |
+| bundle_exchange | 离线导入导出 | 绕过Application验证 |
+| personal_os_app | Android UI和组合根 | 自行推理或绑定模型 |
 
-依赖方向始终指向内层：`app/adapters → APIs/application → events/policy/domain`。平台适配器可以替换，M1 事件和规则不能因此变化。
+## 依赖方向
 
-## v1 核心接口
+app/adapters
+→ agent_gateway_api / exchange_schema / storage_api / application
+→ events / policy / domain。
 
-- `CommandBus.execute(command, actorContext)`
-- `QueryService.read(view, authorizationContext)`
-- `EventStore.append(expectedVersion, events)`
-- `ProjectionStore.apply(events)`
-- `BlobStore.put/read/delete(blobRef)`
-- `KeyProvider.wrap/unwrap/rotate(keyRef)`
-- `SyncPort.push/pull(cursor, envelopes)`
-- `ModelGateway.analyze(request, consentContext)`
+## 核心接口
 
-具体 Dart 签名在 Flutter 工具链就绪后由首个 vertical slice 固化；在此之前不假装已有可编译实现。
+- CommandBus.execute(command, actorContext)
+- QueryService.read(query, authorizationContext)
+- EventStore.append(expectedVersion, events)
+- ProjectionStore.apply(events)
+- BlobStore.put/read/delete(blobRef)
+- AgentGateway.open/closeSession
+- AgentGateway.readResource
+- AgentGateway.executeTool
+- ContextExporter.export
+- ProposalImporter.validateAndApply
+
+MCP Adapter只转换协议，不拥有业务用例。
+
+## MVP组合根
+
+Android production composition包含：
+
+- secure Vault；
+- SQLCipher EventStore；
+- encrypted BlobStore；
+- Android UI；
+- Agent Gateway；
+- MCP或Bundle Adapter。
+
+它不包含：
+
+- OpenAI Responses Client；
+- 模型credential provider；
+- Windows adapter；
+- Relay/Sync worker；
+- 多Agent orchestrator。

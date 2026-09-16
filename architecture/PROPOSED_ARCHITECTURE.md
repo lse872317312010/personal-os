@@ -1,65 +1,136 @@
-# M2 推荐逻辑架构 v0.1
+# 推荐逻辑架构 v0.2
 
-状态：architecture principle accepted；technology mapping proposed
+状态：proposed for direction review
 
-## 核心原则
+## 1. 总体原则
 
-采用 **Local-Authoritative Encrypted Hybrid**：可信主设备保存完整 Vault 和可用投影；服务器只作为加密事件/Blob 中继、设备目录和同步协调者，不能成为业务明文权威。
+采用Android-Authoritative Agent Gateway架构：
 
-## 逻辑组件
+- Android Vault保存完整权威事件、资产、投影和附件；
+- 外部Agent/Harness负责全部推理；
+- MCP Gateway向Agent提供稳定查询与命令；
+- Android UI和MCP共享同一Application API；
+- Agent写回只能产生经过验证的领域命令和事件；
+- JSON/JSONL Bundle提供离线兼容与供应商退出能力。
 
-1. **UI Shell**：目标、基线、计划、执行、复盘、权限和冲突界面；
-2. **Application Core**：命令校验、状态机、事件生成、投影和契约测试；
-3. **Policy Engine**：D0–D4、R0–R4、Actor/Capability/Consent；
-4. **Local Event Store**：append-only 事件、幂等键、因果和 Schema 版本；
-5. **Projection Store**：当前状态、查询视图和 Snapshot；
-6. **Encrypted Blob Vault**：照片、导入材料和大对象，独立密钥/删除；
-7. **Sync Outbox/Inbox**：密文事件包、重试、缺口检测和历史补采；
-8. **Restricted Collector**：公司电脑等不可信度较低设备，只做最小采集和加密上传；
-9. **Encrypted Relay**：密文存储、设备队列、ack/cursor，不理解业务载荷；
-10. **Model Gateway**：按敏感度和 Consent 路由本地或云端模型，输出仍需 Policy/Core 验证。
+## 2. 逻辑组件
 
-## 设备角色
+1. **Android UI Shell**：资产、目标、策略、计划、任务、执行、结果、复盘和Agent连接界面；
+2. **Application Core**：命令校验、状态机、事件生成、投影和事务边界；
+3. **Policy Engine**：信息类型、D0–D4、Actor、Session、Capability和风险控制；
+4. **Local Event Store**：append-only事件、版本、幂等、因果和Schema；
+5. **Projection Store**：当前资产、活动目标、策略时间线、今日任务和复盘视图；
+6. **Encrypted Blob Vault**：照片、文件和其他大对象；
+7. **Agent Gateway Port**：与传输无关的资源查询和工具命令接口；
+8. **MCP Adapter**：把Agent Gateway映射为MCP Resources和Tools；
+9. **Bundle Adapter**：生成Context Bundle并导入Proposal Bundle；
+10. **Agent Audit Store**：Session、调用、写入来源和结果；
+11. **Export/Recovery**：无损JSON/JSONL、附件清单、备份和恢复。
 
-| 角色 | 能力 | 禁止 |
-|---|---|---|
-| Primary Vault Device | 完整本地事件、投影、D3 Vault、密钥与复盘 | 无授权对外共享 |
-| Secondary Trusted Device | 选择性同步的领域/时间范围，可离线写事件 | 默认下载全部 D3 |
-| Restricted Collector | 采集、OCR、加密封装、上传、缺口报告 | 完整 Vault、长期 D3 投影、模型全局记忆 |
-| Relay | 密文排队、ack、设备撤销、缺口索引 | 解密业务内容、生成 Claim、解决冲突 |
+## 3. 依赖方向
 
-## 写入路径
+外层依赖内层：
 
-`UI/Collector → Command → Policy Check → Local Transaction(event + projection + outbox) → UI immediate result → encrypted sync`
+Android UI / MCP / Bundle
+→ Application Commands and Queries
+→ Domain / Events / Policy
+→ Storage Ports
+→ Android Adapters。
 
-业务提交不等待云端。Event、Projection 和 Outbox 必须处于一个原子事务或具备等价恢复语义。
+Domain、Events、Policy和Application不得依赖Flutter、Android、MCP SDK、HTTP或模型厂商。
 
-## 同步路径
+## 4. 统一写入路径
 
-- 每设备拥有稳定 device_id 与签名身份；
-- 事件使用全局 event_id、device sequence、causation/correlation；
-- 上传前按目标设备/账户密钥加密并签名；
-- 中继只确认密文包和 cursor；
-- 接收端验证签名、Schema、Consent、敏感度和状态机后才进入事件日志；
-- 缺号触发 gap detection 和补采；
-- 冲突生成 M1 `conflict.*` 事件，不自动覆盖。
+Android UI或Agent发起Command
+→ Session/Actor检查
+→ Schema和领域不变量检查
+→ event + projection原子事务
+→ 审计记录
+→ 返回稳定结果。
 
-## 模型边界
+MCP和Bundle不得直接访问SQLCipher表或Blob路径。
 
-- D0/D1：可按成本和能力选择本地/云端；
-- D2：云端前需用途限定、最小化和可见 Consent；
-- D3：默认本地；云端仅单次明确授权、最小输入且不进入供应商长期记忆；
-- D4：不进入模型；
-- 模型输出只能提出 Observation/Claim/Recommendation 草案，不能直接修改已确认状态或执行 R2+ 动作。
+## 5. 统一读取路径
 
-## 为什么暂不以 CRDT 为核心
+Agent查询Goal
+→ Application Query建立目标相关Context
+→ Projection Store读取结构化资产和历史
+→ Blob只返回不透明引用和元数据
+→ MCP Resource或Context Bundle返回。
 
-核心对象包含 Consent、删除、风险和状态机，它们需要显式拒绝与冲突，而不是“总能合并”。因此同步传递事件并由领域投影器裁决；CRDT 只保留给未来可以安全自动合并的低风险文档。
+MVP暂不做复杂的字段级渐进披露；只区分只读/读写Session以及是否允许访问D2/D3。D4始终拒绝。
 
-## 已细化规范
+## 6. 最小MCP资源
 
-- [客户端 Spike 计划](CLIENT_SPIKE_PLAN.md)
-- [客户端评分表](CLIENT_SCORECARD.md)
-- [同步协议](SYNC_PROTOCOL.md)
-- [密钥管理](KEY_MANAGEMENT.md)
-- [M1 架构走查](M1_ARCHITECTURE_WALKTHROUGH.md)
+- personal-os://profile
+- personal-os://goals/active
+- personal-os://goals/{goal_id}/context
+- personal-os://assets/{asset_id}
+- personal-os://strategies/{strategy_id}
+- personal-os://goals/{goal_id}/strategy-history
+- personal-os://plans/{plan_id}
+- personal-os://reviews/{review_id}
+
+## 7. 最小MCP工具
+
+- search_assets
+- get_personal_context
+- upsert_asset
+- record_observation
+- propose_strategy
+- create_plan
+- record_review
+- archive_asset
+- get_session_status
+
+Execution和Outcome主要由Android UI采集；后续可开放受控工具给设备连接器。
+
+## 8. Agent写入规则
+
+- 资产写入必须给出来源和information_type；
+- 新Strategy必须处于Proposed；
+- Strategy必须引用Goal和评价指标；
+- Plan必须引用Strategy并有限期；
+- Review必须引用Execution/Outcome或明确说明证据不足；
+- Agent不能修改历史Execution和Outcome；
+- Agent不能把自己的Inference升级为UserFact；
+- 任何策略只有在真实证据存在时才能标记为已验证。
+
+## 9. Android MCP传输
+
+MVP候选为前台临时Streamable HTTP服务：
+
+- Vault解锁后由用户启动；
+- 局域网或设备隧道内可达；
+- 配对产生短期Session；
+- App锁定、退出或超时后终止；
+- 不依赖后台常驻保证正确性。
+
+如果Agent无法访问Android网络，使用与MCP相同Schema的Context/Proposal Bundle。
+
+具体网络暴露、TLS和认证方案在实现前单独威胁建模。
+
+## 10. 数据存储
+
+继续使用：
+
+- SQLCipher保存事件和结构化投影；
+- Android Keystore保护Vault密钥；
+- Encrypted Blob Vault保存附件；
+- append-only事件保留修订历史；
+- Snapshot用于启动性能但不是独立权威。
+
+Graphiti、向量索引或Agent memory只能作为未来可重建派生索引。
+
+## 11. 已延期组件
+
+- App内Model Gateway和特定Provider Client；
+- Sync Outbox/Inbox；
+- Encrypted Relay；
+- Secondary Trusted Device；
+- Restricted Collector；
+- Windows secure adapter；
+- 多Agent Orchestrator；
+- 自动策略选择和策略训练。
+
+现有相关代码和文档保留为历史资产，代码处置要在影响分析后决定，不再作为当前MVP主线。

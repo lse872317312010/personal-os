@@ -1,47 +1,68 @@
-# M2 架构约束 v0.1
+# 架构约束 v0.2
 
 状态：accepted inputs
 
-## 已确认的用户约束
+## 已确认约束
 
-- local-first、隐私优先；
-- 原始敏感数据默认留在本地，不能让其他互联网厂商任意获取；
-- 需要跨设备采集、缺口检测和历史补采；
-- 公司电脑可以作为受限采集端，但不能持有完整 Personal OS Vault；
-- 微信等采集不得采用破解、Hook 等高封号/侵入方式；非侵入式 OCR 可作为候选；
-- 需求、M1 事件契约和数据边界不能为技术实现让步。
-- Redmi Turbo（Android）是首个 Primary Vault 与 dogfooding 设备；
-- 程序必须便于跨平台，Android 先行但核心不能与 Android 或 Flutter UI 耦合。
+- MVP只保留Android；
+- Redmi Turbo是Primary Vault与dogfooding设备；
+- Personal OS保存个人资产、目标、策略、执行、结果和复盘；
+- 推理完全由外部Agent/Harness承担；
+- App不直接绑定模型厂商；
+- 外部Agent通过MCP或兼容Bundle读取和维护资产；
+- local-first、可导出、可恢复、可删除；
+- UI和Agent共享相同业务规则；
+- 当前先做最小模型，不做高级披露、多Agent调度和自动策略学习。
 
 ## 必须满足
 
 | ID | 约束 |
 |---|---|
-| AR-001 | 每个主设备在断网时可读取核心状态、写入事件并完成低风险操作 |
-| AR-002 | 本地 Vault 是可用事实源；云端中继不可成为读取个人核心数据的唯一依赖 |
-| AR-003 | D3 原始内容默认不离开可信主设备；任何云端处理需目的限定和明确授权 |
-| AR-004 | 公司电脑只保存最小采集缓冲、设备状态和加密待同步包，不保存完整投影 |
-| AR-005 | 多设备同步传输不可静默 last-write-wins，必须保留 M1 因果与冲突事件 |
-| AR-006 | 中继服务在正常设计下不能解密 D2/D3 业务载荷 |
-| AR-007 | 数据库、事件、Blob、索引和日志有独立敏感度与删除策略 |
-| AR-008 | 设备丢失、撤销和密钥轮换不会授权其读取新数据 |
-| AR-009 | 核心数据和事件可导出，供应商退出不破坏长期记忆 |
-| AR-010 | M1 契约测试可在客户端核心层无 UI、无网络运行 |
+| AR-001 | Android断网时可读取和维护全部核心资产 |
+| AR-002 | Android Vault是唯一权威事实源 |
+| AR-003 | Core不依赖Flutter、Android、MCP SDK或模型厂商 |
+| AR-004 | UI、MCP和Bundle写入均经过相同Application Commands |
+| AR-005 | 事件、投影和必要审计处于原子事务或等价恢复边界 |
+| AR-006 | 修订不能静默覆盖历史Execution、Outcome和Strategy版本 |
+| AR-007 | AgentInference不能变成UserFact或DeterministicOutcome |
+| AR-008 | MCP只暴露领域资源和工具，不暴露数据库、路径和密钥 |
+| AR-009 | 只读与读写Session可区分且可失效 |
+| AR-010 | D4在持久化、MCP、Bundle和日志多层拒绝 |
+| AR-011 | 核心数据可通过版本化JSON/JSONL无损导出 |
+| AR-012 | Agent切换不需要迁移业务数据 |
+| AR-013 | 模型或网络不可用不破坏本地记录和监督功能 |
+| AR-014 | MVP不依赖Android后台常驻保证正确性 |
+| AR-015 | 给定同一事件序列可确定性重建相同状态 |
 
 ## 质量目标
 
-- 单用户优先，不为早期多租户牺牲简单性；
-- 日常写入应快速、原子且可恢复；
-- 同步允许最终一致，但本地提交必须立即可用；
-- 对 D3 采用失败关闭，无法确认权限时拒绝而非降级放行；
-- 备份与恢复必须保留事件、Schema、密钥版本和删除状态的一致性。
+- 单用户优先；
+- 日常记录操作低负担；
+- 本地写入快速、原子且可恢复；
+- MCP错误稳定、结构化、脱敏；
+- Schema显式版本化；
+- 附件与结构化数据分离；
+- 派生索引可以删除和重建；
+- dogfooding证据绑定exact commit。
 
-## 已决定的平台输入
+## 当前待决定
 
-- Android 单端先验证完整闭环，Windows 随后作为 Secondary Trusted Device；
-- Flutter 是主客户端，v1 使用 Dart-first core；
-- Rust 与 Tauri 仅作为出现实证需求后的条件选项。
+- Android临时MCP的具体SDK和网络栈；
+- 局域网配对、TLS与Session token格式；
+- Strategy和Outcome的最终字段；
+- Context/Proposal Bundle Schema；
+- 首个dogfood领域；
+- 现有OpenAI/Windows/Sync代码是删除、归档还是保留未接线。
 
-## 尚未确定
+## 延期约束
 
-- 中继部署商、模型供应商和具体同步协议。
+以下不再阻塞MVP：
+
+- Windows构建；
+- Android↔Windows同步；
+- Relay部署；
+- 多设备撤销；
+- 多Agent编排；
+- 云端模型路由；
+- 渐进披露；
+- 训练个人模型。

@@ -1,58 +1,81 @@
 # 需求追踪矩阵
 
-状态：M0 草案。用于检查“目标—场景—需求—风险—验证”是否断链。
+状态：Android Agent-driven MVP baseline
 
-## 1. 北极星目标到用户场景
+## 1. 北极星能力到场景
 
-| 北极星能力 | 场景覆盖 | 当前判断 |
+| 北极星能力 | 场景 | 需求 |
 |---|---|---|
-| 感知并表达当前状态 | UC-01 | 已有完整候选流程，原始证据待补 |
-| 明确目标与约束 | UC-02、UC-05 | 需求存在，偏好与约束权重待验证 |
-| 生成可解释方案 | UC-02 | 候选需求完整，排序方法未决定 |
-| 把建议转成行动 | UC-03 | 候选流程完整，MVP 优先级待决定 |
-| 记录真实执行与结果 | UC-03、UC-04 | 指标与观察周期待决定 |
-| 反馈驱动校准 | UC-04 | 概念闭环成立，尚无 dogfooding 证据 |
-| 跨领域协调 | UC-05 | 已定义冲突场景，暂不属于首个 MVP 必需项 |
+| 保存个人资产与目标 | UC-01 | SYS-001、SYS-002、AND-001 |
+| 外部Agent读取上下文 | UC-02 | AGT-001、AGT-002、AGT-005 |
+| Agent维护资产 | UC-03 | AGT-003、AGT-004、AGT-006 |
+| Agent生成策略和计划 | UC-04 | STR-001～STR-004 |
+| App监督真实执行 | UC-05 | STR-005、STR-006、AND-004 |
+| Agent复盘并修订策略 | UC-06 | STR-007～STR-009、AND-006 |
+| 更换Agent继续历史 | UC-07 | AGT-007、NFR-006 |
+| 导出与恢复 | UC-08 | SYS-006、AGT-008、AND-008 |
 
-## 2. 高优先级需求追踪
+## 2. MVP主链
 
-| 需求 | 来源等级 | 场景 | 主要风险/约束 | 验证状态 |
-|---|---:|---|---|---|
-| SYS-001 | E2 | UC-01、UC-04 | 过期信息、错误固化 | 待原始对话与实际流程验证 |
-| SYS-002 | E2 | UC-02、UC-03、UC-05 | 范围过大、模型过度抽象 | 待选择首个闭环 |
-| SYS-003 | E3 | UC-01、UC-02、UC-05 | 推断冒充事实 | 原则已接受；验收细则待补 |
-| SYS-004 | E2 | UC-02、UC-03 | 建议不可执行、缺少停止条件 | 待 dogfooding |
-| SYS-005 | E3 | UC-01 | D3 泄露、授权范围不明 | 数据分类已建；边界 Issue #3 |
-| SYS-006 | E2 | UC-02、UC-05 | 跨域访问扩大 | 推迟到多领域验证 |
-| SYS-007 | E2 | UC-03、UC-04 | 反馈噪声、错误个性化 | 指标 Issue #4 |
-| SYS-008 | E3 | UC-02、UC-03 | 高风险自动执行 | 原则已接受；风险分级待补 |
-| APP-001 | E2 | UC-01 | 人像质量与 D3 处理 | 来源 Issue #2；边界 Issue #3 |
-| APP-003 | E1 | UC-02 | 排序权重伪客观 | 需用户调整权重实验 |
-| APP-004 | E2 | UC-03 | 计划负担超过收益 | MVP 方向 Issue #1 |
-| APP-006 | E2 | UC-01、UC-04 | 旧推断继续污染决策 | 待定义撤销传播验收 |
-| APP-007 | E3 | UC-01 | 原图和派生数据泄露 | 边界 Issue #3 |
-| FIT-002 | E2 | UC-02、UC-03 | 通用模板覆盖明确偏好 | 待真实训练场景验证 |
-| FIT-004 | E1 | UC-03、UC-04 | 反馈负担、恢复信号噪声 | 待 dogfooding |
-| FIT-005 | E3 | UC-02、UC-03 | 受伤或医疗越界 | 已映射风险矩阵 R4 |
-| NUT-001 | E2 | UC-01、UC-02 | 过敏、健康限制遗漏 | 待真实饮食场景验证 |
-| NUT-004 | E1 | UC-03、UC-04 | 单次波动导致错误调整 | 待确定趋势规则 |
-| NUT-005 | E3 | UC-02、UC-03 | 医疗与进食障碍风险 | 已映射风险矩阵 R4 |
-| REL-006 | E1 | UC-02、UC-03、UC-04 | 把框架当成客观评分 | 需低风险实验验证 |
-| REL-007 | E3 | UC-01 | 未经同意建立第三方画像 | 已映射数据与风险规则 |
-| REL-008 | E3 | UC-03 | 未授权代表用户行动 | 已映射风险矩阵 R3 |
+| 阶段 | 输入 | 权威写入 | 验收 |
+|---|---|---|---|
+| 建立上下文 | 用户资产、状态、目标、约束 | PersonalAsset、Goal、Observation | AC-001～006 |
+| Agent连接 | 解锁Vault、Session | AgentSession/Audit | AC-101～109 |
+| 策略生成 | 目标上下文 | Strategy v1、Plan | AC-201～205 |
+| 执行监督 | Active Plan | Execution、Outcome、Feedback | AC-301～305 |
+| 复盘 | v1全部证据 | Review、Strategy v2 | AC-306～307、AC-206～207 |
+| 连续性 | 新Agent | 兼容Strategy新版本 | AC-108 |
+| 数据主权 | 全部权威事件 | Export/Restore | AC-407 |
 
-## 3. 关键决策依赖
+## 3. 需求到主要组件
 
-| 决策 | 依赖证据 | 阻塞内容 |
-|---|---|---|
-| MVP 主线 | Issue #1、#2、#4 | M1 范围与验收标准 |
-| D3 local-first 边界 | Issue #3 | M2 客户端、云端与存储选型 |
-| 外形改善评价协议 | Issue #4 | dogfooding 周期与结果判定 |
-| 多领域协同进入 MVP 与否 | 首轮闭环验证结果 | SYS-006 的优先级 |
+| 需求组 | Domain/Event | Application | Android UI | MCP/Bundle | Storage |
+|---|---:|---:|---:|---:|---:|
+| SYS | 必需 | 必需 | 必需 | 部分 | 必需 |
+| AGT | AgentRef/Session | 必需 | 连接管理 | 核心 | Audit |
+| STR | 核心 | 核心 | 审核/监督 | 读写 | Event/Projection |
+| AND | 部分 | 必需 | 核心 | 部分 | 必需 |
+| NFR | 契约 | 边界 | 平台验证 | Schema | 可靠性 |
 
-## 4. 当前断链
+## 4. 当前实现映射
 
-- 8 月 17 日原始对话尚未形成脱敏证据摘要；
-- 健身、饮食和关系已有候选需求，但缺少真实使用证据；
-- 风险控制和优先级方法已建立，仍需通过实际案例校准；
-- 未进行 M0 退出评审。
+| 现有能力 | 新方向处理 |
+|---|---|
+| EventStore与Reducer | 保留并扩展Strategy/Outcome/Agent事件 |
+| Claim/Goal/Plan/Task/Review | 保留，调整为Agent写入与App监督 |
+| SQLCipher与Keystore | 保留 |
+| Encrypted Blob/Photo Picker/Camera | 保留为资产输入 |
+| Consent与Policy | 保留，简化为MVP Session权限 |
+| AppearanceAnalysisGateway | 泛化或替换为Agent Gateway |
+| OpenAI Responses Android Client | 暂停并从生产主线解绑 |
+| Provider credential UI | 暂停 |
+| Windows fail-closed spike | 保留历史，不继续 |
+| Sync/Relay/Recovery协议 | 保留设计资产，移出MVP |
+| APK/provenance链 | 保留 |
+
+## 5. 当前断链
+
+- PersonalAsset尚未成为明确一等实体；
+- Strategy字段和状态机尚未按新目标冻结；
+- Execution/Outcome/Feedback与Review的证据关系需补齐；
+- AgentRef、AgentSession和AgentAudit尚未进入核心规范；
+- MCP Resource/Tool Schema尚未冻结；
+- Context/Proposal Bundle尚未冻结；
+- Android实时MCP的连接方式尚未验证；
+- 两个不同Agent延续同一历史尚未验证；
+- 两轮真实策略dogfood尚未执行。
+
+## 6. 延期项
+
+以下不再属于当前追踪主链：
+
+- Windows客户端；
+- Android↔Windows同步；
+- Relay；
+- Restricted Collector；
+- App内模型路由；
+- 多Agent编排；
+- 自动策略选择；
+- 高级披露控制；
+- 时态知识图谱；
+- 个人模型训练。

@@ -1,49 +1,112 @@
-# M2 平台策略 v0.1
+# 平台策略 v0.2
 
-状态：accepted
+状态：accepted for revised MVP
 
 ## 已冻结结论
 
-- 首个 Primary Vault：用户的 Redmi Turbo（Android）；
-- 主客户端：Flutter，Android 先行，并保持 Windows、iOS、macOS 和 Linux 的可移植边界；
-- v1 核心运行时：纯 Dart domain/application packages，不依赖 Flutter UI；
-- Windows 家用设备：后续作为 Secondary Trusted Device，承担大屏复盘、批量整理与导出；
-- 公司电脑：仅可作为 Restricted Collector，不保存完整 Vault 或可浏览的 D2/D3 投影；
-- Tauri 不作为主客户端；未来只有在 Windows 受限采集器有明确收益时才单独评估；
-- Rust 不进入 v1 默认路径；只有测量证明密码学、同步性能或多前端复用确有需要时，才经稳定接口引入。
+- MVP用户端只保留Android；
+- Redmi Turbo是首个dogfooding和Primary Vault设备；
+- Flutter继续作为Android UI框架；
+- domain/application core保持纯Dart和平台无关；
+- Android App不内置特定大模型或Agent Harness；
+- Codex和其他Agent在外部运行，通过MCP或Bundle访问；
+- Windows、iOS、Web、多设备同步和Relay全部延期；
+- Rust和Tauri不进入MVP。
 
-## 手机优先交互
+## Android职责
 
-Android 首个纵向闭环必须适合单手、碎片时间和弱网：
+Android负责：
 
-1. 本地解锁 Vault；
-2. 拍照或选择照片，记录外貌 Observation；
-3. 查看带来源与不确定性的 Claim；
-4. 接受、修改或拒绝低风险 Plan；
-5. 快速完成/跳过 Task 并记录原因；
-6. 创建 Review，看到前后变化；
-7. 离线完成上述流程，联网后再同步密文事件。
+1. Vault解锁与密钥生命周期；
+2. PersonalAsset、Goal、Constraint和Observation维护；
+3. Strategy、Plan、Task、Execution、Outcome和Review展示；
+4. 今日任务与执行监督；
+5. 用户反馈和确定性结果采集；
+6. Agent写入审核和历史追踪；
+7. MCP Session建立与关闭；
+8. Context/Proposal Bundle导入导出；
+9. 备份、恢复和删除。
 
-桌面端不复制手机界面，而是共享同一核心能力，提供时间线、证据对照、批量编辑、冲突处理、导入导出与长期复盘。
+Android不负责：
 
-## 跨平台硬边界
+- 模型推理；
+- Prompt管理；
+- Agent规划循环；
+- 模型路由；
+- 厂商API key输入；
+- 多Agent协调。
 
-- `domain`、`events`、`policy`、`application` 不得 import Flutter 或平台插件；
-- UI 只调用 application commands/queries，不直接读写 SQLite；
-- 数据库、密钥库、文件、相机、后台任务和同步均通过 ports 注入；
-- 平台差异封装在 adapters，事件格式和业务规则不随平台分叉；
-- 核心契约测试在无 UI、无网络、无 Android runtime 的环境中运行；
-- 跨平台不等于所有平台同时发布：Android 先验证闭环，随后复用核心到 Windows，再验证 iOS 构建。
+## 外部Agent职责
 
-## 首轮发布顺序
+外部Agent负责：
+
+- 分析目标上下文；
+- 维护或提出PersonalAsset修订；
+- 提出Strategy；
+- 生成Plan和Tasks；
+- 根据Execution、Outcome和Feedback生成Review；
+- 创建Strategy新版本；
+- 必要时向用户提出补充数据请求。
+
+Agent不得成为数据权威，不能绕过Application Core。
+
+## 手机交互主线
+
+1. 解锁Vault；
+2. 查看或维护个人资产；
+3. 创建Goal和Constraint；
+4. 建立Agent Session；
+5. 审核Agent产生的资产修订、Strategy和Plan；
+6. 执行今日Task；
+7. 快速记录完成、跳过、偏离和反馈；
+8. 查看Outcome和Review；
+9. 对比Strategy版本；
+10. 导出或恢复。
+
+## MCP连接候选
+
+第一实现优先考虑Android前台临时HTTP服务：
+
+- 用户主动开启；
+- 短期配对；
+- 只读/读写权限；
+- 锁屏或关闭后失效；
+- 不依赖后台常驻；
+- 首先服务同一局域网或受控隧道中的Codex CLI/Harness。
+
+网络可达性不能阻塞核心闭环，因此Context/Proposal Bundle是MVP必备后备接口。
+
+## 跨平台边界
+
+虽然MVP只发布Android，但以下包继续保持平台无关：
+
+- domain；
+- events；
+- policy；
+- application；
+- Agent Gateway协议；
+- Context/Proposal Schema；
+- Export Schema。
+
+“平台无关”不再意味着当前必须开发Windows客户端。
+
+## MVP发布顺序
 
 | 顺序 | 目标 | 退出证据 |
 |---:|---|---|
-| 1 | Android / Redmi Turbo 开发构建 | 安装、解锁、本地闭环、离线重启、加密存储通过 |
-| 2 | Windows Secondary Trusted Device | 同一事件 fixture 重放一致；选择性同步与冲突可见 |
-| 3 | Android ↔ Windows E2EE 同步 | 中继无明文；撤销设备后不能读取新事件 |
-| 4 | iOS 构建可行性 | 核心包与 UI 可编译，Keychain/后台约束有适配方案 |
+| 1 | Android权威资产与策略历史 | Redmi离线、冷启动、恢复通过 |
+| 2 | Context/Proposal Bundle | 一个Agent完成读写往返 |
+| 3 | Android MCP Gateway | Codex完成真实Session |
+| 4 | 第二Agent兼容验证 | 不修改核心Schema即可延续历史 |
+| 5 | 两轮真实dogfood | Strategy v2引用v1结果 |
 
-## Redmi 真机专项
+## 延后路线
 
-首轮验证需记录具体 Android/HyperOS 版本，并测试：后台限制、电池优化、照片权限、锁屏后密钥行为、进程被杀后的事务恢复、离线队列和通知权限。任何依赖后台常驻的设计都不作为正确性的前提；恢复同步必须可由前台启动兜底。
+只有两轮dogfood证明产品价值后，才重新评估：
+
+- Windows Secondary Trusted Device；
+- 多设备E2EE；
+- Encrypted Relay；
+- Restricted Collector；
+- iOS/Web；
+- 后台长期Agent连接。
