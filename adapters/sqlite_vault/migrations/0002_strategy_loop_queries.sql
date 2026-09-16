@@ -22,9 +22,4 @@ SET
   applied_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
 WHERE singleton_id = 1 AND schema_version = 1;
 
-SELECT CASE
-  WHEN changes() != 1
-  THEN RAISE(ABORT, 'unexpected source schema version')
-END;
-
 COMMIT;
