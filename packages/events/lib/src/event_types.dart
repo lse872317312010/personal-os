@@ -8,6 +8,22 @@ abstract final class EventTypes {
   static const outcomeRecorded = 'outcome.recorded';
   static const constraintRecorded = 'constraint.recorded';
 
+  static const personalAssetRecorded = 'personal_asset.recorded';
+  static const personalAssetSuperseded = 'personal_asset.superseded';
+  static const personalAssetArchived = 'personal_asset.archived';
+
+  static const strategyProposed = 'strategy.proposed';
+  static const strategyAccepted = 'strategy.accepted';
+  static const strategyActivated = 'strategy.activated';
+  static const strategyCompleted = 'strategy.completed';
+  static const strategyAbandoned = 'strategy.abandoned';
+
+  static const agentSessionOpened = 'agent_session.opened';
+  static const agentSessionProposalSubmitted =
+      'agent_session.proposal_submitted';
+  static const agentSessionClosed = 'agent_session.closed';
+  static const agentSessionFailed = 'agent_session.failed';
+
   static const claimProposed = 'claim.proposed';
   static const claimConfirmed = 'claim.confirmed';
   static const claimDisputed = 'claim.disputed';
