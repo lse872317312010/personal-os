@@ -8,8 +8,10 @@ import 'strategy_loop_commands.dart';
 abstract final class StrategyLoopFailureCode {
   static const invalidCommand = 'strategy_loop.invalid_command';
   static const userAuthorityRequired = 'strategy_loop.user_authority_required';
-  static const agentAuthorityRequired = 'strategy_loop.agent_authority_required';
-  static const outcomeAuthorityDenied = 'strategy_loop.outcome_authority_denied';
+  static const agentAuthorityRequired =
+      'strategy_loop.agent_authority_required';
+  static const outcomeAuthorityDenied =
+      'strategy_loop.outcome_authority_denied';
   static const pinnedReferenceRequired =
       'strategy_loop.pinned_reference_required';
   static const d4Forbidden = 'strategy_loop.d4_forbidden';
@@ -73,8 +75,7 @@ final class StrategyLoopUseCase {
     final proposedId = _ids.nextId('event');
     final submittedId = _ids.nextId('event');
     final strategyRef = ObjectRef(type: 'strategy', id: strategyId);
-    final sessionRef =
-        ObjectRef(type: 'agent_session', id: command.sessionId);
+    final sessionRef = ObjectRef(type: 'agent_session', id: command.sessionId);
 
     await _eventStore.appendAll(<EventEnvelope>[
       _event(

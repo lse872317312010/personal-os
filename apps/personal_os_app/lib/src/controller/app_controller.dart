@@ -32,6 +32,7 @@ final class AppController extends ChangeNotifier {
     required ActionFeedbackUseCase actionFeedback,
     required EntityId profileId,
     required ActorRef actor,
+    VoidCallback? onVaultLocked,
     AppearanceSessionQueryHandler? sessionQuery,
     ConsentLifecycleUseCase? consentLifecycle,
     RecordObservationUseCase? recordObservation,
@@ -46,6 +47,7 @@ final class AppController extends ChangeNotifier {
         _actionFeedback = actionFeedback,
         _profileId = profileId,
         _actor = actor,
+        _onVaultLocked = onVaultLocked,
         _sessionQuery = sessionQuery,
         _consentLifecycle = consentLifecycle,
         _recordObservation = recordObservation,
@@ -81,6 +83,7 @@ final class AppController extends ChangeNotifier {
   final ActionFeedbackUseCase _actionFeedback;
   final EntityId _profileId;
   final ActorRef _actor;
+  final VoidCallback? _onVaultLocked;
   final AppearanceSessionQueryHandler? _sessionQuery;
   final ConsentLifecycleUseCase? _consentLifecycle;
   final RecordObservationUseCase? _recordObservation;
@@ -330,6 +333,7 @@ final class AppController extends ChangeNotifier {
 
   void lockVault({String? errorCode}) {
     _lifecycleEpoch++;
+    _onVaultLocked?.call();
     _vaultUnlocking = false;
     final modelCredentials = _modelCredentials;
     if (modelCredentials != null) {

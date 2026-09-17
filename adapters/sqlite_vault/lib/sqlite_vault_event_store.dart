@@ -224,7 +224,7 @@ final class SqliteVaultEventStore implements EventStore {
     }
     try {
       final stateFilter =
-          state == null ? '' : " AND json_extract(state_json, '$.state') = ?";
+          state == null ? '' : r" AND json_extract(state_json, '$.state') = ?";
       final rows = await _database.query(
         'SELECT state_json FROM projections WHERE projection_type = ? '
         'AND subject_type = ?$stateFilter '

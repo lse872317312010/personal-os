@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:personal_os_agent_protocol/agent_protocol.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_device_security/device_security.dart';
 import 'package:personal_os_domain/domain.dart';
@@ -15,6 +16,7 @@ import 'package:personal_os_storage_api/storage_api.dart';
 import 'package:personal_os_source_api/source_api.dart';
 
 import '../controller/app_controller.dart';
+import '../controller/strategy_loop_controller.dart';
 import 'android_platform_security_bridge.dart';
 import 'method_channel_appearance_analysis_gateway.dart';
 import 'method_channel_controlled_source_port.dart';
@@ -29,11 +31,13 @@ enum AppExperienceMode { syntheticDemo, secureVault }
 final class AppComposition {
   AppComposition({
     required this.controller,
+    required this.strategyController,
     required this.eventStore,
     required this.mode,
   });
 
   final AppController controller;
+  final StrategyLoopController strategyController;
   final EventStore eventStore;
   final AppExperienceMode mode;
 
@@ -143,9 +147,34 @@ final class AppComposition {
       ids: ids,
       clock: clock,
     );
+    final profileId = EntityId('primary-user');
+    final userActor = ActorRef(
+      actorId: 'primary-user',
+      actorType: ActorType.user,
+      authoritySource: 'local-vault-session',
+    );
+    final strategyLoop = StrategyLoopUseCase(
+      eventStore: eventStore,
+      ids: ids,
+      clock: clock,
+    );
+    final protocol = PersonalOsAgentProtocolService(
+      eventStore: eventStore,
+      strategyLoop: strategyLoop,
+      contextSource: const _EmptyAgentContextSource(),
+      ids: ids,
+      clock: clock,
+    );
+    final strategyController = StrategyLoopController(
+      protocol: protocol,
+      strategyLoop: strategyLoop,
+      profileId: profileId,
+      user: userActor,
+    );
     return AppComposition(
       eventStore: eventStore,
       mode: mode,
+      strategyController: strategyController,
       controller: AppController(
         analyzeAppearance: useCase,
         actionFeedback: ActionFeedbackUseCase(
@@ -153,7 +182,7 @@ final class AppComposition {
           ids: ids,
           clock: clock,
         ),
-        profileId: EntityId('primary-user'),
+        profileId: profileId,
         sessionQuery: AppearanceSessionQueryHandler(eventStore),
         consentLifecycle: ConsentLifecycleUseCase(
           eventStore: eventStore,
@@ -185,17 +214,36 @@ final class AppComposition {
             resolvedModelGateway is AppearanceModelCredentialGateway
                 ? resolvedModelGateway as AppearanceModelCredentialGateway
                 : null,
-        actor: ActorRef(
-          actorId: 'primary-user',
-          actorType: ActorType.user,
-          authoritySource: 'local-vault-session',
-        ),
+        actor: userActor,
+        onVaultLocked: strategyController.reset,
         vaultSession: vaultSession,
         secureVault: secureVault,
         sessionCoordinator: sessionCoordinator,
       ),
     );
   }
+}
+
+
+final class _EmptyAgentContextSource implements AgentContextSource {
+  const _EmptyAgentContextSource();
+
+  @override
+  Future<ContextRecord?> get({
+    required EntityId sessionId,
+    required ObjectRef ref,
+  }) async =>
+      null;
+
+  @override
+  Future<ContextPage> query({
+    required EntityId sessionId,
+    required String purpose,
+    required Set<String> objectTypes,
+    String? cursor,
+    int limit = 100,
+  }) async =>
+      ContextPage(records: const <ContextRecord>[]);
 }
 
 final class _UnavailableEventStore implements EventStore {
