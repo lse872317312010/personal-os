@@ -73,8 +73,7 @@ void main() {
       'Sleep experiment',
     );
     expect(
-      proposal.projections['strategy:strategy-1']!
-          .attributes
+      proposal.projections['strategy:strategy-1']!.attributes
           .containsKey('expected_revision'),
       isFalse,
     );
