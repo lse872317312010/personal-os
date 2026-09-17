@@ -11,6 +11,10 @@ dependencies:
     path: ../application
   personal_os_domain:
     path: ../domain
+  personal_os_events:
+    path: ../events
+  personal_os_storage_api:
+    path: ../storage_api
 
 dev_dependencies:
   test: ^1.25.0
