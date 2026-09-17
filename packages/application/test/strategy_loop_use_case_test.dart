@@ -34,11 +34,11 @@ void main() {
     );
   });
 
-  test('agent proposal atomically records strategy and session update', () async {
+  test('agent proposal atomically records strategy and session update',
+      () async {
     final result = await useCase.submitProposal(
       SubmitStrategyProposalCommand(
         actor: agent,
-      profileId: EntityId('primary-user'),
         profileId: EntityId('primary-user'),
         correlationId: 'loop-1',
         sessionId: EntityId('session-1'),
@@ -109,7 +109,6 @@ void main() {
       useCase.recordExecution(
         RecordStrategyExecutionCommand(
           actor: agent,
-      profileId: EntityId('primary-user'),
         profileId: EntityId('primary-user'),
           correlationId: 'loop-1',
           strategyRef: strategyRef,
@@ -123,7 +122,6 @@ void main() {
       useCase.recordOutcome(
         RecordStrategyOutcomeCommand(
           actor: agent,
-      profileId: EntityId('primary-user'),
         profileId: EntityId('primary-user'),
           correlationId: 'loop-1',
           executionRef: ObjectRef(
@@ -150,7 +148,6 @@ void main() {
       useCase.submitProposal(
         SubmitStrategyProposalCommand(
           actor: agent,
-      profileId: EntityId('primary-user'),
         profileId: EntityId('primary-user'),
           correlationId: 'loop-1',
           sessionId: EntityId('session-1'),
