@@ -165,15 +165,16 @@ final class AppComposition {
       ids: ids,
       clock: clock,
     );
+    final strategyController = StrategyLoopController(
+      protocol: protocol,
+      strategyLoop: strategyLoop,
+      profileId: profileId,
+      user: userActor,
+    );
     return AppComposition(
       eventStore: eventStore,
       mode: mode,
-      strategyController: StrategyLoopController(
-        protocol: protocol,
-        strategyLoop: strategyLoop,
-        profileId: profileId,
-        user: userActor,
-      ),
+      strategyController: strategyController,
       controller: AppController(
         analyzeAppearance: useCase,
         actionFeedback: ActionFeedbackUseCase(
@@ -214,6 +215,7 @@ final class AppComposition {
                 ? resolvedModelGateway as AppearanceModelCredentialGateway
                 : null,
         actor: userActor,
+        onVaultLocked: strategyController.reset,
         vaultSession: vaultSession,
         secureVault: secureVault,
         sessionCoordinator: sessionCoordinator,
