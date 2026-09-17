@@ -3,6 +3,7 @@ enum AppDestination {
   capture,
   claims,
   plan,
+  strategy,
   tasks,
   review,
 }
@@ -13,6 +14,7 @@ extension AppDestinationLabel on AppDestination {
         AppDestination.capture => '记录观察',
         AppDestination.claims => '审阅结论',
         AppDestination.plan => '行动计划',
+        AppDestination.strategy => '策略',
         AppDestination.tasks => '任务',
         AppDestination.review => '复盘',
       };
