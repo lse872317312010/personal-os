@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'composition/app_composition.dart';
 import 'controller/app_controller.dart';
+import 'controller/strategy_loop_controller.dart';
 import 'navigation/app_destination.dart';
 import 'screens/screens.dart';
 
@@ -40,6 +41,7 @@ final class _PersonalOsAppState extends State<PersonalOsApp> {
             }
             return _UnlockedShell(
               controller: controller,
+              strategyController: widget.composition.strategyController,
               mode: widget.composition.mode,
             );
           },
@@ -48,9 +50,14 @@ final class _PersonalOsAppState extends State<PersonalOsApp> {
 }
 
 final class _UnlockedShell extends StatelessWidget {
-  const _UnlockedShell({required this.controller, required this.mode});
+  const _UnlockedShell({
+    required this.controller,
+    required this.strategyController,
+    required this.mode,
+  });
 
   final AppController controller;
+  final StrategyLoopController strategyController;
   final AppExperienceMode mode;
 
   @override
@@ -77,6 +84,8 @@ final class _UnlockedShell extends StatelessWidget {
             ),
           AppDestination.claims => ClaimReviewScreen(controller: controller),
           AppDestination.plan => PlanScreen(controller: controller),
+          AppDestination.strategy =>
+            StrategyLoopScreen(controller: strategyController),
           AppDestination.tasks => TaskScreen(controller: controller),
           AppDestination.review => ReviewScreen(controller: controller),
         },
@@ -86,6 +95,7 @@ final class _UnlockedShell extends StatelessWidget {
             <AppDestination>[
               AppDestination.home,
               AppDestination.capture,
+              AppDestination.strategy,
               AppDestination.tasks,
               AppDestination.review,
             ][index],
@@ -98,6 +108,10 @@ final class _UnlockedShell extends StatelessWidget {
             NavigationDestination(
               icon: Icon(Icons.auto_awesome_outlined),
               label: '分析',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.psychology_alt_outlined),
+              label: '策略',
             ),
             NavigationDestination(
               icon: Icon(Icons.task_alt_outlined),
@@ -118,6 +132,7 @@ int _primaryIndex(AppDestination destination) => switch (destination) {
       AppDestination.claims ||
       AppDestination.plan =>
         1,
-      AppDestination.tasks => 2,
-      AppDestination.review => 3,
+      AppDestination.strategy => 2,
+      AppDestination.tasks => 3,
+      AppDestination.review => 4,
     };
