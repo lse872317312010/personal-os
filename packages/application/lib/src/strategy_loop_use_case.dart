@@ -297,7 +297,10 @@ final class StrategyLoopUseCase {
       occurredAt: now,
       recordedAt: now,
       actor: command.actor,
-      subjectRefs: subjects,
+      subjectRefs: <ObjectRef>[
+        ...subjects,
+        ObjectRef(type: 'profile', id: command.profileId),
+      ],
       correlationId: command.correlationId,
       causationId: causationId,
       sourceRefs: sources,

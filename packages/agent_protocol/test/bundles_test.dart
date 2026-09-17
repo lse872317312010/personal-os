@@ -42,6 +42,7 @@ void main() {
     );
     final command = bundle.toCommand(
       agent: agent,
+      profileId: EntityId('primary-user'),
       expectedSessionRevision: 1,
       correlationId: 'proposal-1',
     );

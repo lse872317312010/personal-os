@@ -77,6 +77,7 @@ final class PersonalOsAgentProtocolService {
 
   Future<AgentSessionGrant> openSession({
     required ActorRef agent,
+    required EntityId profileId,
     required String purpose,
     required Iterable<String> requestedCapabilities,
     Sensitivity sensitivity = Sensitivity.d2,
@@ -107,6 +108,7 @@ final class PersonalOsAgentProtocolService {
         actor: agent,
         subjectRefs: <ObjectRef>[
           ObjectRef(type: 'agent_session', id: sessionId),
+          ObjectRef(type: 'profile', id: profileId),
         ],
         correlationId: sessionId.value,
         sensitivity: sensitivity,
@@ -176,6 +178,7 @@ final class PersonalOsAgentProtocolService {
   Future<StrategyLoopResult> submitProposal({
     required String bundleJson,
     required ActorRef agent,
+    required EntityId profileId,
     required int expectedSessionRevision,
     Iterable<ObjectRef> consentRefs = const <ObjectRef>[],
     Sensitivity sensitivity = Sensitivity.d2,
@@ -190,6 +193,7 @@ final class PersonalOsAgentProtocolService {
     return _strategyLoop.submitProposal(
       proposal.toCommand(
         agent: agent,
+        profileId: profileId,
         expectedSessionRevision: expectedSessionRevision,
         correlationId: proposal.proposalId,
         sensitivity: sensitivity,
@@ -200,6 +204,7 @@ final class PersonalOsAgentProtocolService {
 
   Future<void> closeSession({
     required EntityId sessionId,
+    required EntityId profileId,
     required int expectedRevision,
     required ActorRef agent,
     bool failed = false,
@@ -227,6 +232,7 @@ final class PersonalOsAgentProtocolService {
         actor: agent,
         subjectRefs: <ObjectRef>[
           ObjectRef(type: 'agent_session', id: sessionId),
+          ObjectRef(type: 'profile', id: profileId),
         ],
         correlationId: sessionId.value,
         sensitivity: sensitivity,

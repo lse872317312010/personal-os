@@ -38,6 +38,8 @@ void main() {
     final result = await useCase.submitProposal(
       SubmitStrategyProposalCommand(
         actor: agent,
+      profileId: EntityId('primary-user'),
+        profileId: EntityId('primary-user'),
         correlationId: 'loop-1',
         sessionId: EntityId('session-1'),
         expectedSessionRevision: 1,
@@ -66,6 +68,7 @@ void main() {
   test('only the user can accept or activate a strategy', () async {
     final command = DecideStrategyProposalCommand(
       actor: agent,
+      profileId: EntityId('primary-user'),
       correlationId: 'loop-1',
       strategyId: EntityId('strategy-1'),
       expectedRevision: 1,
@@ -86,6 +89,7 @@ void main() {
     await useCase.decideProposal(
       DecideStrategyProposalCommand(
         actor: user,
+        profileId: EntityId('primary-user'),
         correlationId: 'loop-1',
         strategyId: EntityId('strategy-1'),
         expectedRevision: 1,
@@ -105,6 +109,8 @@ void main() {
       useCase.recordExecution(
         RecordStrategyExecutionCommand(
           actor: agent,
+      profileId: EntityId('primary-user'),
+        profileId: EntityId('primary-user'),
           correlationId: 'loop-1',
           strategyRef: strategyRef,
           actionId: EntityId('action-1'),
@@ -117,6 +123,8 @@ void main() {
       useCase.recordOutcome(
         RecordStrategyOutcomeCommand(
           actor: agent,
+      profileId: EntityId('primary-user'),
+        profileId: EntityId('primary-user'),
           correlationId: 'loop-1',
           executionRef: ObjectRef(
             type: 'execution',
@@ -142,6 +150,8 @@ void main() {
       useCase.submitProposal(
         SubmitStrategyProposalCommand(
           actor: agent,
+      profileId: EntityId('primary-user'),
+        profileId: EntityId('primary-user'),
           correlationId: 'loop-1',
           sessionId: EntityId('session-1'),
           expectedSessionRevision: 1,
