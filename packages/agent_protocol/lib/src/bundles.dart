@@ -179,7 +179,8 @@ abstract final class ProposalBundleCodec {
     }
     final strategy = _map(json['strategy'], 'strategy');
     final goals = _refs(strategy['goal_refs'], 'goal_refs');
-    final assets = _refs(strategy['asset_refs'] ?? const <Object?>[], 'asset_refs');
+    final assets =
+        _refs(strategy['asset_refs'] ?? const <Object?>[], 'asset_refs');
     final rawActions = _list(strategy['actions'], 'actions');
     final actions = rawActions
         .map((value) => _map(value, 'action'))
@@ -232,8 +233,9 @@ ObjectRef _ref(Object? value, String field) {
   );
 }
 
-List<ObjectRef> _refs(Object? value, String field) =>
-    _list(value, field).map((item) => _ref(item, field)).toList(growable: false);
+List<ObjectRef> _refs(Object? value, String field) => _list(value, field)
+    .map((item) => _ref(item, field))
+    .toList(growable: false);
 
 Map<String, Object?> _map(Object? value, String field) {
   if (value is! Map) {
