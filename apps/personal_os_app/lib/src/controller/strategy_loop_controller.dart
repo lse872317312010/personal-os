@@ -198,6 +198,19 @@ final class StrategyLoopController extends ChangeNotifier {
     });
   }
 
+  void reset() {
+    _status = StrategyUiStatus.idle;
+    _errorCode = null;
+    _sessionId = null;
+    _sessionRevision = 0;
+    _strategyId = null;
+    _strategyRevision = 0;
+    _strategyState = null;
+    _executionId = null;
+    _outcomeId = null;
+    notifyListeners();
+  }
+
   ActorRef _agentFor(EntityId? sessionId) => ActorRef(
         actorId: 'offline-harness',
         actorType: ActorType.agent,
