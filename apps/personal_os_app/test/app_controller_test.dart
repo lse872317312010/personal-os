@@ -500,6 +500,19 @@ void main() {
     expect(reader.latestObservation, isNull);
   });
 
+  test('locking invokes the protected-state reset hook', () {
+    var resetCalls = 0;
+    final controller = _controller(
+      _CountingGateway(),
+      onVaultLocked: () => resetCalls++,
+    )..unlockVault();
+
+    controller.lockVault();
+
+    expect(resetCalls, 1);
+    expect(controller.vaultUnlocked, isFalse);
+  });
+
   test('locking clears volatile session state before the next unlock',
       () async {
     final controller = _controller(_CountingGateway())..unlockVault();
@@ -637,6 +650,7 @@ AppController _controller(
   bool eventBackedPolicy = false,
   ControlledSourcePort? sourcePort,
   SourceBlobIngestionPort? sourceBlobIngestion,
+  void Function()? onVaultLocked,
 }) {
   final eventStore = store ?? InMemoryEventStore();
   final ids = _Ids();
@@ -691,6 +705,7 @@ AppController _controller(
           )
         : null,
     profileId: EntityId('me'),
+    onVaultLocked: onVaultLocked,
     sessionQuery:
         withSessionQuery ? AppearanceSessionQueryHandler(eventStore) : null,
     consentLifecycle: ConsentLifecycleUseCase(
