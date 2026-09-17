@@ -95,8 +95,7 @@ final class Goal {
         'statement': statement,
         'success_criteria': successCriteria,
         'created_at': createdAt.toUtc().toIso8601String(),
-        if (targetAt != null)
-          'target_at': targetAt!.toUtc().toIso8601String(),
+        if (targetAt != null) 'target_at': targetAt!.toUtc().toIso8601String(),
         'status': status.name,
       };
 }
@@ -132,8 +131,7 @@ final class Strategy {
   final StrategyStatus status;
   final ObjectRef? parentStrategy;
 
-  ObjectRef get ref =>
-      ObjectRef(type: 'strategy', id: id, revision: revision);
+  ObjectRef get ref => ObjectRef(type: 'strategy', id: id, revision: revision);
 
   Map<String, Object?> toJson() => <String, Object?>{
         'id': id.value,
@@ -147,8 +145,7 @@ final class Strategy {
         'actions': actions.map((item) => item.toJson()).toList(),
         'assumptions': assumptions,
         'status': status.name,
-        if (parentStrategy != null)
-          'parent_strategy': parentStrategy!.toJson(),
+        if (parentStrategy != null) 'parent_strategy': parentStrategy!.toJson(),
       };
 }
 
@@ -295,8 +292,7 @@ final class AgentSession {
         'agent_id': agentId,
         'protocol_version': protocolVersion,
         'opened_at': openedAt.toUtc().toIso8601String(),
-        if (closedAt != null)
-          'closed_at': closedAt!.toUtc().toIso8601String(),
+        if (closedAt != null) 'closed_at': closedAt!.toUtc().toIso8601String(),
         'status': status.name,
         'context_refs': contextRefs.map((item) => item.toJson()).toList(),
         'proposal_refs': proposalRefs.map((item) => item.toJson()).toList(),
