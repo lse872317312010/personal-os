@@ -1,0 +1,110 @@
+import 'dart:convert';
+
+import 'package:personal_os_agent_protocol/agent_protocol.dart';
+import 'package:personal_os_domain/domain.dart';
+import 'package:test/test.dart';
+
+void main() {
+  test('offline proposal bundle maps to the same application command', () {
+    final bundle = ProposalBundleCodec.decodeString(
+      jsonEncode(<String, Object?>{
+        'protocol_version': personalOsProtocolV0,
+        'proposal_id': 'proposal-1',
+        'session_id': 'session-1',
+        'created_at': '2026-09-17T01:00:00Z',
+        'strategy': <String, Object?>{
+          'title': 'Run experiment',
+          'rationale': 'Need evidence',
+          'goal_refs': <Object?>[
+            <String, Object?>{
+              'type': 'goal',
+              'id': 'goal-1',
+              'revision': 2,
+            },
+          ],
+          'asset_refs': <Object?>[],
+          'actions': <Object?>[
+            <String, Object?>{
+              'id': 'action-1',
+              'instruction': 'Perform experiment',
+            },
+          ],
+          'assumptions': <Object?>['The action is feasible'],
+        },
+      }),
+    );
+    final agent = ActorRef(
+      actorId: 'harness.codex',
+      actorType: ActorType.agent,
+      authoritySource: 'offline_bundle',
+      sessionOrRunId: 'session-1',
+      onBehalfOf: 'user',
+    );
+    final command = bundle.toCommand(
+      agent: agent,
+      expectedSessionRevision: 1,
+      correlationId: 'proposal-1',
+    );
+
+    expect(command.sessionId.value, 'session-1');
+    expect(command.goalRefs.single.revision, Revision(2));
+    expect(command.actions.single['instruction'], 'Perform experiment');
+  });
+
+  test('proposal rejects unpinned context', () {
+    expect(
+      () => ProposalBundleCodec.decode(<String, Object?>{
+        'protocol_version': personalOsProtocolV0,
+        'proposal_id': 'proposal-1',
+        'session_id': 'session-1',
+        'created_at': '2026-09-17T01:00:00Z',
+        'strategy': <String, Object?>{
+          'title': 'Run experiment',
+          'rationale': 'Need evidence',
+          'goal_refs': <Object?>[
+            <String, Object?>{'type': 'goal', 'id': 'goal-1'},
+          ],
+          'asset_refs': <Object?>[],
+          'actions': <Object?>[
+            <String, Object?>{'id': 'a1', 'instruction': 'Act'},
+          ],
+        },
+      }),
+      throwsA(
+        isA<AgentProtocolException>().having(
+          (error) => error.code,
+          'code',
+          AgentProtocolError.unpinnedReference,
+        ),
+      ),
+    );
+  });
+
+  test('context export contains only pinned records and protocol version', () {
+    final encoded = ContextBundleCodec.encode(
+      ContextBundle(
+        bundleId: 'bundle-1',
+        sessionId: EntityId('session-1'),
+        createdAt: DateTime.utc(2026, 9, 17, 1),
+        purpose: 'strategy review',
+        records: <ContextRecord>[
+          ContextRecord(
+            ref: ObjectRef(
+              type: 'goal',
+              id: EntityId('goal-1'),
+              revision: Revision(2),
+            ),
+            data: const <String, Object?>{'statement': 'Improve sleep'},
+            redactedFields: const <String>['private_note'],
+          ),
+        ],
+      ),
+    );
+    final decoded = jsonDecode(encoded) as Map<String, Object?>;
+
+    expect(decoded['protocol_version'], personalOsProtocolV0);
+    final objects = decoded['objects']! as List<Object?>;
+    final first = objects.single as Map<String, Object?>;
+    expect(first['redacted_fields'], <Object?>['private_note']);
+  });
+}
