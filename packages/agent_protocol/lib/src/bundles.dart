@@ -121,6 +121,7 @@ final class StrategyProposalBundle {
 
   SubmitStrategyProposalCommand toCommand({
     required ActorRef agent,
+    required EntityId profileId,
     required int expectedSessionRevision,
     required String correlationId,
     Sensitivity sensitivity = Sensitivity.d2,
@@ -128,6 +129,7 @@ final class StrategyProposalBundle {
   }) =>
       SubmitStrategyProposalCommand(
         actor: agent,
+        profileId: profileId,
         correlationId: correlationId,
         sessionId: sessionId,
         expectedSessionRevision: expectedSessionRevision,
