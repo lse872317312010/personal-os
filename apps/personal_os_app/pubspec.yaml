@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  personal_os_agent_protocol:
+    path: ../../packages/agent_protocol
   personal_os_application:
     path: ../../packages/application
   personal_os_blob_engine:
