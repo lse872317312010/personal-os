@@ -1,0 +1,16 @@
+name: personal_os_agent_protocol
+description: Vendor-neutral MCP and offline bundle boundary for Personal OS.
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  personal_os_application:
+    path: ../application
+  personal_os_domain:
+    path: ../domain
+
+dev_dependencies:
+  test: ^1.25.0
