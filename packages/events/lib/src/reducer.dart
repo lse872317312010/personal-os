@@ -264,9 +264,7 @@ String? _transition(EventEnvelope event, String? from) =>
       EventTypes.strategyActivated when from == 'accepted' => 'active',
       EventTypes.strategyCompleted when from == 'active' => 'completed',
       EventTypes.strategyAbandoned
-          when from == 'proposed' ||
-              from == 'accepted' ||
-              from == 'active' =>
+          when from == 'proposed' || from == 'accepted' || from == 'active' =>
         'abandoned',
       EventTypes.agentSessionOpened when from == null => 'opened',
       EventTypes.agentSessionProposalSubmitted when from == 'opened' =>
