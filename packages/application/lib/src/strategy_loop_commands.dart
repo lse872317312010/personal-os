@@ -3,6 +3,7 @@ import 'package:personal_os_domain/domain.dart';
 abstract base class StrategyLoopCommand {
   StrategyLoopCommand({
     required this.actor,
+    required this.profileId,
     required String correlationId,
     this.sensitivity = Sensitivity.d2,
     Iterable<ObjectRef> consentRefs = const <ObjectRef>[],
@@ -10,6 +11,7 @@ abstract base class StrategyLoopCommand {
         consentRefs = List<ObjectRef>.unmodifiable(consentRefs);
 
   final ActorRef actor;
+  final EntityId profileId;
   final String correlationId;
   final Sensitivity sensitivity;
   final List<ObjectRef> consentRefs;
@@ -18,6 +20,7 @@ abstract base class StrategyLoopCommand {
 final class SubmitStrategyProposalCommand extends StrategyLoopCommand {
   SubmitStrategyProposalCommand({
     required super.actor,
+    required super.profileId,
     required super.correlationId,
     required this.sessionId,
     required this.expectedSessionRevision,
@@ -53,6 +56,7 @@ enum ProposalDecision { accept, reject }
 final class DecideStrategyProposalCommand extends StrategyLoopCommand {
   DecideStrategyProposalCommand({
     required super.actor,
+    required super.profileId,
     required super.correlationId,
     required this.strategyId,
     required this.expectedRevision,
@@ -71,6 +75,7 @@ final class DecideStrategyProposalCommand extends StrategyLoopCommand {
 final class ActivateStrategyCommand extends StrategyLoopCommand {
   ActivateStrategyCommand({
     required super.actor,
+    required super.profileId,
     required super.correlationId,
     required this.strategyId,
     required this.expectedRevision,
@@ -85,6 +90,7 @@ final class ActivateStrategyCommand extends StrategyLoopCommand {
 final class RecordStrategyExecutionCommand extends StrategyLoopCommand {
   RecordStrategyExecutionCommand({
     required super.actor,
+    required super.profileId,
     required super.correlationId,
     required this.strategyRef,
     required this.actionId,
@@ -103,6 +109,7 @@ final class RecordStrategyExecutionCommand extends StrategyLoopCommand {
 final class RecordStrategyOutcomeCommand extends StrategyLoopCommand {
   RecordStrategyOutcomeCommand({
     required super.actor,
+    required super.profileId,
     required super.correlationId,
     required this.executionRef,
     required this.observation,
