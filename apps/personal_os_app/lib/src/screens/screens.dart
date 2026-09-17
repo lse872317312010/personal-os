@@ -6,3 +6,4 @@ export 'plan_screen.dart';
 export 'review_screen.dart';
 export 'task_screen.dart';
 export 'vault_lock_screen.dart';
+export 'strategy_loop_screen.dart';
