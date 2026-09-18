@@ -212,6 +212,8 @@ final class _EventStore implements EventStore {
           ),
         )
         .toList(growable: false);
-    return limit == null ? matches : matches.take(limit).toList(growable: false);
+    return limit == null
+        ? matches
+        : matches.take(limit).toList(growable: false);
   }
 }
