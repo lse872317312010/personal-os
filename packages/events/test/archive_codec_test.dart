@@ -23,7 +23,8 @@ void main() {
   });
 
   test('archive rejects changed event content', () {
-    final encoded = EventArchiveCodec.encode(<EventEnvelope>[_event('event-1')]);
+    final encoded =
+        EventArchiveCodec.encode(<EventEnvelope>[_event('event-1')]);
     final archive = jsonDecode(encoded) as Map<String, Object?>;
     final events = archive['events']! as List<Object?>;
     final event = events.single as Map<String, Object?>;
