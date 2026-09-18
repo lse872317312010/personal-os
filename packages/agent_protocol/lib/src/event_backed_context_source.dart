@@ -32,8 +32,8 @@ final class EventBackedAgentContextSource implements AgentContextSource {
     final offset = _decodeCursor(cursor);
     final projections = await _profileProjections();
     final records = projections.values
-        .where((projection) => objectTypes.isEmpty ||
-            objectTypes.contains(projection.objectType))
+        .where((projection) =>
+            objectTypes.isEmpty || objectTypes.contains(projection.objectType))
         .where((projection) => !_unavailableStates.contains(projection.state))
         .map(_record)
         .toList(growable: false)
@@ -123,8 +123,7 @@ final class EventBackedAgentContextSource implements AgentContextSource {
       (event) =>
           event.eventType == EventTypes.agentSessionOpened &&
           event.subjectRefs.any(
-            (subject) =>
-                subject.type == 'profile' && subject.id == _profileId,
+            (subject) => subject.type == 'profile' && subject.id == _profileId,
           ),
     );
     if (!ownsSession) {
@@ -146,8 +145,7 @@ final class EventBackedAgentContextSource implements AgentContextSource {
       projections = Map<String, ObjectProjection>.of(reduction.projections);
       seen = Set<String>.of(reduction.seenEventIds);
     }
-    final state =
-        projections['agent_session:${sessionId.value}']?.state;
+    final state = projections['agent_session:${sessionId.value}']?.state;
     if (state != 'opened' && state != 'proposalSubmitted') {
       throw const AgentProtocolException(
         AgentProtocolError.invalidRequest,
