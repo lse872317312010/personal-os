@@ -7,6 +7,68 @@ import 'package:personal_os_app/src/composition/app_composition.dart';
 import 'package:personal_os_app/src/controller/strategy_loop_controller.dart';
 
 void main() {
+
+  test('reset during session open discards the old completion', () async {
+    final app = AppComposition.inMemoryDemo();
+    final controller = app.strategyController;
+    addTearDown(controller.dispose);
+    final pending = controller.openOfflineSession(agentId: 'harness-a');
+    controller.reset();
+    await pending;
+
+    expect(controller.status, StrategyUiStatus.idle);
+    expect(controller.sessionId, isNull);
+    expect(controller.agentId, 'offline-harness');
+    expect(controller.errorCode, isNull);
+  });
+
+  test('reset during context export cannot repopulate sensitive context',
+      () async {
+    final app = AppComposition.inMemoryDemo();
+    final controller = app.strategyController;
+    addTearDown(controller.dispose);
+    await controller.openOfflineSession(agentId: 'harness-a');
+    final pending = controller.exportContext();
+    controller.reset();
+    await pending;
+
+    expect(controller.status, StrategyUiStatus.idle);
+    expect(controller.sessionId, isNull);
+    expect(controller.contextBundle, isNull);
+    expect(controller.errorCode, isNull);
+  });
+
+  test('disposed controller ignores an in-flight session completion', () async {
+    final app = AppComposition.inMemoryDemo();
+    final controller = app.strategyController;
+    var notifications = 0;
+    controller.addListener(() => notifications += 1);
+    final pending = controller.openOfflineSession(agentId: 'harness-a');
+    controller.dispose();
+    final countAtDisposal = notifications;
+    await pending;
+
+    expect(notifications, countAtDisposal);
+    expect(controller.sessionId, isNull);
+  });
+
+  test('old completion cannot overwrite a new operation after reset', () async {
+    final app = AppComposition.inMemoryDemo();
+    final controller = app.strategyController;
+    addTearDown(controller.dispose);
+    final oldOpen = controller.openOfflineSession(agentId: 'harness-a');
+    controller.reset();
+    final newOpen = controller.openOfflineSession(agentId: 'harness-b');
+    await Future.wait(<Future<void>>[oldOpen, newOpen]);
+
+    expect(controller.status, StrategyUiStatus.ready);
+    expect(controller.agentId, 'harness-b');
+    expect(controller.sessionId, isNotNull);
+    await controller.closeSession();
+    expect(controller.status, StrategyUiStatus.ready);
+    expect(controller.hasSession, isFalse);
+  });
+
   test('opening another session preserves the current Harness identity', () async {
     final app = AppComposition.inMemoryDemo();
     final controller = app.strategyController;
