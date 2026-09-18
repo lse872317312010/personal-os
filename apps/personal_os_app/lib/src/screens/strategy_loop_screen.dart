@@ -134,6 +134,22 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                       : () => controller.importProposal(_proposal.text),
                   child: const Text('验证并导入待确认策略'),
                 ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  key: const Key('close-agent-session'),
+                  onPressed:
+                      busy || !controller.canCloseSession
+                          ? null
+                          : controller.closeSession,
+                  icon: const Icon(Icons.swap_horiz),
+                  label: const Text('结束会话并交给下一个 Harness'),
+                ),
+                if (!controller.canCloseSession &&
+                    controller.strategyId != null)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Text('完成结果记录或拒绝策略后，才能切换 Harness。'),
+                  ),
               ],
               if (controller.hasPendingProposal) ...<Widget>[
                 const SizedBox(height: 20),
