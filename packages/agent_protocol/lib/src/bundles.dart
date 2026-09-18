@@ -217,7 +217,6 @@ abstract final class ProposalBundleCodec {
   }
 }
 
-
 final class StrategyReviewBundle {
   StrategyReviewBundle({
     required this.reviewId,
