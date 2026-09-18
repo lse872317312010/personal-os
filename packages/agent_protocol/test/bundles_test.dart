@@ -59,6 +59,62 @@ void main() {
     expect(command.parentStrategy?.revision, Revision(3));
   });
 
+
+  test('structured review bundle maps pinned evidence to review command', () {
+    final bundle = ReviewBundleCodec.decodeString(
+      jsonEncode(<String, Object?>{
+        'protocol_version': personalOsProtocolV0,
+        'review_id': 'review-external-1',
+        'session_id': 'session-2',
+        'created_at': '2026-09-18T02:00:00Z',
+        'review': <String, Object?>{
+          'strategy_ref': <String, Object?>{
+            'type': 'strategy',
+            'id': 'strategy-v1',
+            'revision': 3,
+          },
+          'summary': 'The bounded experiment improved the outcome.',
+          'conclusion': 'effective',
+          'execution_refs': <Object?>[
+            <String, Object?>{
+              'type': 'execution',
+              'id': 'execution-1',
+              'revision': 1,
+            },
+          ],
+          'outcome_refs': <Object?>[
+            <String, Object?>{
+              'type': 'outcome',
+              'id': 'outcome-1',
+              'revision': 1,
+            },
+          ],
+          'feedback_refs': <Object?>[],
+          'keep': <Object?>['short feedback loop'],
+          'change': <Object?>['reduce setup'],
+          'unknowns': <Object?>['durability'],
+        },
+      }),
+    );
+    final command = bundle.toCommand(
+      agent: ActorRef(
+        actorId: 'harness.codex',
+        actorType: ActorType.agent,
+        authoritySource: 'offline_bundle',
+        sessionOrRunId: 'session-2',
+        onBehalfOf: 'primary-user',
+      ),
+      profileId: EntityId('primary-user'),
+      correlationId: bundle.reviewId,
+    );
+
+    expect(command.strategyRef?.revision, Revision(3));
+    expect(command.executionRefs.single.revision, Revision(1));
+    expect(command.outcomeRefs.single.id.value, 'outcome-1');
+    expect(command.conclusion, StrategyReviewConclusion.effective);
+    expect(command.reviewedBySession?.value, 'session-2');
+  });
+
   test('proposal rejects unpinned context', () {
     expect(
       () => ProposalBundleCodec.decode(<String, Object?>{
