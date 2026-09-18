@@ -177,7 +177,6 @@ String _proposal(String sessionId, String suffix) =>
       },
     });
 
-
 String _review(String sessionId) => jsonEncode(<String, Object?>{
       'protocol_version': personalOsProtocolV0,
       'review_id': 'review-external-1',
