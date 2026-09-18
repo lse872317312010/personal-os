@@ -59,7 +59,6 @@ void main() {
     expect(command.parentStrategy?.revision, Revision(3));
   });
 
-
   test('structured review bundle maps pinned evidence to review command', () {
     final bundle = ReviewBundleCodec.decodeString(
       jsonEncode(<String, Object?>{
