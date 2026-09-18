@@ -67,6 +67,16 @@ Input: a Proposal Bundle conforming to
 The call validates and stores a proposal in pending state. It does not activate
 the strategy.
 
+### `personal_os.submit_review`
+
+Input: a Strategy Review Bundle conforming to
+`schemas/personal-os-review-v0.schema.json`.
+
+The Agent must submit through the same Harness identity and session that appear
+in the bundle. Strategy, execution, outcome and optional feedback references
+must be pinned. The review is stored as a draft; only the user can accept or
+reject it.
+
 ### `personal_os.close_session`
 
 Closes the audit session with a success or failure status.
@@ -88,7 +98,9 @@ These are deliberately not Agent-authoritative MCP tools in v0.
 
 A Context Bundle can be exported as JSON and given to an Agent without a live
 MCP connection. The Agent returns the same Proposal Bundle accepted by
-`personal_os.submit_proposal`. This is the compatibility path for Agents and
+`personal_os.submit_proposal`, and may return a Review Bundle accepted by
+`personal_os.submit_review`. Both offline imports apply the same session,
+identity and pinned-reference validation as live MCP. This is the compatibility path for Agents and
 Harnesses that cannot connect to the Android MCP endpoint.
 
 ## Error model
