@@ -79,6 +79,7 @@ internal class NativeVaultChannel(
                 "openVault" -> openVault(call, result)
                 "appendEvents" -> appendEvents(call, result)
                 "readEventsByProfile" -> readEventsByProfile(call, result)
+                "readEventsByProfilePage" -> readEventsByProfilePage(call, result)
                 "readEventsBySubject" -> readEventsBySubject(call, result)
                 "readEventById" -> readEventById(call, result)
                 "closeVault" -> closeVault(call, result)
@@ -437,6 +438,21 @@ internal class NativeVaultChannel(
         enqueueDatabase(result) {
             sessions.withActive(sessionId) { database ->
                 database.readEventsByProfile(profileId, limit)
+            }
+        }
+    }
+
+    private fun readEventsByProfilePage(call: MethodCall, result: MethodChannel.Result) {
+        val sessionId = requiredStringArgument(call, "sessionId")
+        val profileId = requiredStringArgument(call, "profileId")
+        val afterSequence = requiredLongArgument(call, "afterSequence")
+        if (afterSequence < 0) {
+            throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+        }
+        val limit = optionalLimitArgument(call)
+        enqueueDatabase(result) {
+            sessions.withActive(sessionId) { database ->
+                database.readEventsByProfilePage(profileId, afterSequence, limit)
             }
         }
     }
