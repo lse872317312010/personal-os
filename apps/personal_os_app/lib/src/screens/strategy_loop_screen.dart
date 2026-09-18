@@ -142,6 +142,26 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(controller.proposalTitle ?? '未命名策略'),
+                        if (controller.proposalRationale case final rationale?)
+                          Text('修改理由：$rationale'),
+                        if (controller.parentStrategyRef case final parent?)
+                          Text('父策略：$parent'),
+                        if (controller.proposalEvidenceRefs.isNotEmpty)
+                          Text(
+                            '引用：${controller.proposalEvidenceRefs.join(', ')}',
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Row(
                   children: <Widget>[
                     Expanded(
