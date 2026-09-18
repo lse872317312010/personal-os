@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://personal-os.local/schemas/personal-os-review-v0.schema.json",
+  "title": "Personal OS Strategy Review Bundle v0",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["protocol_version", "review_id", "session_id", "created_at", "review"],
+  "properties": {
+    "protocol_version": { "const": "personal-os.mcp.v0" },
+    "review_id": { "type": "string", "minLength": 1 },
+    "session_id": { "type": "string", "minLength": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "review": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "strategy_ref",
+        "summary",
+        "conclusion",
+        "execution_refs",
+        "outcome_refs"
+      ],
+      "properties": {
+        "strategy_ref": { "$ref": "#/$defs/pinnedRef" },
+        "summary": { "type": "string", "minLength": 1 },
+        "conclusion": {
+          "enum": ["effective", "ineffective", "inconclusive", "executionInsufficient"]
+        },
+        "execution_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/pinnedRef" }
+        },
+        "outcome_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/pinnedRef" }
+        },
+        "feedback_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pinnedRef" }
+        },
+        "keep": { "$ref": "#/$defs/nonBlankStrings" },
+        "change": { "$ref": "#/$defs/nonBlankStrings" },
+        "unknowns": { "$ref": "#/$defs/nonBlankStrings" }
+      }
+    }
+  },
+  "$defs": {
+    "pinnedRef": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type", "id", "revision"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1 },
+        "id": { "type": "string", "minLength": 1 },
+        "revision": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "nonBlankStrings": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

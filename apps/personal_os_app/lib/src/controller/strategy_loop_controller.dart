@@ -13,15 +13,18 @@ final class StrategyLoopController extends ChangeNotifier {
   StrategyLoopController({
     required PersonalOsAgentProtocolService protocol,
     required StrategyLoopUseCase strategyLoop,
+    required ActionFeedbackUseCase actionFeedback,
     required EntityId profileId,
     required ActorRef user,
   })  : _protocol = protocol,
         _strategyLoop = strategyLoop,
+        _actionFeedback = actionFeedback,
         _profileId = profileId,
         _user = user;
 
   final PersonalOsAgentProtocolService _protocol;
   final StrategyLoopUseCase _strategyLoop;
+  final ActionFeedbackUseCase _actionFeedback;
   final EntityId _profileId;
   final ActorRef _user;
 
@@ -40,6 +43,11 @@ final class StrategyLoopController extends ChangeNotifier {
   String? _proposalRationale;
   String? _parentStrategyRef;
   List<String> _proposalEvidenceRefs = const <String>[];
+  EntityId? _reviewId;
+  String? _reviewState;
+  String? _reviewSummary;
+  String? _reviewConclusion;
+  List<String> _reviewEvidenceRefs = const <String>[];
 
   StrategyUiStatus get status => _status;
   String? get errorCode => _errorCode;
@@ -54,6 +62,12 @@ final class StrategyLoopController extends ChangeNotifier {
   String? get proposalRationale => _proposalRationale;
   String? get parentStrategyRef => _parentStrategyRef;
   List<String> get proposalEvidenceRefs => _proposalEvidenceRefs;
+  String? get reviewId => _reviewId?.value;
+  String? get reviewState => _reviewState;
+  String? get reviewSummary => _reviewSummary;
+  String? get reviewConclusion => _reviewConclusion;
+  List<String> get reviewEvidenceRefs => _reviewEvidenceRefs;
+  bool get hasPendingReview => _reviewState == 'draft';
   bool get hasSession => _sessionId != null;
   bool get hasPendingProposal => _strategyState == 'proposed';
   bool get canActivate => _strategyState == 'accepted';
@@ -82,6 +96,7 @@ final class StrategyLoopController extends ChangeNotifier {
           'context.query',
           'object.get',
           'proposal.submit',
+          'review.submit',
         ],
       );
       _sessionId = grant.sessionId;
@@ -119,6 +134,11 @@ final class StrategyLoopController extends ChangeNotifier {
       _proposalRationale = null;
       _parentStrategyRef = null;
       _proposalEvidenceRefs = const <String>[];
+      _reviewId = null;
+      _reviewState = null;
+      _reviewSummary = null;
+      _reviewConclusion = null;
+      _reviewEvidenceRefs = const <String>[];
       return 'session_closed';
     });
   }
@@ -150,6 +170,58 @@ final class StrategyLoopController extends ChangeNotifier {
     });
   }
 
+  Future<void> importReview(String bundleJson) async {
+    final sessionId = _sessionId;
+    if (sessionId == null || bundleJson.trim().isEmpty) {
+      _fail('strategy.session_or_review_bundle_required');
+      return;
+    }
+    await _run(() async {
+      final review = ReviewBundleCodec.decodeString(bundleJson);
+      final result = await _protocol.submitReview(
+        bundleJson: bundleJson,
+        agent: _agentFor(sessionId),
+        profileId: _profileId,
+      );
+      _reviewId = EntityId(result.reviewId);
+      _reviewState = 'draft';
+      _reviewSummary = review.summary;
+      _reviewConclusion = review.conclusion.name;
+      _reviewEvidenceRefs = <ObjectRef>[
+        review.strategyRef,
+        ...review.executionRefs,
+        ...review.outcomeRefs,
+        ...review.feedbackRefs,
+      ]
+          .map((ref) => '${ref.type}:${ref.id.value}@${ref.revision!.value}')
+          .toList(growable: false);
+      return 'review_imported';
+    });
+  }
+
+  Future<void> decideReview(ReviewDecision decision) async {
+    final reviewId = _reviewId;
+    if (reviewId == null || _reviewState != 'draft') {
+      _fail('strategy.pending_review_required');
+      return;
+    }
+    await _run(() async {
+      await _actionFeedback.decideReview(
+        DecideReviewCommand(
+          reviewId: reviewId,
+          profileId: _profileId,
+          expectedReviewRevision: 1,
+          actor: _user,
+          correlationId: _correlation('review-decision'),
+          decision: decision,
+        ),
+      );
+      _reviewState =
+          decision == ReviewDecision.accept ? 'accepted' : 'rejected';
+      return 'review_${decision.name}';
+    });
+  }
+
   Future<void> importProposal(String bundleJson) async {
     final sessionId = _sessionId;
     if (sessionId == null || bundleJson.trim().isEmpty) {
@@ -158,6 +230,12 @@ final class StrategyLoopController extends ChangeNotifier {
     }
     await _run(() async {
       final proposal = ProposalBundleCodec.decodeString(bundleJson);
+      if (proposal.parentStrategy != null && _reviewState != 'accepted') {
+        throw const AgentProtocolException(
+          AgentProtocolError.invalidRequest,
+          'an accepted review is required before a revised strategy',
+        );
+      }
       final result = await _protocol.submitProposal(
         bundleJson: bundleJson,
         agent: _agentFor(sessionId),
@@ -312,6 +390,11 @@ final class StrategyLoopController extends ChangeNotifier {
     _proposalRationale = null;
     _parentStrategyRef = null;
     _proposalEvidenceRefs = const <String>[];
+    _reviewId = null;
+    _reviewState = null;
+    _reviewSummary = null;
+    _reviewConclusion = null;
+    _reviewEvidenceRefs = const <String>[];
     notifyListeners();
   }
 
@@ -325,6 +408,7 @@ final class StrategyLoopController extends ChangeNotifier {
           'context.query',
           'object.get',
           'proposal.submit',
+          'review.submit',
         ],
       );
 
@@ -340,6 +424,9 @@ final class StrategyLoopController extends ChangeNotifier {
       await operation();
       _status = StrategyUiStatus.ready;
     } on AgentProtocolException catch (error) {
+      _status = StrategyUiStatus.failed;
+      _errorCode = error.code;
+    } on FeedbackUseCaseFailure catch (error) {
       _status = StrategyUiStatus.failed;
       _errorCode = error.code;
     } on StrategyLoopFailure catch (error) {

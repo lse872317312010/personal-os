@@ -217,6 +217,157 @@ abstract final class ProposalBundleCodec {
   }
 }
 
+final class StrategyReviewBundle {
+  StrategyReviewBundle({
+    required this.reviewId,
+    required this.sessionId,
+    required this.createdAt,
+    required this.strategyRef,
+    required this.summary,
+    required this.conclusion,
+    required Iterable<ObjectRef> executionRefs,
+    required Iterable<ObjectRef> outcomeRefs,
+    Iterable<ObjectRef> feedbackRefs = const <ObjectRef>[],
+    Iterable<String> keep = const <String>[],
+    Iterable<String> change = const <String>[],
+    Iterable<String> unknowns = const <String>[],
+  })  : executionRefs = List<ObjectRef>.unmodifiable(executionRefs),
+        outcomeRefs = List<ObjectRef>.unmodifiable(outcomeRefs),
+        feedbackRefs = List<ObjectRef>.unmodifiable(feedbackRefs),
+        keep = List<String>.unmodifiable(keep),
+        change = List<String>.unmodifiable(change),
+        unknowns = List<String>.unmodifiable(unknowns) {
+    if (this.executionRefs.isEmpty || this.outcomeRefs.isEmpty) {
+      throw const AgentProtocolException(
+        AgentProtocolError.invalidRequest,
+        'review requires at least one execution and outcome',
+      );
+    }
+    _requirePinned(<ObjectRef>[
+      strategyRef,
+      ...this.executionRefs,
+      ...this.outcomeRefs,
+      ...this.feedbackRefs,
+    ]);
+  }
+
+  final String reviewId;
+  final EntityId sessionId;
+  final DateTime createdAt;
+  final ObjectRef strategyRef;
+  final String summary;
+  final StrategyReviewConclusion conclusion;
+  final List<ObjectRef> executionRefs;
+  final List<ObjectRef> outcomeRefs;
+  final List<ObjectRef> feedbackRefs;
+  final List<String> keep;
+  final List<String> change;
+  final List<String> unknowns;
+
+  CreateReviewCommand toCommand({
+    required ActorRef agent,
+    required EntityId profileId,
+    required String correlationId,
+    Sensitivity sensitivity = Sensitivity.d3,
+    Iterable<ObjectRef> consentRefs = const <ObjectRef>[],
+  }) =>
+      CreateReviewCommand(
+        profileId: profileId,
+        actor: agent,
+        correlationId: correlationId,
+        strategyRef: strategyRef,
+        reviewedBySession: sessionId,
+        summary: summary,
+        conclusion: conclusion,
+        executionRefs: executionRefs,
+        outcomeRefs: outcomeRefs,
+        feedbackRefs: feedbackRefs,
+        keep: keep,
+        change: change,
+        unknowns: unknowns,
+        sensitivity: sensitivity,
+        consentRefs: consentRefs,
+      );
+}
+
+abstract final class ReviewBundleCodec {
+  static StrategyReviewBundle decodeString(String source) {
+    final Object? value;
+    try {
+      value = jsonDecode(source);
+    } on FormatException {
+      throw const AgentProtocolException(
+        AgentProtocolError.invalidRequest,
+        'review bundle is not valid JSON',
+      );
+    }
+    if (value is! Map) {
+      throw const AgentProtocolException(
+        AgentProtocolError.invalidRequest,
+        'review bundle must be an object',
+      );
+    }
+    return decode(Map<String, Object?>.from(value));
+  }
+
+  static StrategyReviewBundle decode(Map<String, Object?> json) {
+    if (json['protocol_version'] != personalOsProtocolV0) {
+      throw const AgentProtocolException(
+        AgentProtocolError.unsupportedVersion,
+        'unsupported protocol_version',
+      );
+    }
+    final review = _map(json['review'], 'review');
+    final executionRefs = _refs(review['execution_refs'], 'execution_refs');
+    final outcomeRefs = _refs(review['outcome_refs'], 'outcome_refs');
+    final feedbackRefs =
+        _refs(review['feedback_refs'] ?? const <Object?>[], 'feedback_refs');
+    if (executionRefs.isEmpty || outcomeRefs.isEmpty) {
+      throw const AgentProtocolException(
+        AgentProtocolError.invalidRequest,
+        'review requires at least one execution and outcome',
+      );
+    }
+
+    return StrategyReviewBundle(
+      reviewId: _string(json['review_id'], 'review_id'),
+      sessionId: EntityId(_string(json['session_id'], 'session_id')),
+      createdAt: _time(json['created_at'], 'created_at'),
+      strategyRef: _ref(review['strategy_ref'], 'strategy_ref'),
+      summary: _string(review['summary'], 'summary'),
+      conclusion: _conclusion(review['conclusion']),
+      executionRefs: executionRefs,
+      outcomeRefs: outcomeRefs,
+      feedbackRefs: feedbackRefs,
+      keep: _strings(review['keep'] ?? const <Object?>[], 'keep'),
+      change: _strings(review['change'] ?? const <Object?>[], 'change'),
+      unknowns: _strings(review['unknowns'] ?? const <Object?>[], 'unknowns'),
+    );
+  }
+}
+
+StrategyReviewConclusion _conclusion(Object? value) {
+  final name = _string(value, 'conclusion');
+  for (final conclusion in StrategyReviewConclusion.values) {
+    if (conclusion.name == name) return conclusion;
+  }
+  throw const AgentProtocolException(
+    AgentProtocolError.invalidRequest,
+    'unsupported review conclusion',
+  );
+}
+
+List<String> _strings(Object? value, String field) {
+  final values = _list(value, field);
+  if (values.any((item) => item is! String || item.trim().isEmpty)) {
+    throw AgentProtocolException(
+      AgentProtocolError.invalidRequest,
+      '$field must contain non-blank strings',
+    );
+  }
+  return values.cast<String>().toList(growable: false);
+}
+
 ObjectRef _ref(Object? value, String field) {
   final map = _map(value, field);
   final revision = map['revision'];

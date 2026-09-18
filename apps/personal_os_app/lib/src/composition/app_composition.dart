@@ -158,9 +158,15 @@ final class AppComposition {
       ids: ids,
       clock: clock,
     );
+    final actionFeedback = ActionFeedbackUseCase(
+      eventStore: eventStore,
+      ids: ids,
+      clock: clock,
+    );
     final protocol = PersonalOsAgentProtocolService(
       eventStore: eventStore,
       strategyLoop: strategyLoop,
+      actionFeedback: actionFeedback,
       contextSource: EventBackedAgentContextSource(
         eventStore: eventStore,
         profileId: profileId,
@@ -171,6 +177,7 @@ final class AppComposition {
     final strategyController = StrategyLoopController(
       protocol: protocol,
       strategyLoop: strategyLoop,
+      actionFeedback: actionFeedback,
       profileId: profileId,
       user: userActor,
     );
@@ -180,11 +187,7 @@ final class AppComposition {
       strategyController: strategyController,
       controller: AppController(
         analyzeAppearance: useCase,
-        actionFeedback: ActionFeedbackUseCase(
-          eventStore: eventStore,
-          ids: ids,
-          clock: clock,
-        ),
+        actionFeedback: actionFeedback,
         profileId: profileId,
         sessionQuery: AppearanceSessionQueryHandler(eventStore),
         consentLifecycle: ConsentLifecycleUseCase(
@@ -226,7 +229,6 @@ final class AppComposition {
     );
   }
 }
-
 
 final class _UnavailableEventStore implements EventStore {
   const _UnavailableEventStore();
