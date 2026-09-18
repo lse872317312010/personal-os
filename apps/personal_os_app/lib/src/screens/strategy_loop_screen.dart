@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
 
@@ -58,6 +59,47 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               if (controller.sessionId case final sessionId?) ...<Widget>[
                 const SizedBox(height: 8),
                 SelectableText('Session ID: $sessionId'),
+                const SizedBox(height: 8),
+                FilledButton.tonalIcon(
+                  key: const Key('export-context'),
+                  onPressed: busy ? null : controller.exportContext,
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('导出 Context Bundle'),
+                ),
+                if (controller.contextBundle case final bundle?) ...<Widget>[
+                  const SizedBox(height: 8),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outlineVariant,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: SelectableText(
+                        bundle,
+                        key: const Key('context-bundle-output'),
+                        maxLines: 10,
+                      ),
+                    ),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      key: const Key('copy-context-bundle'),
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: bundle));
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Context Bundle 已复制')),
+                        );
+                      },
+                      icon: const Icon(Icons.copy),
+                      label: const Text('复制给外部 Agent'),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 TextField(
                   key: const Key('proposal-bundle-input'),

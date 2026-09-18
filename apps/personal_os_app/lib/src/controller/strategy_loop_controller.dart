@@ -34,6 +34,7 @@ final class StrategyLoopController extends ChangeNotifier {
   String? _strategyState;
   EntityId? _executionId;
   EntityId? _outcomeId;
+  String? _contextBundle;
 
   StrategyUiStatus get status => _status;
   String? get errorCode => _errorCode;
@@ -42,6 +43,7 @@ final class StrategyLoopController extends ChangeNotifier {
   String? get strategyState => _strategyState;
   String? get executionId => _executionId?.value;
   String? get outcomeId => _outcomeId?.value;
+  String? get contextBundle => _contextBundle;
   bool get hasSession => _sessionId != null;
   bool get hasPendingProposal => _strategyState == 'proposed';
   bool get canActivate => _strategyState == 'accepted';
@@ -64,6 +66,33 @@ final class StrategyLoopController extends ChangeNotifier {
       _sessionId = grant.sessionId;
       _sessionRevision = grant.revision;
       return 'session_opened';
+    });
+  }
+
+  Future<void> exportContext() async {
+    final sessionId = _sessionId;
+    if (sessionId == null) {
+      _fail('strategy.session_required');
+      return;
+    }
+    await _run(() async {
+      _contextBundle = await _protocol.queryContext(
+        sessionId: sessionId,
+        purpose: 'personal strategy proposal',
+        objectTypes: const <String>{
+          'goal',
+          'personal_asset',
+          'constraint',
+          'strategy',
+          'plan',
+          'task',
+          'execution',
+          'outcome',
+          'review',
+          'observation',
+        },
+      );
+      return 'context_exported';
     });
   }
 
@@ -208,6 +237,7 @@ final class StrategyLoopController extends ChangeNotifier {
     _strategyState = null;
     _executionId = null;
     _outcomeId = null;
+    _contextBundle = null;
     notifyListeners();
   }
 

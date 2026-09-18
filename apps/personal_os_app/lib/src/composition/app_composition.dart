@@ -161,7 +161,10 @@ final class AppComposition {
     final protocol = PersonalOsAgentProtocolService(
       eventStore: eventStore,
       strategyLoop: strategyLoop,
-      contextSource: const _EmptyAgentContextSource(),
+      contextSource: EventBackedAgentContextSource(
+        eventStore: eventStore,
+        profileId: profileId,
+      ),
       ids: ids,
       clock: clock,
     );
@@ -224,27 +227,6 @@ final class AppComposition {
   }
 }
 
-
-final class _EmptyAgentContextSource implements AgentContextSource {
-  const _EmptyAgentContextSource();
-
-  @override
-  Future<ContextRecord?> get({
-    required EntityId sessionId,
-    required ObjectRef ref,
-  }) async =>
-      null;
-
-  @override
-  Future<ContextPage> query({
-    required EntityId sessionId,
-    required String purpose,
-    required Set<String> objectTypes,
-    String? cursor,
-    int limit = 100,
-  }) async =>
-      ContextPage(records: const <ContextRecord>[]);
-}
 
 final class _UnavailableEventStore implements EventStore {
   const _UnavailableEventStore();
