@@ -26,6 +26,12 @@ internal interface NativeVaultDatabase : AutoCloseable {
 
     fun readEventsByProfile(profileId: String, limit: Int): List<Map<String, Any?>>
 
+    fun readEventsByProfilePage(
+        profileId: String,
+        afterSequence: Long,
+        limit: Int,
+    ): List<Map<String, Any?>>
+
     fun readEventsBySubject(subjectType: String, subjectId: String, limit: Int): List<Map<String, Any?>>
 
     fun readEventById(eventId: String): Map<String, Any?>?
@@ -466,6 +472,48 @@ internal class SqlCipherVaultDatabase private constructor(
                     "profileId" to cursor.getString(cursor.getColumnIndexOrThrow("profile_id")),
                     "eventId" to cursor.getString(cursor.getColumnIndexOrThrow("event_id")),
                     "eventJson" to cursor.getString(cursor.getColumnIndexOrThrow("event_json")),
+                )
+            }
+            rows
+        } catch (failure: NativeVaultFailure) {
+            throw failure
+        } catch (_: Throwable) {
+            throw NativeVaultFailure(NativeVaultFailureCode.UNAVAILABLE)
+        } finally {
+            cursor?.close()
+        }
+    }
+
+    override fun readEventsByProfilePage(
+        profileId: String,
+        afterSequence: Long,
+        limit: Int,
+    ): List<Map<String, Any?>> = synchronized(lock) {
+        ensureOpen()
+        validateText(profileId, MAX_ID_LENGTH)
+        if (afterSequence < 0) {
+            throw NativeVaultFailure(NativeVaultFailureCode.VAULT_EVENT_INVALID)
+        }
+        val boundedLimit = boundedReadLimit(limit)
+        val rows = ArrayList<Map<String, Any?>>()
+        var cursor: Cursor? = null
+        try {
+            cursor = database.rawQuery(
+                "SELECT sequence_no, profile_id, event_id, event_json " +
+                    "FROM vault_events WHERE profile_id = ? AND sequence_no > ? " +
+                    "ORDER BY sequence_no ASC LIMIT ?",
+                arrayOf(
+                    profileId,
+                    afterSequence.toString(),
+                    boundedLimit.toString(),
+                ),
+            )
+            while (cursor.moveToNext()) {
+                rows += mapOf(
+                    "sequenceNo" to cursor.getLong(0),
+                    "profileId" to cursor.getString(1),
+                    "eventId" to cursor.getString(2),
+                    "eventJson" to cursor.getString(3),
                 )
             }
             rows
