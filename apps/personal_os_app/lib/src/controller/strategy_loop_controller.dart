@@ -59,6 +59,11 @@ final class StrategyLoopController extends ChangeNotifier {
   bool get canActivate => _strategyState == 'accepted';
   bool get canRecordExecution => _strategyState == 'active';
   bool get canRecordOutcome => _executionId != null;
+  bool get canCloseSession =>
+      hasSession &&
+      (_strategyId == null ||
+          _outcomeId != null ||
+          _strategyState == 'abandoned');
 
   Future<void> openOfflineSession({required String agentId}) async {
     final normalized = agentId.trim();
@@ -82,6 +87,39 @@ final class StrategyLoopController extends ChangeNotifier {
       _sessionId = grant.sessionId;
       _sessionRevision = grant.revision;
       return 'session_opened';
+    });
+  }
+
+  Future<void> closeSession() async {
+    final sessionId = _sessionId;
+    if (sessionId == null) {
+      _fail('strategy.session_required');
+      return;
+    }
+    if (!canCloseSession) {
+      _fail('strategy.loop_must_finish_before_handoff');
+      return;
+    }
+    await _run(() async {
+      await _protocol.closeSession(
+        sessionId: sessionId,
+        profileId: _profileId,
+        expectedRevision: _sessionRevision,
+        agent: _agentFor(sessionId),
+      );
+      _sessionId = null;
+      _sessionRevision = 0;
+      _strategyId = null;
+      _strategyRevision = 0;
+      _strategyState = null;
+      _executionId = null;
+      _outcomeId = null;
+      _contextBundle = null;
+      _proposalTitle = null;
+      _proposalRationale = null;
+      _parentStrategyRef = null;
+      _proposalEvidenceRefs = const <String>[];
+      return 'session_closed';
     });
   }
 
