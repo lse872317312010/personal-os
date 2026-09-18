@@ -63,6 +63,7 @@ production environment here.
 - `openVault`
 - `appendEvents`
 - `readEventsByProfile`
+- `readEventsByProfilePage`
 - `readEventsBySubject`
 - `readEventById`
 - `closeVault`
@@ -98,6 +99,10 @@ The minimal native storage methods are:
 - `readEventsByProfile`: accepts `sessionId`, `profileId`, and an optional
   `limit` (1–1000, default 100); it returns ordered rows containing the
   complete opaque `eventJson`.
+- `readEventsByProfilePage`: accepts an exclusive `afterSequence` cursor and
+  returns the next ordered page. Dart repeats this call until a short page and
+  rejects cursor regression or duplicate event IDs; backup must use this path
+  so histories above 1000 events cannot be silently truncated.
 - `readEventsBySubject`: looks up the native subject index and returns the same
   complete `eventJson` rows. Dart performs the strict envelope decode and exact
   revision filtering.
