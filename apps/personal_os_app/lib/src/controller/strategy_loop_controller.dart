@@ -80,6 +80,11 @@ final class StrategyLoopController extends ChangeNotifier {
           _strategyState == 'abandoned');
 
   Future<void> openOfflineSession({required String agentId}) async {
+    if (_status == StrategyUiStatus.running) return;
+    if (hasSession) {
+      _fail('strategy.session_already_open');
+      return;
+    }
     final normalized = agentId.trim();
     if (normalized.isEmpty || normalized.length > 100) {
       _fail('strategy.agent_id_invalid');
@@ -341,6 +346,7 @@ final class StrategyLoopController extends ChangeNotifier {
         ),
       );
       _executionId = result.objectId;
+      _outcomeId = null;
       return 'execution_recorded';
     });
   }
