@@ -19,6 +19,11 @@ void main() {
         ids: ids,
         clock: const _Clock(),
       ),
+      actionFeedback: ActionFeedbackUseCase(
+        eventStore: store,
+        ids: ids,
+        clock: const _Clock(),
+      ),
       contextSource: const _NoContext(),
       ids: ids,
       clock: const _Clock(),
@@ -61,6 +66,11 @@ void main() {
         ids: ids,
         clock: const _Clock(),
       ),
+      actionFeedback: ActionFeedbackUseCase(
+        eventStore: store,
+        ids: ids,
+        clock: const _Clock(),
+      ),
       contextSource: const _NoContext(),
       ids: ids,
       clock: const _Clock(),
@@ -78,6 +88,48 @@ void main() {
         agent: _agent('custom-harness', sessionId: grant.sessionId.value),
         profileId: EntityId('primary-user'),
         expectedSessionRevision: grant.revision,
+      ),
+      throwsA(
+        isA<AgentProtocolException>().having(
+          (error) => error.code,
+          'code',
+          AgentProtocolError.invalidRequest,
+        ),
+      ),
+    );
+  });
+
+  test('review submitter cannot reuse another Harness session', () async {
+    final store = _EventStore();
+    final ids = _Ids();
+    final service = PersonalOsAgentProtocolService(
+      eventStore: store,
+      strategyLoop: StrategyLoopUseCase(
+        eventStore: store,
+        ids: ids,
+        clock: const _Clock(),
+      ),
+      actionFeedback: ActionFeedbackUseCase(
+        eventStore: store,
+        ids: ids,
+        clock: const _Clock(),
+      ),
+      contextSource: const _NoContext(),
+      ids: ids,
+      clock: const _Clock(),
+    );
+    final grant = await service.openSession(
+      agent: _agent('codex-cli'),
+      profileId: EntityId('primary-user'),
+      purpose: 'strategy review',
+      requestedCapabilities: const <String>['review.submit'],
+    );
+
+    expect(
+      () => service.submitReview(
+        bundleJson: _review(grant.sessionId.value),
+        agent: _agent('custom-harness', sessionId: grant.sessionId.value),
+        profileId: EntityId('primary-user'),
       ),
       throwsA(
         isA<AgentProtocolException>().having(
@@ -122,6 +174,40 @@ String _proposal(String sessionId, String suffix) =>
             'instruction': 'Run the bounded experiment',
           },
         ],
+      },
+    });
+
+
+String _review(String sessionId) => jsonEncode(<String, Object?>{
+      'protocol_version': personalOsProtocolV0,
+      'review_id': 'review-external-1',
+      'session_id': sessionId,
+      'created_at': '2026-09-18T00:00:00Z',
+      'review': <String, Object?>{
+        'strategy_ref': <String, Object?>{
+          'type': 'strategy',
+          'id': 'strategy-1',
+          'revision': 3,
+        },
+        'summary': 'The experiment improved the measured outcome.',
+        'conclusion': 'effective',
+        'execution_refs': <Object?>[
+          <String, Object?>{
+            'type': 'execution',
+            'id': 'execution-1',
+            'revision': 1,
+          },
+        ],
+        'outcome_refs': <Object?>[
+          <String, Object?>{
+            'type': 'outcome',
+            'id': 'outcome-1',
+            'revision': 1,
+          },
+        ],
+        'keep': <Object?>['bounded experiment'],
+        'change': <Object?>[],
+        'unknowns': <Object?>['long-term effect'],
       },
     });
 
