@@ -35,6 +35,7 @@ final class StrategyLoopController extends ChangeNotifier {
   EntityId? _executionId;
   EntityId? _outcomeId;
   String? _contextBundle;
+  String _agentId = 'offline-harness';
 
   StrategyUiStatus get status => _status;
   String? get errorCode => _errorCode;
@@ -44,13 +45,20 @@ final class StrategyLoopController extends ChangeNotifier {
   String? get executionId => _executionId?.value;
   String? get outcomeId => _outcomeId?.value;
   String? get contextBundle => _contextBundle;
+  String get agentId => _agentId;
   bool get hasSession => _sessionId != null;
   bool get hasPendingProposal => _strategyState == 'proposed';
   bool get canActivate => _strategyState == 'accepted';
   bool get canRecordExecution => _strategyState == 'active';
   bool get canRecordOutcome => _executionId != null;
 
-  Future<void> openOfflineSession() async {
+  Future<void> openOfflineSession({required String agentId}) async {
+    final normalized = agentId.trim();
+    if (normalized.isEmpty || normalized.length > 100) {
+      _fail('strategy.agent_id_invalid');
+      return;
+    }
+    _agentId = normalized;
     await _run(() async {
       final agent = _agentFor(null);
       final grant = await _protocol.openSession(
@@ -238,11 +246,12 @@ final class StrategyLoopController extends ChangeNotifier {
     _executionId = null;
     _outcomeId = null;
     _contextBundle = null;
+    _agentId = 'offline-harness';
     notifyListeners();
   }
 
   ActorRef _agentFor(EntityId? sessionId) => ActorRef(
-        actorId: 'offline-harness',
+        actorId: _agentId,
         actorType: ActorType.agent,
         authoritySource: 'offline_bundle',
         sessionOrRunId: sessionId?.value,
