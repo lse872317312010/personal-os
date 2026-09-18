@@ -159,6 +159,36 @@ void main() {
     expect(record.data['state'], GoalState.draft.name);
   });
 
+  test('closed session cannot export context after Harness handoff', () async {
+    final sessionClosed = event(
+      id: 'event-session-closed',
+      type: EventTypes.agentSessionClosed,
+      actor: agent,
+      subject: ObjectRef(type: 'agent_session', id: sessionId),
+      otherSubjects: <ObjectRef>[
+        ObjectRef(type: 'profile', id: profileId),
+      ],
+      payload: const <String, Object?>{'expected_revision': 1},
+    );
+    final source = EventBackedAgentContextSource(
+      eventStore: _EventStore(<EventEnvelope>[
+        sessionOpened,
+        goalCreated,
+        sessionClosed,
+      ]),
+      profileId: profileId,
+    );
+
+    expect(
+      () => source.query(
+        sessionId: sessionId,
+        purpose: 'strategy review',
+        objectTypes: const <String>{'goal'},
+      ),
+      throwsA(isA<AgentProtocolException>()),
+    );
+  });
+
   test('query rejects a session owned by another profile', () async {
     final source = EventBackedAgentContextSource(
       eventStore: _EventStore(<EventEnvelope>[sessionOpened]),
