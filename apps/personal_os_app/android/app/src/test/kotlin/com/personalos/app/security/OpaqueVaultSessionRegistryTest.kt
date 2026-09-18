@@ -68,6 +68,13 @@ class OpaqueVaultSessionRegistryTest {
             limit: Int,
         ): List<Map<String, Any?>> = emptyList()
 
+
+        override fun readEventsByProfilePage(
+            profileId: String,
+            afterSequence: Long,
+            limit: Int,
+        ): List<Map<String, Any?>> = emptyList()
+
         override fun readEventsBySubject(
             subjectType: String,
             subjectId: String,
