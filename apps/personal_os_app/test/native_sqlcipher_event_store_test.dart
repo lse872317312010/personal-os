@@ -118,6 +118,81 @@ void main() {
     expect(events.map((event) => event.eventId), ['event-matching']);
   });
 
+
+  test('complete profile history follows sequence cursor until a short page',
+      () async {
+    final store = NativeSqlCipherEventStore(channel: channel);
+    store.attachNativeSession(PlatformVaultSession(id: 'native-session'));
+    final first = _event(id: 'event-1');
+    final second = _event(id: 'event-2');
+    final third = _event(id: 'event-3');
+    _setChannelHandler(channel, (call) async {
+      calls.add(call);
+      if (call.method != 'readEventsByProfilePage') return null;
+      final arguments = call.arguments as Map<Object?, Object?>;
+      final after = arguments['afterSequence'];
+      if (after == 0) {
+        return <Object?>[
+          <String, Object?>{
+            'sequenceNo': 1,
+            'eventId': first.eventId,
+            'eventJson': EventEnvelopeJsonCodec.encodeString(first),
+          },
+          <String, Object?>{
+            'sequenceNo': 2,
+            'eventId': second.eventId,
+            'eventJson': EventEnvelopeJsonCodec.encodeString(second),
+          },
+        ];
+      }
+      expect(after, 2);
+      return <Object?>[
+        <String, Object?>{
+          'sequenceNo': 3,
+          'eventId': third.eventId,
+          'eventJson': EventEnvelopeJsonCodec.encodeString(third),
+        },
+      ];
+    });
+
+    final history = await store.readCompleteProfileHistory(
+      EntityId('profile-1'),
+      pageSize: 2,
+    );
+
+    expect(
+      history.map((event) => event.eventId),
+      <String>['event-1', 'event-2', 'event-3'],
+    );
+    final pageCalls =
+        calls.where((call) => call.method == 'readEventsByProfilePage').toList();
+    expect(pageCalls, hasLength(2));
+  });
+
+  test('complete history rejects regressing native sequence cursors', () async {
+    final store = NativeSqlCipherEventStore(channel: channel);
+    store.attachNativeSession(PlatformVaultSession(id: 'native-session'));
+    final event = _event();
+    _setChannelHandler(channel, (_) async => <Object?>[
+          <String, Object?>{
+            'sequenceNo': 0,
+            'eventId': event.eventId,
+            'eventJson': EventEnvelopeJsonCodec.encodeString(event),
+          },
+        ]);
+
+    await expectLater(
+      store.readCompleteProfileHistory(EntityId('profile-1')),
+      throwsA(
+        isA<PersistenceException>().having(
+          (error) => error.code,
+          'code',
+          PersistenceErrorCode.schemaViolation,
+        ),
+      ),
+    );
+  });
+
   test('D4, malformed JSON, and unknown fields fail closed', () async {
     final store = NativeSqlCipherEventStore(channel: channel);
     store.attachNativeSession(PlatformVaultSession(id: 'native-session'));
