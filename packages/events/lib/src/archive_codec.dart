@@ -54,6 +54,13 @@ abstract final class EventArchiveCodec {
 
   static String encode(Iterable<EventEnvelope> source) {
     final events = List<EventEnvelope>.unmodifiable(source);
+    final ids = <String>{};
+    if (events.any((event) => !ids.add(event.eventId))) {
+      throw const EventArchiveException(
+        EventArchiveError.duplicateEventId,
+        'archive contains a duplicate event_id',
+      );
+    }
     final encodedEvents =
         events.map(EventEnvelopeJsonCodec.encode).toList(growable: false);
     final canonicalEvents = _canonicalJson(encodedEvents);
