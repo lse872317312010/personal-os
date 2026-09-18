@@ -28,6 +28,9 @@ final class StrategyLoopController extends ChangeNotifier {
   final EntityId _profileId;
   final ActorRef _user;
 
+  int _lifecycleEpoch = 0;
+  bool _disposed = false;
+
   StrategyUiStatus _status = StrategyUiStatus.idle;
   String? _errorCode;
   EntityId? _sessionId;
@@ -91,7 +94,7 @@ final class StrategyLoopController extends ChangeNotifier {
       return;
     }
     _agentId = normalized;
-    await _run(() async {
+    await _run((isCurrent) async {
       final agent = _agentFor(null);
       final grant = await _protocol.openSession(
         agent: agent,
@@ -104,6 +107,7 @@ final class StrategyLoopController extends ChangeNotifier {
           'review.submit',
         ],
       );
+      if (!isCurrent()) return 'stale';
       _sessionId = grant.sessionId;
       _sessionRevision = grant.revision;
       return 'session_opened';
@@ -120,13 +124,14 @@ final class StrategyLoopController extends ChangeNotifier {
       _fail('strategy.loop_must_finish_before_handoff');
       return;
     }
-    await _run(() async {
+    await _run((isCurrent) async {
       await _protocol.closeSession(
         sessionId: sessionId,
         profileId: _profileId,
         expectedRevision: _sessionRevision,
         agent: _agentFor(sessionId),
       );
+      if (!isCurrent()) return 'stale';
       _sessionId = null;
       _sessionRevision = 0;
       _strategyId = null;
@@ -154,8 +159,8 @@ final class StrategyLoopController extends ChangeNotifier {
       _fail('strategy.session_required');
       return;
     }
-    await _run(() async {
-      _contextBundle = await _protocol.queryContext(
+    await _run((isCurrent) async {
+      final bundle = await _protocol.queryContext(
         sessionId: sessionId,
         purpose: 'personal strategy proposal',
         objectTypes: const <String>{
@@ -171,6 +176,8 @@ final class StrategyLoopController extends ChangeNotifier {
           'observation',
         },
       );
+      if (!isCurrent()) return 'stale';
+      _contextBundle = bundle;
       return 'context_exported';
     });
   }
@@ -181,13 +188,14 @@ final class StrategyLoopController extends ChangeNotifier {
       _fail('strategy.session_or_review_bundle_required');
       return;
     }
-    await _run(() async {
+    await _run((isCurrent) async {
       final review = ReviewBundleCodec.decodeString(bundleJson);
       final result = await _protocol.submitReview(
         bundleJson: bundleJson,
         agent: _agentFor(sessionId),
         profileId: _profileId,
       );
+      if (!isCurrent()) return 'stale';
       _reviewId = EntityId(result.reviewId);
       _reviewState = 'draft';
       _reviewSummary = review.summary;
@@ -210,7 +218,7 @@ final class StrategyLoopController extends ChangeNotifier {
       _fail('strategy.pending_review_required');
       return;
     }
-    await _run(() async {
+    await _run((isCurrent) async {
       await _actionFeedback.decideReview(
         DecideReviewCommand(
           reviewId: reviewId,
@@ -221,6 +229,7 @@ final class StrategyLoopController extends ChangeNotifier {
           decision: decision,
         ),
       );
+      if (!isCurrent()) return 'stale';
       _reviewState =
           decision == ReviewDecision.accept ? 'accepted' : 'rejected';
       return 'review_${decision.name}';
@@ -233,7 +242,7 @@ final class StrategyLoopController extends ChangeNotifier {
       _fail('strategy.session_or_bundle_required');
       return;
     }
-    await _run(() async {
+    await _run((isCurrent) async {
       final proposal = ProposalBundleCodec.decodeString(bundleJson);
       if (proposal.parentStrategy != null && _reviewState != 'accepted') {
         throw const AgentProtocolException(
@@ -247,6 +256,7 @@ final class StrategyLoopController extends ChangeNotifier {
         profileId: _profileId,
         expectedSessionRevision: _sessionRevision,
       );
+      if (!isCurrent()) return 'stale';
       _strategyId = result.objectId;
       _strategyRevision = 1;
       _strategyState = 'proposed';
@@ -275,7 +285,7 @@ final class StrategyLoopController extends ChangeNotifier {
       _fail('strategy.pending_proposal_required');
       return;
     }
-    await _run(() async {
+    await _run((isCurrent) async {
       await _strategyLoop.decideProposal(
         DecideStrategyProposalCommand(
           actor: _user,
@@ -286,6 +296,7 @@ final class StrategyLoopController extends ChangeNotifier {
           decision: decision,
         ),
       );
+      if (!isCurrent()) return 'stale';
       _strategyRevision += 1;
       _strategyState =
           decision == ProposalDecision.accept ? 'accepted' : 'abandoned';
@@ -299,7 +310,7 @@ final class StrategyLoopController extends ChangeNotifier {
       _fail('strategy.accepted_strategy_required');
       return;
     }
-    await _run(() async {
+    await _run((isCurrent) async {
       await _strategyLoop.activateStrategy(
         ActivateStrategyCommand(
           actor: _user,
@@ -309,6 +320,7 @@ final class StrategyLoopController extends ChangeNotifier {
           expectedRevision: _strategyRevision,
         ),
       );
+      if (!isCurrent()) return 'stale';
       _strategyRevision += 1;
       _strategyState = 'active';
       return 'strategy_activated';
@@ -329,7 +341,7 @@ final class StrategyLoopController extends ChangeNotifier {
       _fail('strategy.action_required');
       return;
     }
-    await _run(() async {
+    await _run((isCurrent) async {
       final result = await _strategyLoop.recordExecution(
         RecordStrategyExecutionCommand(
           actor: _user,
@@ -345,6 +357,7 @@ final class StrategyLoopController extends ChangeNotifier {
           note: note,
         ),
       );
+      if (!isCurrent()) return 'stale';
       _executionId = result.objectId;
       _outcomeId = null;
       return 'execution_recorded';
@@ -360,7 +373,7 @@ final class StrategyLoopController extends ChangeNotifier {
       _fail('strategy.execution_or_observation_required');
       return;
     }
-    await _run(() async {
+    await _run((isCurrent) async {
       final result = await _strategyLoop.recordOutcome(
         RecordStrategyOutcomeCommand(
           actor: _user,
@@ -375,12 +388,15 @@ final class StrategyLoopController extends ChangeNotifier {
           valence: valence,
         ),
       );
+      if (!isCurrent()) return 'stale';
       _outcomeId = result.objectId;
       return 'outcome_recorded';
     });
   }
 
   void reset() {
+    if (_disposed) return;
+    _lifecycleEpoch += 1;
     _status = StrategyUiStatus.idle;
     _errorCode = null;
     _sessionId = null;
@@ -421,31 +437,49 @@ final class StrategyLoopController extends ChangeNotifier {
   String _correlation(String operation) =>
       'mobile-$operation-${DateTime.now().microsecondsSinceEpoch}';
 
-  Future<void> _run(Future<String> Function() operation) async {
-    if (_status == StrategyUiStatus.running) return;
+  Future<void> _run(
+    Future<String> Function(bool Function() isCurrent) operation,
+  ) async {
+    if (_disposed || _status == StrategyUiStatus.running) return;
+    final epoch = _lifecycleEpoch;
+    bool isCurrent() => !_disposed && epoch == _lifecycleEpoch;
     _status = StrategyUiStatus.running;
     _errorCode = null;
     notifyListeners();
     try {
-      await operation();
+      if (!isCurrent()) return;
+      await operation(isCurrent);
+      if (!isCurrent()) return;
       _status = StrategyUiStatus.ready;
     } on AgentProtocolException catch (error) {
+      if (!isCurrent()) return;
       _status = StrategyUiStatus.failed;
       _errorCode = error.code;
     } on FeedbackUseCaseFailure catch (error) {
+      if (!isCurrent()) return;
       _status = StrategyUiStatus.failed;
       _errorCode = error.code;
     } on StrategyLoopFailure catch (error) {
+      if (!isCurrent()) return;
       _status = StrategyUiStatus.failed;
       _errorCode = error.code;
     } on Object {
+      if (!isCurrent()) return;
       _status = StrategyUiStatus.failed;
       _errorCode = 'strategy.unexpected_failure';
     }
     notifyListeners();
   }
 
+  @override
+  void dispose() {
+    _disposed = true;
+    _lifecycleEpoch += 1;
+    super.dispose();
+  }
+
   void _fail(String code) {
+    if (_disposed) return;
     _status = StrategyUiStatus.failed;
     _errorCode = code;
     notifyListeners();
