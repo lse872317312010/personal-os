@@ -230,7 +230,6 @@ final class AppComposition {
   }
 }
 
-
 final class _UnavailableEventStore implements EventStore {
   const _UnavailableEventStore();
 
