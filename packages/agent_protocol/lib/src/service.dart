@@ -10,6 +10,7 @@ abstract final class PersonalOsMcpTools {
   static const queryContext = 'personal_os.query_context';
   static const getObject = 'personal_os.get_object';
   static const submitProposal = 'personal_os.submit_proposal';
+  static const submitReview = 'personal_os.submit_review';
   static const closeSession = 'personal_os.close_session';
 }
 
@@ -60,17 +61,20 @@ final class PersonalOsAgentProtocolService {
   const PersonalOsAgentProtocolService({
     required EventStore eventStore,
     required StrategyLoopUseCase strategyLoop,
+    required ActionFeedbackUseCase actionFeedback,
     required AgentContextSource contextSource,
     required IdGenerator ids,
     required Clock clock,
   })  : _eventStore = eventStore,
         _strategyLoop = strategyLoop,
+        _actionFeedback = actionFeedback,
         _contextSource = contextSource,
         _ids = ids,
         _clock = clock;
 
   final EventStore _eventStore;
   final StrategyLoopUseCase _strategyLoop;
+  final ActionFeedbackUseCase _actionFeedback;
   final AgentContextSource _contextSource;
   final IdGenerator _ids;
   final Clock _clock;
@@ -207,6 +211,37 @@ final class PersonalOsAgentProtocolService {
     );
   }
 
+
+  Future<CreateReviewResult> submitReview({
+    required String bundleJson,
+    required ActorRef agent,
+    required EntityId profileId,
+    Iterable<ObjectRef> consentRefs = const <ObjectRef>[],
+    Sensitivity sensitivity = Sensitivity.d3,
+  }) async {
+    final review = ReviewBundleCodec.decodeString(bundleJson);
+    if (agent.sessionOrRunId != review.sessionId.value) {
+      throw const AgentProtocolException(
+        AgentProtocolError.invalidRequest,
+        'Agent identity does not match review session',
+      );
+    }
+    await _requireSessionIdentity(
+      sessionId: review.sessionId,
+      profileId: profileId,
+      agent: agent,
+    );
+    return _actionFeedback.createReview(
+      review.toCommand(
+        agent: agent,
+        profileId: profileId,
+        correlationId: review.reviewId,
+        sensitivity: sensitivity,
+        consentRefs: consentRefs,
+      ),
+    );
+  }
+
   Future<void> _requireSessionIdentity({
     required EntityId sessionId,
     required EntityId profileId,
@@ -288,4 +323,5 @@ const _supportedCapabilities = <String>{
   'context.query',
   'object.get',
   'proposal.submit',
+  'review.submit',
 };
