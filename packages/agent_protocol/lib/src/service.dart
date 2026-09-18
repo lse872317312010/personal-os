@@ -254,6 +254,11 @@ final class PersonalOsAgentProtocolService {
         'invalid Agent session close request',
       );
     }
+    await _requireSessionIdentity(
+      sessionId: sessionId,
+      profileId: profileId,
+      agent: agent,
+    );
     final now = _clock.now().toUtc();
     await _eventStore.appendAll(<EventEnvelope>[
       EventEnvelope(
