@@ -53,16 +53,42 @@ final class CreateReviewCommand {
     this.profileId,
     required this.actor,
     required this.correlationId,
-    required Iterable<ObjectRef> sourceRefs,
+    Iterable<ObjectRef> sourceRefs = const <ObjectRef>[],
+    this.strategyRef,
+    this.reviewedBySession,
+    this.summary,
+    this.conclusion,
+    Iterable<ObjectRef> executionRefs = const <ObjectRef>[],
+    Iterable<ObjectRef> outcomeRefs = const <ObjectRef>[],
+    Iterable<ObjectRef> feedbackRefs = const <ObjectRef>[],
+    Iterable<String> keep = const <String>[],
+    Iterable<String> change = const <String>[],
+    Iterable<String> unknowns = const <String>[],
     this.sensitivity = Sensitivity.d3,
     Iterable<ObjectRef> consentRefs = const <ObjectRef>[],
   })  : sourceRefs = List<ObjectRef>.unmodifiable(sourceRefs),
+        executionRefs = List<ObjectRef>.unmodifiable(executionRefs),
+        outcomeRefs = List<ObjectRef>.unmodifiable(outcomeRefs),
+        feedbackRefs = List<ObjectRef>.unmodifiable(feedbackRefs),
+        keep = List<String>.unmodifiable(keep),
+        change = List<String>.unmodifiable(change),
+        unknowns = List<String>.unmodifiable(unknowns),
         consentRefs = List<ObjectRef>.unmodifiable(consentRefs);
 
   final ActorRef actor;
   final EntityId? profileId;
   final String correlationId;
   final List<ObjectRef> sourceRefs;
+  final ObjectRef? strategyRef;
+  final EntityId? reviewedBySession;
+  final String? summary;
+  final StrategyReviewConclusion? conclusion;
+  final List<ObjectRef> executionRefs;
+  final List<ObjectRef> outcomeRefs;
+  final List<ObjectRef> feedbackRefs;
+  final List<String> keep;
+  final List<String> change;
+  final List<String> unknowns;
   final Sensitivity sensitivity;
   final List<ObjectRef> consentRefs;
 }
