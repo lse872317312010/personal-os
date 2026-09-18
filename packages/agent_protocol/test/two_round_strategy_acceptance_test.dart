@@ -138,8 +138,8 @@ void main() {
       },
     );
     final context = jsonDecode(contextJson) as Map<String, Object?>;
-    final objects = (context['objects']! as List<Object?>)
-        .cast<Map<String, Object?>>();
+    final objects =
+        (context['objects']! as List<Object?>).cast<Map<String, Object?>>();
     final contextKeys = objects.map((object) {
       final ref = object['ref']! as Map<String, Object?>;
       return '${ref['type']}:${ref['id']}@${ref['revision']}';
