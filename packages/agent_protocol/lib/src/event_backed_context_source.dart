@@ -49,7 +49,8 @@ final class EventBackedAgentContextSource implements AgentContextSource {
         'context cursor is outside the result set',
       );
     }
-    final end = (offset + limit).clamp(0, records.length);
+    final requestedEnd = offset + limit;
+    final end = requestedEnd < records.length ? requestedEnd : records.length;
     return ContextPage(
       records: records.sublist(offset, end),
       cursor: end < records.length ? end.toString() : null,
