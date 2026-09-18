@@ -18,9 +18,7 @@ void main() {
       store.batches.single
           .map(EventEnvelopeJsonCodec.encodeString)
           .toList(growable: false),
-      source
-          .map(EventEnvelopeJsonCodec.encodeString)
-          .toList(growable: false),
+      source.map(EventEnvelopeJsonCodec.encodeString).toList(growable: false),
     );
   });
 
