@@ -12,6 +12,8 @@ abstract final class FeedbackFailureCode {
   static const executionSummaryRequired = 'feedback.execution_summary_required';
   static const skipReasonRequired = 'feedback.skip_reason_required';
   static const reviewSourcesRequired = 'feedback.review_sources_required';
+  static const reviewStructureInvalid = 'feedback.review_structure_invalid';
+  static const reviewReferenceUnpinned = 'feedback.review_reference_unpinned';
   static const reviewDecisionRequiresUser =
       'feedback.review_decision_requires_user';
 }
@@ -172,9 +174,39 @@ final class ActionFeedbackUseCase {
 
   Future<CreateReviewResult> createReview(CreateReviewCommand command) async {
     _validateWrite(command.correlationId, command.sensitivity);
-    if (command.sourceRefs.isEmpty) {
+    final structuredRefs = <ObjectRef>[
+      if (command.strategyRef != null) command.strategyRef!,
+      ...command.executionRefs,
+      ...command.outcomeRefs,
+      ...command.feedbackRefs,
+    ];
+    final allSources = <ObjectRef>[...command.sourceRefs, ...structuredRefs];
+    if (allSources.isEmpty) {
       throw const FeedbackUseCaseFailure(
         FeedbackFailureCode.reviewSourcesRequired,
+      );
+    }
+    final hasStructuredReview = command.strategyRef != null ||
+        command.reviewedBySession != null ||
+        command.summary != null ||
+        command.conclusion != null ||
+        command.executionRefs.isNotEmpty ||
+        command.outcomeRefs.isNotEmpty ||
+        command.feedbackRefs.isNotEmpty;
+    if (hasStructuredReview &&
+        (command.strategyRef == null ||
+            command.reviewedBySession == null ||
+            command.summary?.trim().isEmpty != false ||
+            command.conclusion == null ||
+            command.executionRefs.isEmpty ||
+            command.outcomeRefs.isEmpty)) {
+      throw const FeedbackUseCaseFailure(
+        FeedbackFailureCode.reviewStructureInvalid,
+      );
+    }
+    if (structuredRefs.any((ref) => ref.revision == null)) {
+      throw const FeedbackUseCaseFailure(
+        FeedbackFailureCode.reviewReferenceUnpinned,
       );
     }
     final reviewId = _ids.nextId('review');
@@ -189,10 +221,27 @@ final class ActionFeedbackUseCase {
           primary: ObjectRef(type: 'review', id: EntityId(reviewId)),
           profile: command.profileId,
         ),
-        sourceRefs: command.sourceRefs,
+        sourceRefs: allSources,
         consentRefs: command.consentRefs,
         sensitivity: command.sensitivity,
-        payload: const <String, Object?>{'expected_revision': 0},
+        payload: <String, Object?>{
+          'expected_revision': 0,
+          if (hasStructuredReview) ...<String, Object?>{
+            'strategy_ref': command.strategyRef!.toJson(),
+            'reviewed_by_session': command.reviewedBySession!.value,
+            'summary': command.summary!.trim(),
+            'conclusion': command.conclusion!.name,
+            'execution_refs':
+                command.executionRefs.map((ref) => ref.toJson()).toList(),
+            'outcome_refs':
+                command.outcomeRefs.map((ref) => ref.toJson()).toList(),
+            'feedback_refs':
+                command.feedbackRefs.map((ref) => ref.toJson()).toList(),
+            'keep': command.keep,
+            'change': command.change,
+            'unknowns': command.unknowns,
+          },
+        },
       ),
     ]);
     return CreateReviewResult(reviewId: reviewId, eventId: eventId);

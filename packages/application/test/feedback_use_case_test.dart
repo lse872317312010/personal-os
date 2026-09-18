@@ -108,6 +108,97 @@ void main() {
     expect(store.appendCalls, 1);
   });
 
+  test('Agent review records strategy, execution, outcome and conclusion',
+      () async {
+    final agent = ActorRef(
+      actorId: 'custom-harness',
+      actorType: ActorType.agent,
+      authoritySource: 'offline_bundle',
+      sessionOrRunId: 'session-2',
+      onBehalfOf: user.actorId,
+    );
+    final result = await useCase.createReview(
+      CreateReviewCommand(
+        actor: agent,
+        profileId: EntityId('profile-1'),
+        correlationId: 'review-v1',
+        strategyRef: ObjectRef(
+          type: 'strategy',
+          id: EntityId('strategy-v1'),
+          revision: Revision(3),
+        ),
+        reviewedBySession: EntityId('session-2'),
+        summary: '执行一致，但恢复指标没有改善。',
+        conclusion: StrategyReviewConclusion.ineffective,
+        executionRefs: <ObjectRef>[
+          ObjectRef(
+            type: 'execution',
+            id: EntityId('execution-1'),
+            revision: Revision(1),
+          ),
+        ],
+        outcomeRefs: <ObjectRef>[
+          ObjectRef(
+            type: 'outcome',
+            id: EntityId('outcome-1'),
+            revision: Revision(1),
+          ),
+        ],
+        keep: const <String>['固定训练时间'],
+        change: const <String>['降低训练量'],
+        unknowns: const <String>['睡眠是否是混杂变量'],
+      ),
+    );
+
+    expect(result.reviewId, startsWith('review-'));
+    final event = store.batches.single.single;
+    expect(event.actor.actorId, 'custom-harness');
+    expect(event.payload['conclusion'], 'ineffective');
+    expect(event.payload['summary'], '执行一致，但恢复指标没有改善。');
+    expect(event.payload['reviewed_by_session'], 'session-2');
+    expect(event.sourceRefs.map((ref) => ref.type),
+        <String>['strategy', 'execution', 'outcome']);
+    expect(event.subjectRefs.map((ref) => ref.type),
+        <String>['review', 'profile']);
+  });
+
+  test('structured review rejects unpinned evidence', () async {
+    await expectLater(
+      useCase.createReview(
+        CreateReviewCommand(
+          actor: user,
+          correlationId: 'review-invalid',
+          strategyRef: ObjectRef(
+            type: 'strategy',
+            id: EntityId('strategy-v1'),
+            revision: Revision(3),
+          ),
+          reviewedBySession: EntityId('session-2'),
+          summary: 'Evidence is incomplete.',
+          conclusion: StrategyReviewConclusion.inconclusive,
+          executionRefs: <ObjectRef>[
+            ObjectRef(type: 'execution', id: EntityId('execution-1')),
+          ],
+          outcomeRefs: <ObjectRef>[
+            ObjectRef(
+              type: 'outcome',
+              id: EntityId('outcome-1'),
+              revision: Revision(1),
+            ),
+          ],
+        ),
+      ),
+      throwsA(
+        isA<FeedbackUseCaseFailure>().having(
+          (error) => error.code,
+          'code',
+          FeedbackFailureCode.reviewReferenceUnpinned,
+        ),
+      ),
+    );
+    expect(store.appendCalls, 0);
+  });
+
   test('review creation then user decision preserves explicit transitions',
       () async {
     final created = await useCase.createReview(CreateReviewCommand(
