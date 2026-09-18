@@ -16,6 +16,7 @@ final class StrategyLoopScreen extends StatefulWidget {
 
 final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   final _agentId = TextEditingController(text: 'offline-harness');
+  final _review = TextEditingController();
   final _proposal = TextEditingController();
   final _actionId = TextEditingController(text: 'action-1');
   final _outcome = TextEditingController();
@@ -23,6 +24,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   @override
   void dispose() {
     _agentId.dispose();
+    _review.dispose();
     _proposal.dispose();
     _actionId.dispose();
     _outcome.dispose();
@@ -115,6 +117,27 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                   ),
                 ],
                 const SizedBox(height: 16),
+
+                TextField(
+                  key: const Key('review-bundle-input'),
+                  controller: _review,
+                  minLines: 5,
+                  maxLines: 12,
+                  decoration: const InputDecoration(
+                    labelText: 'Review Bundle JSON（可选）',
+                    hintText: '粘贴 Agent 对已有策略、执行和结果的结构化复盘',
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                FilledButton.tonal(
+                  key: const Key('import-review'),
+                  onPressed: busy
+                      ? null
+                      : () => controller.importReview(_review.text),
+                  child: const Text('验证并导入待确认复盘'),
+                ),
+                const SizedBox(height: 16),
                 TextField(
                   key: const Key('proposal-bundle-input'),
                   controller: _proposal,
@@ -150,6 +173,62 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                     padding: EdgeInsets.only(top: 8),
                     child: Text('完成结果记录或拒绝策略后，才能切换 Harness。'),
                   ),
+              ],
+
+              if (controller.reviewId != null) ...<Widget>[
+                const SizedBox(height: 20),
+                Text(
+                  '策略复盘（${controller.reviewState}）',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(controller.reviewSummary ?? '无复盘摘要'),
+                        if (controller.reviewConclusion case final conclusion?)
+                          Text('结论：$conclusion'),
+                        if (controller.reviewEvidenceRefs.isNotEmpty)
+                          Text(
+                            '证据：${controller.reviewEvidenceRefs.join(', ')}',
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (controller.hasPendingReview) ...<Widget>[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: FilledButton(
+                          key: const Key('accept-review'),
+                          onPressed: busy
+                              ? null
+                              : () => controller.decideReview(
+                                    ReviewDecision.accept,
+                                  ),
+                          child: const Text('接受复盘'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton(
+                          key: const Key('reject-review'),
+                          onPressed: busy
+                              ? null
+                              : () => controller.decideReview(
+                                    ReviewDecision.reject,
+                                  ),
+                          child: const Text('拒绝复盘'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
               if (controller.hasPendingProposal) ...<Widget>[
                 const SizedBox(height: 20),
@@ -279,6 +358,8 @@ final class _StatusCard extends StatelessWidget {
               if (controller.strategyId case final id?) Text('Strategy: $id'),
               if (controller.executionId case final id?) Text('Execution: $id'),
               if (controller.outcomeId case final id?) Text('Outcome: $id'),
+              if (controller.reviewId case final id?)
+                Text('Review: $id (${controller.reviewState})'),
               if (controller.errorCode case final error?)
                 Text(
                   error,
