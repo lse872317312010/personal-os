@@ -23,6 +23,11 @@ void main() {
             },
           ],
           'asset_refs': <Object?>[],
+          'parent_strategy': <String, Object?>{
+            'type': 'strategy',
+            'id': 'strategy-v1',
+            'revision': 3,
+          },
           'actions': <Object?>[
             <String, Object?>{
               'id': 'action-1',
@@ -50,6 +55,8 @@ void main() {
     expect(command.sessionId.value, 'session-1');
     expect(command.goalRefs.single.revision, Revision(2));
     expect(command.actions.single['instruction'], 'Perform experiment');
+    expect(command.parentStrategy?.id.value, 'strategy-v1');
+    expect(command.parentStrategy?.revision, Revision(3));
   });
 
   test('proposal rejects unpinned context', () {
