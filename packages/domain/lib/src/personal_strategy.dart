@@ -18,6 +18,13 @@ enum ExecutionStatus { planned, started, completed, skipped, failed }
 
 enum OutcomeValence { positive, neutral, negative, mixed }
 
+enum StrategyReviewConclusion {
+  effective,
+  ineffective,
+  inconclusive,
+  executionInsufficient,
+}
+
 enum AgentSessionStatus { opened, proposalSubmitted, closed, failed }
 
 /// A user-owned piece of durable context. It records evidence, not inference.
@@ -237,9 +244,13 @@ final class Review {
     required String summary,
     required this.reviewedAt,
     required this.reviewedBySession,
+    required this.conclusion,
+    this.executionRefs = const <ObjectRef>[],
     this.outcomeRefs = const <ObjectRef>[],
+    this.feedbackRefs = const <ObjectRef>[],
     this.keep = const <String>[],
     this.change = const <String>[],
+    this.unknowns = const <String>[],
   }) : summary = _nonBlank(summary, 'Review.summary');
 
   final EntityId id;
@@ -247,9 +258,13 @@ final class Review {
   final String summary;
   final DateTime reviewedAt;
   final EntityId reviewedBySession;
+  final StrategyReviewConclusion conclusion;
+  final List<ObjectRef> executionRefs;
   final List<ObjectRef> outcomeRefs;
+  final List<ObjectRef> feedbackRefs;
   final List<String> keep;
   final List<String> change;
+  final List<String> unknowns;
 
   Map<String, Object?> toJson() => <String, Object?>{
         'id': id.value,
@@ -257,9 +272,13 @@ final class Review {
         'summary': summary,
         'reviewed_at': reviewedAt.toUtc().toIso8601String(),
         'reviewed_by_session': reviewedBySession.value,
+        'conclusion': conclusion.name,
+        'execution_refs': executionRefs.map((item) => item.toJson()).toList(),
         'outcome_refs': outcomeRefs.map((item) => item.toJson()).toList(),
+        'feedback_refs': feedbackRefs.map((item) => item.toJson()).toList(),
         'keep': keep,
         'change': change,
+        'unknowns': unknowns,
       };
 }
 
