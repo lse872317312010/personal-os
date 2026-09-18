@@ -35,6 +35,11 @@ final class StrategyLoopController extends ChangeNotifier {
   EntityId? _executionId;
   EntityId? _outcomeId;
   String? _contextBundle;
+  String _agentId = 'offline-harness';
+  String? _proposalTitle;
+  String? _proposalRationale;
+  String? _parentStrategyRef;
+  List<String> _proposalEvidenceRefs = const <String>[];
 
   StrategyUiStatus get status => _status;
   String? get errorCode => _errorCode;
@@ -44,13 +49,24 @@ final class StrategyLoopController extends ChangeNotifier {
   String? get executionId => _executionId?.value;
   String? get outcomeId => _outcomeId?.value;
   String? get contextBundle => _contextBundle;
+  String get agentId => _agentId;
+  String? get proposalTitle => _proposalTitle;
+  String? get proposalRationale => _proposalRationale;
+  String? get parentStrategyRef => _parentStrategyRef;
+  List<String> get proposalEvidenceRefs => _proposalEvidenceRefs;
   bool get hasSession => _sessionId != null;
   bool get hasPendingProposal => _strategyState == 'proposed';
   bool get canActivate => _strategyState == 'accepted';
   bool get canRecordExecution => _strategyState == 'active';
   bool get canRecordOutcome => _executionId != null;
 
-  Future<void> openOfflineSession() async {
+  Future<void> openOfflineSession({required String agentId}) async {
+    final normalized = agentId.trim();
+    if (normalized.isEmpty || normalized.length > 100) {
+      _fail('strategy.agent_id_invalid');
+      return;
+    }
+    _agentId = normalized;
     await _run(() async {
       final agent = _agentFor(null);
       final grant = await _protocol.openSession(
@@ -103,6 +119,7 @@ final class StrategyLoopController extends ChangeNotifier {
       return;
     }
     await _run(() async {
+      final proposal = ProposalBundleCodec.decodeString(bundleJson);
       final result = await _protocol.submitProposal(
         bundleJson: bundleJson,
         agent: _agentFor(sessionId),
@@ -112,6 +129,20 @@ final class StrategyLoopController extends ChangeNotifier {
       _strategyId = result.objectId;
       _strategyRevision = 1;
       _strategyState = 'proposed';
+      _proposalTitle = proposal.title;
+      _proposalRationale = proposal.rationale;
+      final parent = proposal.parentStrategy;
+      _parentStrategyRef = parent == null
+          ? null
+          : '${parent.type}:${parent.id.value}@${parent.revision!.value}';
+      _proposalEvidenceRefs = <ObjectRef>[
+        ...proposal.goalRefs,
+        ...proposal.assetRefs,
+      ]
+          .map(
+            (ref) => '${ref.type}:${ref.id.value}@${ref.revision!.value}',
+          )
+          .toList(growable: false);
       _sessionRevision += 1;
       return 'proposal_imported';
     });
@@ -238,11 +269,16 @@ final class StrategyLoopController extends ChangeNotifier {
     _executionId = null;
     _outcomeId = null;
     _contextBundle = null;
+    _agentId = 'offline-harness';
+    _proposalTitle = null;
+    _proposalRationale = null;
+    _parentStrategyRef = null;
+    _proposalEvidenceRefs = const <String>[];
     notifyListeners();
   }
 
   ActorRef _agentFor(EntityId? sessionId) => ActorRef(
-        actorId: 'offline-harness',
+        actorId: _agentId,
         actorType: ActorType.agent,
         authoritySource: 'offline_bundle',
         sessionOrRunId: sessionId?.value,

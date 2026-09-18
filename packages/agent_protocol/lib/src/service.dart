@@ -182,7 +182,7 @@ final class PersonalOsAgentProtocolService {
     required int expectedSessionRevision,
     Iterable<ObjectRef> consentRefs = const <ObjectRef>[],
     Sensitivity sensitivity = Sensitivity.d2,
-  }) {
+  }) async {
     final proposal = ProposalBundleCodec.decodeString(bundleJson);
     if (agent.sessionOrRunId != proposal.sessionId.value) {
       throw const AgentProtocolException(
@@ -190,6 +190,11 @@ final class PersonalOsAgentProtocolService {
         'Agent identity does not match proposal session',
       );
     }
+    await _requireSessionIdentity(
+      sessionId: proposal.sessionId,
+      profileId: profileId,
+      agent: agent,
+    );
     return _strategyLoop.submitProposal(
       proposal.toCommand(
         agent: agent,
@@ -200,6 +205,36 @@ final class PersonalOsAgentProtocolService {
         consentRefs: consentRefs,
       ),
     );
+  }
+
+  Future<void> _requireSessionIdentity({
+    required EntityId sessionId,
+    required EntityId profileId,
+    required ActorRef agent,
+  }) async {
+    final events = await _eventStore.readBySubject(
+      ObjectRef(type: 'agent_session', id: sessionId),
+    );
+    EventEnvelope? opened;
+    for (final event in events) {
+      if (event.eventType == EventTypes.agentSessionOpened) {
+        opened = event;
+        break;
+      }
+    }
+    final belongsToProfile = opened?.subjectRefs.any(
+          (subject) => subject.type == 'profile' && subject.id == profileId,
+        ) ??
+        false;
+    final sameAgent = opened?.actor.actorId == agent.actorId &&
+        opened?.actor.onBehalfOf == agent.onBehalfOf &&
+        opened?.payload['agent_id'] == agent.actorId;
+    if (!belongsToProfile || !sameAgent) {
+      throw const AgentProtocolException(
+        AgentProtocolError.invalidRequest,
+        'Agent identity does not own this session',
+      );
+    }
   }
 
   Future<void> closeSession({
@@ -219,6 +254,11 @@ final class PersonalOsAgentProtocolService {
         'invalid Agent session close request',
       );
     }
+    await _requireSessionIdentity(
+      sessionId: sessionId,
+      profileId: profileId,
+      agent: agent,
+    );
     final now = _clock.now().toUtc();
     await _eventStore.appendAll(<EventEnvelope>[
       EventEnvelope(

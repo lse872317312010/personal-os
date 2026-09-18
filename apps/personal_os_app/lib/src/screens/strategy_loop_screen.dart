@@ -15,12 +15,14 @@ final class StrategyLoopScreen extends StatefulWidget {
 }
 
 final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
+  final _agentId = TextEditingController(text: 'offline-harness');
   final _proposal = TextEditingController();
   final _actionId = TextEditingController(text: 'action-1');
   final _outcome = TextEditingController();
 
   @override
   void dispose() {
+    _agentId.dispose();
     _proposal.dispose();
     _actionId.dispose();
     _outcome.dispose();
@@ -48,11 +50,23 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               const SizedBox(height: 16),
               _StatusCard(controller: controller),
               const SizedBox(height: 16),
+              TextField(
+                key: const Key('agent-id-input'),
+                controller: _agentId,
+                enabled: !busy && !controller.hasSession,
+                decoration: const InputDecoration(
+                  labelText: 'Agent / Harness ID',
+                  hintText: '例如 codex-cli、claude-code 或 my-harness',
+                ),
+              ),
+              const SizedBox(height: 8),
               FilledButton.icon(
                 key: const Key('open-agent-session'),
                 onPressed: busy || controller.hasSession
                     ? null
-                    : controller.openOfflineSession,
+                    : () => controller.openOfflineSession(
+                          agentId: _agentId.text,
+                        ),
                 icon: const Icon(Icons.link),
                 label: const Text('创建离线 Agent 会话'),
               ),
@@ -126,6 +140,26 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                 Text(
                   '待你确认',
                   style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(controller.proposalTitle ?? '未命名策略'),
+                        if (controller.proposalRationale case final rationale?)
+                          Text('修改理由：$rationale'),
+                        if (controller.parentStrategyRef case final parent?)
+                          Text('父策略：$parent'),
+                        if (controller.proposalEvidenceRefs.isNotEmpty)
+                          Text(
+                            '引用：${controller.proposalEvidenceRefs.join(', ')}',
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -225,6 +259,7 @@ final class _StatusCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text('状态：${controller.strategyState ?? '尚未导入策略'}'),
+              Text('Harness：${controller.agentId}'),
               if (controller.strategyId case final id?) Text('Strategy: $id'),
               if (controller.executionId case final id?) Text('Execution: $id'),
               if (controller.outcomeId case final id?) Text('Outcome: $id'),
