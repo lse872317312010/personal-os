@@ -211,7 +211,6 @@ final class PersonalOsAgentProtocolService {
     );
   }
 
-
   Future<CreateReviewResult> submitReview({
     required String bundleJson,
     required ActorRef agent,
