@@ -120,6 +120,51 @@ final class NativeSqlCipherEventStore implements EventStore {
         : filtered.take(limit).toList(growable: false);
   }
 
+
+  /// Reads the complete profile history in stable native sequence order.
+  ///
+  /// This is the only supported source for lossless archive creation. Paging
+  /// continues until native returns a short page; cursor regressions,
+  /// duplicate event IDs, and malformed sequence values fail closed.
+  Future<List<EventEnvelope>> readCompleteProfileHistory(
+    EntityId profileId, {
+    int pageSize = 500,
+  }) async {
+    if (pageSize <= 0 || pageSize > _maxNativeRead) {
+      throw const PersistenceException.readFailed();
+    }
+    var afterSequence = 0;
+    final events = <EventEnvelope>[];
+    final eventIds = <String>{};
+    while (true) {
+      final rows = await _invokeList(
+        'readEventsByProfilePage',
+        <String, Object?>{
+          'sessionId': _requireSession().id,
+          'profileId': profileId.value,
+          'afterSequence': afterSequence,
+          'limit': pageSize,
+        },
+        failure: const PersistenceException.readFailed(),
+      );
+      for (final row in rows) {
+        final sequence = row['sequenceNo'];
+        if (sequence is! int || sequence <= afterSequence) {
+          throw const PersistenceException.schemaViolation();
+        }
+        final event = _decodeRow(row);
+        if (!eventIds.add(event.eventId)) {
+          throw const PersistenceException.schemaViolation();
+        }
+        afterSequence = sequence;
+        events.add(event);
+      }
+      if (rows.length < pageSize) {
+        return List<EventEnvelope>.unmodifiable(events);
+      }
+    }
+  }
+
   @override
   Future<EventEnvelope?> readById(String eventId) async {
     if (eventId.trim().isEmpty || eventId != eventId.trim()) {
