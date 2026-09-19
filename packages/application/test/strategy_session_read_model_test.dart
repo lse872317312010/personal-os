@@ -5,7 +5,8 @@ import 'package:personal_os_storage_api/storage_api.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('restores the open strategy loop from complete profile history', () async {
+  test('restores the open strategy loop from complete profile history',
+      () async {
     final store = _Store(_activeLoopEvents());
     final view = await StrategySessionQueryHandler(store).execute(
       EntityId('profile-1'),
@@ -43,7 +44,8 @@ void main() {
     expect(view, isNull);
   });
 
-  test('fails closed when more than one durable session remains open', () async {
+  test('fails closed when more than one durable session remains open',
+      () async {
     final events = <EventEnvelope>[
       _sessionOpened(id: 'session-1', agentId: 'harness-a'),
       _sessionOpened(id: 'session-2', agentId: 'harness-b'),
