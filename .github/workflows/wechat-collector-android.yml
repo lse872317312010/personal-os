@@ -36,8 +36,8 @@ jobs:
           apk=experiments/wechat-visual-collector/app/build/outputs/apk/debug/app-debug.apk
           test -s "$apk"
           mkdir -p release
-          cp "$apk" release/wechat-visual-collector-v0.2.1-debug.apk
-          sha256sum release/wechat-visual-collector-v0.2.1-debug.apk > release/wechat-visual-collector-v0.2.1-debug.apk.sha256
+          cp "$apk" release/wechat-visual-collector-v0.2.2-debug.apk
+          sha256sum release/wechat-visual-collector-v0.2.2-debug.apk > release/wechat-visual-collector-v0.2.2-debug.apk.sha256
       - name: Publish rolling experimental release
         env:
           GH_TOKEN: ${{ github.token }}

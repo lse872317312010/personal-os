@@ -9,10 +9,11 @@ import android.os.Looper;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.view.WindowManager;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
-import android.widget.TextView;
+import android.widget.Button;
 import android.widget.Toast;
 
 import java.util.ArrayList;
@@ -22,7 +23,7 @@ import java.util.UUID;
 public class CollectorAccessibilityService extends AccessibilityService {
     private static final String WECHAT = "com.tencent.mm";
     private WindowManager windowManager;
-    private TextView bubble;
+    private Button bubble;
     private WindowManager.LayoutParams params;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean running;
@@ -47,7 +48,7 @@ public class CollectorAccessibilityService extends AccessibilityService {
 
     private void showBubble() {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-        bubble = new TextView(this);
+        bubble = new Button(this);
         bubble.setText("采");
         bubble.setTextColor(Color.WHITE);
         bubble.setTextSize(18);
@@ -66,7 +67,7 @@ public class CollectorAccessibilityService extends AccessibilityService {
         params.x = dp(12);
         params.y = dp(220);
         bubble.setClickable(true);
-        bubble.setOnClickListener(v -> toggleCollection());
+        bubble.setOnTouchListener(new ReliableBubbleTouchListener());
         windowManager.addView(bubble, params);
     }
 
@@ -157,5 +158,47 @@ public class CollectorAccessibilityService extends AccessibilityService {
     }
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
+
+    private final class ReliableBubbleTouchListener implements View.OnTouchListener {
+        private final int touchSlop = ViewConfiguration.get(CollectorAccessibilityService.this)
+                .getScaledTouchSlop();
+        private int startWindowX;
+        private int startWindowY;
+        private float downRawX;
+        private float downRawY;
+        private boolean dragging;
+
+        @Override public boolean onTouch(View view, MotionEvent event) {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    startWindowX = params.x;
+                    startWindowY = params.y;
+                    downRawX = event.getRawX();
+                    downRawY = event.getRawY();
+                    dragging = false;
+                    bubble.setAlpha(0.65f);
+                    return true;
+                case MotionEvent.ACTION_MOVE:
+                    float dx = event.getRawX() - downRawX;
+                    float dy = event.getRawY() - downRawY;
+                    if (!dragging && Math.hypot(dx, dy) > touchSlop) dragging = true;
+                    if (dragging) {
+                        params.x = Math.max(0, startWindowX - Math.round(dx));
+                        params.y = Math.max(0, startWindowY + Math.round(dy));
+                        windowManager.updateViewLayout(bubble, params);
+                    }
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    bubble.setAlpha(1.0f);
+                    if (!dragging) toggleCollection();
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                    bubble.setAlpha(1.0f);
+                    return true;
+                default:
+                    return true;
+            }
+        }
+    }
 
 }
