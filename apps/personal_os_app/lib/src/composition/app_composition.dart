@@ -16,6 +16,7 @@ import 'package:personal_os_storage_api/storage_api.dart';
 import 'package:personal_os_source_api/source_api.dart';
 
 import '../controller/app_controller.dart';
+import '../controller/encrypted_event_backup_controller.dart';
 import '../controller/strategy_loop_controller.dart';
 import 'android_platform_security_bridge.dart';
 import 'method_channel_appearance_analysis_gateway.dart';
@@ -32,12 +33,14 @@ final class AppComposition {
   AppComposition({
     required this.controller,
     required this.strategyController,
+    required this.backupController,
     required this.eventStore,
     required this.mode,
   });
 
   final AppController controller;
   final StrategyLoopController strategyController;
+  final EncryptedEventBackupController backupController;
   final EventStore eventStore;
   final AppExperienceMode mode;
 
@@ -88,6 +91,7 @@ final class AppComposition {
     PlatformSecurityBridge? securityBridge,
     MethodChannel? channel,
     MethodChannel? modelChannel,
+    MethodChannel? backupChannel,
   }) {
     final bridge =
         securityBridge ?? AndroidPlatformSecurityBridge(channel: channel);
@@ -108,6 +112,9 @@ final class AppComposition {
       sourceBlobIngestion: sourceBlobIngestion,
       modelGateway: MethodChannelAppearanceAnalysisGateway(
         channel: modelChannel,
+      ),
+      backupPort: MethodChannelEncryptedEventBackupPort(
+        channel: backupChannel,
       ),
     );
   }
@@ -182,51 +189,64 @@ final class AppComposition {
       restoreQuery: StrategySessionQueryHandler(eventStore),
       user: userActor,
     );
+    late final EncryptedEventBackupController backupController;
+    final controller = AppController(
+      analyzeAppearance: useCase,
+      actionFeedback: actionFeedback,
+      profileId: profileId,
+      sessionQuery: AppearanceSessionQueryHandler(eventStore),
+      consentLifecycle: ConsentLifecycleUseCase(
+        eventStore: eventStore,
+        ids: ids,
+        clock: clock,
+      ),
+      recordObservation: RecordObservationUseCase(
+        eventStore: eventStore,
+        ids: ids,
+        clock: clock,
+      ),
+      sourcePort: sourcePort,
+      ingestAppearanceFromSource: sourceBlobIngestion == null
+          ? null
+          : IngestAppearanceFromSourceUseCase(
+              ingestion: sourceBlobIngestion,
+              recordObservation: RecordObservationUseCase(
+                eventStore: eventStore,
+                ids: ids,
+                clock: clock,
+              ),
+              analyzeAppearance: useCase,
+            ),
+      modelCapabilities:
+          resolvedModelGateway is AppearanceModelCapabilityGateway
+              ? resolvedModelGateway as AppearanceModelCapabilityGateway
+              : null,
+      modelCredentials:
+          resolvedModelGateway is AppearanceModelCredentialGateway
+              ? resolvedModelGateway as AppearanceModelCredentialGateway
+              : null,
+      actor: userActor,
+      onVaultLocked: () {
+        strategyController.reset();
+        backupController.reset();
+      },
+      vaultSession: vaultSession,
+      secureVault: secureVault,
+      sessionCoordinator: sessionCoordinator,
+    );
+    backupController = EncryptedEventBackupController(
+      eventStore: eventStore,
+      port: backupPort ?? const UnavailableEncryptedEventBackupPort(),
+      profileId: profileId,
+      onRestoreCompleted: () =>
+          controller.lockVault(errorCode: 'backup.restore_completed'),
+    );
     return AppComposition(
       eventStore: eventStore,
       mode: mode,
       strategyController: strategyController,
-      controller: AppController(
-        analyzeAppearance: useCase,
-        actionFeedback: actionFeedback,
-        profileId: profileId,
-        sessionQuery: AppearanceSessionQueryHandler(eventStore),
-        consentLifecycle: ConsentLifecycleUseCase(
-          eventStore: eventStore,
-          ids: ids,
-          clock: clock,
-        ),
-        recordObservation: RecordObservationUseCase(
-          eventStore: eventStore,
-          ids: ids,
-          clock: clock,
-        ),
-        sourcePort: sourcePort,
-        ingestAppearanceFromSource: sourceBlobIngestion == null
-            ? null
-            : IngestAppearanceFromSourceUseCase(
-                ingestion: sourceBlobIngestion,
-                recordObservation: RecordObservationUseCase(
-                  eventStore: eventStore,
-                  ids: ids,
-                  clock: clock,
-                ),
-                analyzeAppearance: useCase,
-              ),
-        modelCapabilities:
-            resolvedModelGateway is AppearanceModelCapabilityGateway
-                ? resolvedModelGateway as AppearanceModelCapabilityGateway
-                : null,
-        modelCredentials:
-            resolvedModelGateway is AppearanceModelCredentialGateway
-                ? resolvedModelGateway as AppearanceModelCredentialGateway
-                : null,
-        actor: userActor,
-        onVaultLocked: strategyController.reset,
-        vaultSession: vaultSession,
-        secureVault: secureVault,
-        sessionCoordinator: sessionCoordinator,
-      ),
+      backupController: backupController,
+      controller: controller,
     );
   }
 }
