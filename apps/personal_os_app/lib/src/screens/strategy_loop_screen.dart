@@ -1,4 +1,6 @@
-import 'dart:async';\n\nimport 'package:flutter/material.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
@@ -20,6 +22,12 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   final _proposal = TextEditingController();
   final _actionId = TextEditingController(text: 'action-1');
   final _outcome = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(widget.controller.bootstrap());
+  }
 
   @override
   void dispose() {
