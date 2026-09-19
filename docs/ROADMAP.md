@@ -2,125 +2,111 @@
 
 ## 当前产品方向
 
-Personal OS是Android-first、Agent-agnostic的个人策略资产与反馈闭环系统。外部Agent负责推理，Android负责权威数据、执行监督和结果历史。
+Personal OS 是 Android-first、Agent-agnostic 的个人策略资产与反馈闭环系统。外部 Agent/Harness 负责推理，Android Vault 负责权威数据、用户确认、执行监督和历史连续性。
 
 ## M0：产品与领域契约 — Completed
 
+- Android-only MVP、Redmi Primary Vault；
+- 外部 Agent 推理与 Android 权威边界；
+- 事实、观测、结果、反馈、推断和建议分离；
+- D0–D4 数据分类与 R0–R4 风险边界；
+- Windows、同步、Relay、内置模型和多 Agent 编排延期。
+
+## M1：Core Data Model & Event Log — Completed
+
+- PersonalAsset、Goal、Strategy、Execution、Outcome、Review、AgentSession；
+- append-only 事件、revision、谱系、确定性投影；
+- Strategy proposed/accepted/active 生命周期；
+- Agent 提案与用户执行/结果权限分离；
+- 旧事件兼容和 SQLite schema v2 migration。
+
+## M2：Android 权威 Vault — Build verified，device verification pending
+
 已完成：
 
-- 个人状态、目标、约束、计划、任务和反馈概念；
-- 事实、推断、建议和未知项分离；
-- D0–D4数据分类；
-- 风险和人工确认边界。
+- [x] Flutter Android Shell 与 Dart-first core；
+- [x] Android Keystore + native SQLCipher；
+- [x] Encrypted Blob、Photo Picker 与 Camera；
+- [x] EventStore 完整分页与冷启动投影恢复；
+- [x] 口令加密 `.posb` 备份、认证导入、原子恢复与强制重锁；
+- [x] APK SHA-256、provenance 与 rolling Release；
+- [x] G3 九场景的唯一规范、schema v2 与验证器。
 
-2026-09-15产品使命发生方向修正：不再以App内模型分析为MVP主线，改为外部Agent通过MCP维护资产、策略和复盘。
+剩余：
 
-## M1：Core Data Model & Event Log — Completed，需要增量扩展
+- [ ] 在同一已验证 APK 上完成 Redmi 九场景；
+- [ ] 保存去敏的 real-device v2 证据；
+- [ ] 不以 CI、模拟器或 synthetic record 替代真机结论。
 
-现有事件、状态机、Consent、删除、冲突和Schema演进继续保留。
+## M3：Agent Gateway — Protocol complete，live transport pending
 
-新增工作：
+已完成：
 
-- [ ] PersonalAsset明确化；
-- [ ] Strategy一等实体与版本状态机；
-- [ ] Execution、Outcome、Review证据关系；
-- [ ] AgentSession、AgentRef和调用审计；
-- [ ] Context/Proposal Envelope；
-- [ ] 新增契约fixtures并验证旧事件兼容。
+- [x] 厂商无关 Agent Protocol v0；
+- [x] 固定 revision 的 Context Bundle；
+- [x] Proposal Bundle 与 Review Bundle；
+- [x] read/write Session、Harness 身份绑定与关闭失效；
+- [x] Application Command 权限边界；
+- [x] 第二 Harness 接续同一历史的契约测试；
+- [x] Android 离线复制/导入兼容路径。
 
-## M2：Android权威Vault基线 — In Progress
+剩余：
 
-保留并完成：
+- [ ] 单独威胁建模 Android 前台临时 MCP 传输；
+- [ ] 仅在 Vault 解锁且用户显式启动时开放；
+- [ ] 短期凭证、loopback/ADB 或受控局域网绑定；
+- [ ] 锁定、退后台、超时和 Session 关闭时立即终止；
+- [ ] 用真实外部 Harness 完成在线连接，不能放宽离线路径的同一校验。
 
-- [x] Flutter Android Shell；
-- [x] Dart-first core和ports/adapters边界；
-- [x] Android Keystore primitive；
-- [x] SQLCipher/EventStore实现；
-- [x] Encrypted Blob与受控照片输入；
-- [x] Task/Review基础UI；
-- [ ] 按新领域模型完成Schema和projection迁移；
-- [ ] Redmi冷启动、杀进程、锁屏和恢复验证；
-- [ ] Android无损JSON/JSONL导出与恢复；
-- [ ] 移除生产流程对内置模型的依赖。
+## M4：两轮真实策略 Dogfooding — Not run
 
-Windows、多设备同步、Relay和云端模型路由从M2退出条件中移除并延期。
-
-## M3：MCP Agent Gateway
-
-目标：外部Agent可以安全、稳定地维护Personal OS。
-
-- [ ] 定义厂商无关MCP Resources和Tools；
-- [ ] 读取活动Goal和相关Context；
-- [ ] 查询资产与策略历史；
-- [ ] 维护PersonalAsset和Observation；
-- [ ] 创建Strategy、Plan和Review；
-- [ ] 只读/读写Session；
-- [ ] 稳定错误码与审计；
-- [ ] Android前台临时Streamable HTTP MCP；
-- [ ] Context Bundle与Proposal Bundle；
-- [ ] 使用Codex完成首个真实连接；
-- [ ] 使用第二种Agent/Harness验证可替换性。
-
-退出条件：两个不同Agent使用同一协议读取并延续同一Goal历史。
-
-## M4：两轮策略Dogfooding
-
-目标：验证真实策略闭环，而不是只验证接口。
+同一 Goal、同一候选版本、2–6 周内完成：
 
 第一轮：
 
-- 建立一个真实Goal；
-- Agent创建Strategy v1与Plan；
-- App监督有限周期执行；
-- 保存Execution、Outcome和Feedback。
+- Strategy v1 与有限期 Plan；
+- 用户确认、真实 Execution、Outcome 和 Feedback；
+- Agent Review 明确引用第一轮证据。
 
 第二轮：
 
-- Agent读取第一轮历史；
-- 创建Review与Strategy v2；
-- 执行第二轮；
-- 对比结果并记录策略变化。
+- 不同 Harness 接续完整历史；
+- Strategy v2 以 v1 为 parent；
+- v2 明确使用 v1 证据并因反馈产生可解释变化；
+- 完成第二轮执行、结果和两轮比较。
 
-退出条件见ACCEPTANCE_CRITERIA。
+退出条件：
 
-## M5：策略资产增强
+- G0–G4 schema v2 审计输出 `DOGFOOD_READY`；
+- 用户确认连续策略或复盘价值高于一次性对话；
+- 无 Critical/High 未缓解的数据完整性或安全缺陷。
 
-MVP成功后再加入：
+## M5：策略资产增强 — Deferred until M4 passes
 
-- 策略效果统计；
-- 相似条件检索；
+- 策略效果统计与相似条件检索；
 - 跨领域策略迁移；
-- Graphiti或其他可重建时态索引；
-- 多Agent候选比较；
-- 自动模型/Harness选择；
-- 更精细的Agent授权与披露；
+- 可重建时态索引；
+- 多 Agent 候选比较与细粒度授权；
 - 数据连接器和传感器输入。
 
-## M6：多设备与平台化
-
-后续候选：
+## M6：多设备与平台化 — Deferred
 
 - Windows Secondary Trusted Device；
 - Android↔Windows E2EE；
-- Encrypted Relay；
-- Restricted Collector；
-- iOS/Web；
-- 多用户和商业化。
+- Encrypted Relay 与 Restricted Collector；
+- iOS/Web、多用户和商业化。
 
 ## 当前明确暂停
 
-- Android内置OpenAI Responses调用；
-- 特定模型ID和API Key输入体验；
-- Windows portability后续开发；
-- Windows secure adapter；
-- 多设备同步；
-- 多Agent编排；
-- 自动策略选择；
-- 高级渐进披露；
-- 个人模型训练。
+- Android 内置 OpenAI/其他模型 SDK；
+- App 内 API Key 与模型选择；
+- Windows 生产开发；
+- 多设备同步与 Relay；
+- 多 Agent 编排和自动策略选择；
+- 高级渐进披露、向量数据库和个人模型训练。
 
 ## 最近三个执行节点
 
-1. 完成文档方向重构并由用户审核；
-2. 对现有代码做保留/改造/移除影响分析；
-3. 冻结MCP Schema和Strategy生命周期后再恢复开发。
+1. Redmi 使用 exact commit + exact APK 完成 G3 九场景；
+2. 在独立威胁模型通过后实现 Android 前台临时 MCP 传输；
+3. 选择一个真实 Goal，按 G4 schema v2 启动两轮 2–6 周 dogfood。

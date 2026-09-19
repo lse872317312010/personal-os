@@ -1,6 +1,6 @@
 # MVP 可用性验收门
 
-状态：M3 进入前的执行基线
+状态：Android Agent-driven MVP 验收基线（schema v2）
 
 ## 目的
 
@@ -23,25 +23,32 @@ python3 -m unittest discover -s tool/mvp_acceptance/tests -v
 | G1 `flutter_test` | 指定提交上的 analyze/unit/widget/integration tests 通过 | 每个必需 suite 的命令、时间、提交、成功退出码 | 已生成 APK、真机通过 |
 | G2 `apk` | 可安装 Android APK 已在指定提交可复现构建 | 构建命令、产物 SHA-256、大小、时间、提交 | 已安装或在 Redmi 上可用 |
 | G3 `redmi_device` | APK 在 Redmi Turbo 上完成安装和九场景真机 runbook | 设备类别与 OS 大版本、APK digest、逐场景 pass 记录、执行人确认；不得记录设备唯一标识 | 真实数据闭环有效、长期可用 |
-| G4 `dogfood` | 用户用真实（非 fixture）数据完成至少一个有限周期 | 周期起止、闭环节点、反馈引发修订、隐私/负担评价和用户签字确认；仅存去敏元数据 | 产品长期价值已证明、所有领域可用 |
+| G4 `dogfood` | 用户用真实（非 fixture）数据完成同一 Goal 的 Strategy v1/v2 两轮有限周期 | 两轮策略、执行和结果；v2→v1 谱系；反馈驱动变化；第二 Harness 接续；隐私/负担评价和用户确认；仅存去敏元数据 | 产品长期价值已证明、所有领域可用 |
 
 Gate 严格递进；高一级不能掩盖低一级失败。只有 G0–G4 全部通过，审计器才输出 `DOGFOOD_READY`。G0–G2 全过只能称 `BUILD_VERIFIED`；G3 通过只能称 `DEVICE_VERIFIED`。
 
 ## 必须闭环
 
-真实 dogfood 证据必须覆盖同一个 `cycle_id` 的以下节点，且顺序与语义可追溯：
+真实 dogfood 证据必须覆盖同一个 `cycle_id`、同一个 Goal 和两轮有序策略，并且顺序与语义可追溯：
 
-1. `baseline`：带时间、来源、质量和确认状态的外形基线；
+1. `baseline`：带时间、来源、质量和确认状态的领域基线；
 2. `goal`：成功条件、周期、预算/偏好/健康约束；
-3. `opportunity`：至少一个机会可追溯至目标与基线差距；
-4. `plan_approved`：有限周期计划经用户批准，任务有完成及停止条件；
-5. `execution`：至少一条真实完成，并允许且如实保存跳过、困难或不良反应；
-6. `feedback`：用户对执行或结果提供真实反馈；
-7. `revision`：反馈实际改变 Claim 或 Plan，保存前后版本与理由；
-8. `review`：比较基线、目标、执行、结果和混杂因素，结论属于有效/无效/不确定/执行不足之一；
-9. `user_value_confirmation`：用户确认复盘价值或行动清晰度是否高于一次性对话，并评价记录负担、隐私风险与建议错误。
+3. `strategy_v1`：第一 Harness 基于固定 revision 上下文提出 Strategy v1；
+4. `plan_v1_approved`：v1 的有限周期 Plan 经用户批准；
+5. `execution_v1`：至少一条真实执行，允许如实保存跳过、困难或不良反应；
+6. `outcome_v1`：保存确定性 Outcome，并与主观反馈分离；
+7. `feedback_v1`：用户提供真实反馈；
+8. `review_v1`：Review 明确引用 v1 的 Execution、Outcome 和 Feedback；
+9. `strategy_v2`：第二 Harness 接续同一历史，v2 明确以 v1 为 parent；
+10. `plan_v2_approved`：v2 的有限周期 Plan 经用户批准；
+11. `execution_v2`：至少一条真实执行；
+12. `outcome_v2`：保存第二轮确定性 Outcome；
+13. `comparison`：比较两轮策略、执行、结果和混杂因素；
+14. `user_value_confirmation`：用户确认连续策略/复盘价值是否高于一次性对话，并评价记录负担、隐私风险与建议错误。
 
-另外必须证明：D4 未持久化；D3 同意可撤销；R3 仍只生成草案；导出/删除范围可解释；冷启动/离线重启后状态一致。真实照片、正文、密钥、设备 ID 和账户 ID 不进入本目录，只记录去敏的检查结果和 digest。
+`continuity_checks` 必须完整证明：`v2_parent_v1`、`v2_uses_v1_evidence`、`feedback_changed_strategy` 和 `second_harness_continued_history`。记录还必须包含恰好两个 round 摘要；每轮至少一个 Execution 和 Outcome，两个 Harness 引用不同，且第二轮 parent 必须等于第一轮 Strategy 引用。
+
+另外必须证明：D4 未持久化；D3 同意可撤销；R3 仍只生成草案；导出/删除范围可解释；冷启动/离线重启后状态一致。真实照片、正文、密钥、设备 ID、账户 ID 和原始日志不进入本目录，只记录去敏检查结果与引用。
 
 ## Redmi Turbo 九场景
 
@@ -55,7 +62,8 @@ G3 必须逐项通过 `evidence/android/REDMI_TURBO_RUNBOOK.md` 对应的九个�
 - commit 不一致时不得组合成同一次候选发布，除非重新执行旧证据并指向同一候选提交。
 - Android 记录必须包含 `candidateCommit`；`overall: pass` 只允许出现在 `recordKind: real_device` 且九个场景全部通过的记录中。synthetic 记录永远不能通过 Android 整体校验。
 - 证据只声明观察到的事实。没有 Flutter SDK 就写 `blocked`；没有 APK 就写 `blocked`；没有接入真机就写 `not_run`。
-- 真实 dogfood 周期必须为 2–6 周；短期开发演示不能算完整周期。
+- 真实 dogfood 周期必须为 2–6 周，并在同一候选 commit 上完成两轮；短期开发演示、单轮执行或同一 Harness 自称兼容均不能算完整周期。
+- G3 的 `apk_sha256` 必须与 G2 构建产物 digest 完全一致；不能把另一份 APK 的真机结果拼入候选发布。
 - 任何证据不得包含用户外貌正文、照片路径、日志原文、设备序列号或密钥材料。审计器会拒绝已知敏感字段名，但人工评审仍是发布前必需项。
 
 ## 发布结论

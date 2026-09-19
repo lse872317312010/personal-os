@@ -14,7 +14,28 @@ GATES = ("static", "flutter_test", "apk", "redmi_device", "dogfood")
 LABELS = ("STATIC_VERIFIED", "TEST_VERIFIED", "BUILD_VERIFIED", "DEVICE_VERIFIED", "DOGFOOD_READY")
 FLUTTER_CHECKS = {"flutter_analyze", "dart_unit", "flutter_widget", "flutter_integration"}
 REDMI_SCENARIOS = {"install_launch", "offline_loop", "process_death", "device_reboot", "lock_unlock", "permission_denied", "battery_restriction", "export_delete", "recovery_drill"}
-DOGFOOD_STEPS = {"baseline", "goal", "opportunity", "plan_approved", "execution", "feedback", "revision", "review", "user_value_confirmation"}
+DOGFOOD_STEPS = {
+    "baseline",
+    "goal",
+    "strategy_v1",
+    "plan_v1_approved",
+    "execution_v1",
+    "outcome_v1",
+    "feedback_v1",
+    "review_v1",
+    "strategy_v2",
+    "plan_v2_approved",
+    "execution_v2",
+    "outcome_v2",
+    "comparison",
+    "user_value_confirmation",
+}
+DOGFOOD_CONTINUITY = {
+    "v2_parent_v1",
+    "v2_uses_v1_evidence",
+    "feedback_changed_strategy",
+    "second_harness_continued_history",
+}
 DOGFOOD_SAFETY = {"d4_not_persisted", "d3_revocation", "r3_draft_only", "export_delete_explained", "restart_consistent"}
 FORBIDDEN_KEYS = {"device_serial", "android_id", "account_id", "user_content", "photo_path", "raw_log", "secret", "key_material", "system_fingerprint"}
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
@@ -61,13 +82,40 @@ def _check_set(gate: dict, expected: set[str], field: str = "checks",
     return passed == expected and len(items) == len(expected)
 
 
+def _dogfood_rounds_valid(gate: dict) -> bool:
+    rounds = gate.get("rounds")
+    if not isinstance(rounds, list) or len(rounds) != 2:
+        return False
+    by_number = {
+        item.get("round"): item
+        for item in rounds
+        if isinstance(item, dict) and item.get("round") in {1, 2}
+    }
+    if set(by_number) != {1, 2}:
+        return False
+    first, second = by_number[1], by_number[2]
+    required_strings = ("strategy_ref", "harness_ref")
+    for item in (first, second):
+        if any(not isinstance(item.get(field), str) or not item[field].strip() for field in required_strings):
+            return False
+        if not isinstance(item.get("execution_count"), int) or item["execution_count"] <= 0:
+            return False
+        if not isinstance(item.get("outcome_count"), int) or item["outcome_count"] <= 0:
+            return False
+    if first["strategy_ref"] == second["strategy_ref"]:
+        return False
+    if first["harness_ref"] == second["harness_ref"]:
+        return False
+    return second.get("parent_strategy_ref") == first["strategy_ref"]
+
+
 def audit(data: object) -> tuple[list[bool], list[str]]:
     errors: list[str] = []
     if not isinstance(data, dict):
         return [False] * len(GATES), ["$: expected object"]
     errors.extend(_walk_forbidden(data))
-    if data.get("schema_version") != 1:
-        errors.append("$.schema_version: expected 1")
+    if data.get("schema_version") != 2:
+        errors.append("$.schema_version: expected 2")
     kind = data.get("kind")
     if kind not in {"real", "synthetic"}:
         errors.append("$.kind: expected real or synthetic")
@@ -123,9 +171,15 @@ def audit(data: object) -> tuple[list[bool], list[str]]:
         elif name == "redmi_device" and declared:
             valid &= _check_set(gate, REDMI_SCENARIOS, "scenarios", commit)
             valid &= isinstance(gate.get("android_major"), int) and gate["android_major"] > 0
-            valid &= SHA256.fullmatch(str(gate.get("apk_sha256", ""))) is not None
+            apk_digest = str(gate.get("apk_sha256", ""))
+            valid &= SHA256.fullmatch(apk_digest) is not None
+            built_artifact = gates.get("apk", {}).get("artifact", {})
+            valid &= isinstance(built_artifact, dict) and apk_digest == built_artifact.get("sha256")
         elif name == "dogfood" and declared:
-            valid &= _check_set(gate, DOGFOOD_STEPS, "steps", commit) and _check_set(gate, DOGFOOD_SAFETY, "safety_checks", commit)
+            valid &= _check_set(gate, DOGFOOD_STEPS, "steps", commit)
+            valid &= _check_set(gate, DOGFOOD_CONTINUITY, "continuity_checks", commit)
+            valid &= _check_set(gate, DOGFOOD_SAFETY, "safety_checks", commit)
+            valid &= _dogfood_rounds_valid(gate)
             try:
                 start = dt.date.fromisoformat(gate["cycle_start"])
                 end = dt.date.fromisoformat(gate["cycle_end"])

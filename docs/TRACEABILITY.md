@@ -39,31 +39,29 @@
 
 ## 4. 当前实现映射
 
-| 现有能力 | 新方向处理 |
+| MVP能力 | 当前实现 |
 |---|---|
-| EventStore与Reducer | 保留并扩展Strategy/Outcome/Agent事件 |
-| Claim/Goal/Plan/Task/Review | 保留，调整为Agent写入与App监督 |
-| SQLCipher与Keystore | 保留 |
-| Encrypted Blob/Photo Picker/Camera | 保留为资产输入 |
-| Consent与Policy | 保留，简化为MVP Session权限 |
-| AppearanceAnalysisGateway | 泛化或替换为Agent Gateway |
-| OpenAI Responses Android Client | 暂停并从生产主线解绑 |
-| Provider credential UI | 暂停 |
-| Windows fail-closed spike | 保留历史，不继续 |
-| Sync/Relay/Recovery协议 | 保留设计资产，移出MVP |
-| APK/provenance链 | 保留 |
+| EventStore与Reducer | Strategy/Execution/Outcome/Review/AgentSession事件与确定性projection已实现 |
+| PersonalAsset与Strategy生命周期 | 一等领域对象、revision和parent谱系已实现 |
+| SQLCipher与Keystore | Android生产组合已实现，等待Redmi G3验证 |
+| Encrypted Blob/Photo Picker/Camera | 受控资产输入已实现 |
+| Agent Protocol | v0工具名、Session、Context/Proposal/Review Bundle已冻结并实现 |
+| Application authority | Agent只可提案/复盘，用户确认执行和结果 |
+| Harness可替换性 | 双Harness契约与handoff已由自动化测试覆盖 |
+| 冷启动连续性 | 完整事件分页和活动策略恢复已实现 |
+| 导出恢复 | 可验证事件归档与口令加密Android备份已实现 |
+| OpenAI/Provider UI | 暂停并从MVP生产主线解绑 |
+| Windows/Sync/Relay | 保留历史资产，移出当前MVP |
+| APK/provenance链 | 已实现，G2可由CI验证 |
 
 ## 5. 当前断链
 
-- PersonalAsset尚未成为明确一等实体；
-- Strategy字段和状态机尚未按新目标冻结；
-- Execution/Outcome/Feedback与Review的证据关系需补齐；
-- AgentRef、AgentSession和AgentAudit尚未进入核心规范；
-- MCP Resource/Tool Schema尚未冻结；
-- Context/Proposal Bundle尚未冻结；
-- Android实时MCP的连接方式尚未验证；
-- 两个不同Agent延续同一历史尚未验证；
-- 两轮真实策略dogfood尚未执行。
+- Android前台临时MCP传输尚未实现；当前可用的是同Schema离线Bundle路径；
+- Redmi exact-APK九场景尚未执行，不能声明 `DEVICE_VERIFIED`；
+- 两个不同外部Harness尚未在真实Android端完成在线接续，自动化契约不能替代运行证据；
+- 同一Goal的Strategy v1/v2两轮2–6周真实dogfood尚未执行；
+- 用户价值、负担与隐私评价尚无真实G4证据；
+- 因此当前上限是CI支持的 `BUILD_VERIFIED`，不是 `DOGFOOD_READY`。
 
 ## 6. 延期项
 
