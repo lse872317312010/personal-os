@@ -25,8 +25,7 @@ final class PersonalOsMcpJsonRpcAdapter {
   final PersonalOsAgentProtocolService _service;
   final EntityId _profileId;
   final String _authoritySource;
-  final Map<String, _SessionBinding> _sessions =
-      <String, _SessionBinding>{};
+  final Map<String, _SessionBinding> _sessions = <String, _SessionBinding>{};
 
   bool _initializeAccepted = false;
   bool _clientReady = false;
@@ -202,9 +201,9 @@ final class PersonalOsMcpJsonRpcAdapter {
     final bundle = await _service.queryContext(
       sessionId: sessionId,
       purpose: binding.purpose,
-      objectTypes:
-          _strings(arguments['object_types'] ?? const <Object?>[], 'object_types')
-              .toSet(),
+      objectTypes: _strings(
+              arguments['object_types'] ?? const <Object?>[], 'object_types')
+          .toSet(),
       cursor: _optionalString(arguments['cursor'], 'cursor'),
       limit: arguments['limit'] == null
           ? 100
@@ -515,7 +514,9 @@ const _toolDefinitions = <Map<String, Object?>>[
       'required': <String>['session_id', 'bundle'],
       'properties': <String, Object?>{
         'session_id': <String, Object?>{'type': 'string'},
-        'bundle': <String, Object?>{'type': <String>['object', 'string']},
+        'bundle': <String, Object?>{
+          'type': <String>['object', 'string']
+        },
       },
       'additionalProperties': false,
     },
@@ -528,7 +529,9 @@ const _toolDefinitions = <Map<String, Object?>>[
       'required': <String>['session_id', 'bundle'],
       'properties': <String, Object?>{
         'session_id': <String, Object?>{'type': 'string'},
-        'bundle': <String, Object?>{'type': <String>['object', 'string']},
+        'bundle': <String, Object?>{
+          'type': <String>['object', 'string']
+        },
       },
       'additionalProperties': false,
     },
