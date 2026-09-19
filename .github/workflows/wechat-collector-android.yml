@@ -8,7 +8,7 @@ on:
       - "experiments/wechat-visual-collector/**"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -34,8 +34,17 @@ jobs:
           mkdir -p release
           cp "$apk" release/wechat-visual-collector-debug.apk
           sha256sum release/wechat-visual-collector-debug.apk > release/wechat-visual-collector-debug.apk.sha256
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wechat-visual-collector-${{ github.sha }}
-          path: release/*
-          retention-days: 7
+      - name: Publish rolling experimental release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -Eeuo pipefail
+          tag=wechat-collector-latest
+          notes="Experimental Redmi/Android accessibility collector built from $HEAD_SHA. This is a debug build for private device testing."
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --title "WeChat collector latest debug" --notes "$notes" --prerelease
+          else
+            gh release create "$tag" --target "$HEAD_SHA" --title "WeChat collector latest debug" --notes "$notes" --prerelease
+          fi
+          gh release upload "$tag" release/* --clobber
