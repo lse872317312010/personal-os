@@ -15,21 +15,25 @@ final class StrategyLoopController extends ChangeNotifier {
     required StrategyLoopUseCase strategyLoop,
     required ActionFeedbackUseCase actionFeedback,
     required EntityId profileId,
+    StrategySessionQueryHandler? restoreQuery,
     required ActorRef user,
   })  : _protocol = protocol,
         _strategyLoop = strategyLoop,
         _actionFeedback = actionFeedback,
         _profileId = profileId,
+        _restoreQuery = restoreQuery,
         _user = user;
 
   final PersonalOsAgentProtocolService _protocol;
   final StrategyLoopUseCase _strategyLoop;
   final ActionFeedbackUseCase _actionFeedback;
   final EntityId _profileId;
+  final StrategySessionQueryHandler? _restoreQuery;
   final ActorRef _user;
 
   int _lifecycleEpoch = 0;
   bool _disposed = false;
+  bool _bootstrapped = false;
 
   StrategyUiStatus _status = StrategyUiStatus.idle;
   String? _errorCode;
@@ -82,8 +86,50 @@ final class StrategyLoopController extends ChangeNotifier {
           _outcomeId != null ||
           _strategyState == 'abandoned');
 
+  Future<void> bootstrap() async {
+    final query = _restoreQuery;
+    if (query == null || _bootstrapped || _disposed) return;
+    await _run((isCurrent) async {
+      final view = await query.execute(_profileId);
+      if (!isCurrent()) return 'stale';
+      if (view != null) _applyRestoredSession(view);
+      _bootstrapped = true;
+      return view == null ? 'restore_empty' : 'session_restored';
+    });
+  }
+
+  void _applyRestoredSession(StrategySessionView view) {
+    _sessionId = view.sessionId;
+    _sessionRevision = view.sessionRevision;
+    _agentId = view.agentId;
+    _strategyId = view.strategyId;
+    _strategyRevision = view.strategyRevision;
+    _strategyState = view.strategyState;
+    _executionId = view.executionId;
+    _outcomeId = view.outcomeId;
+    _contextBundle = null;
+    _proposalTitle = view.proposalTitle;
+    _proposalRationale = view.proposalRationale;
+    _parentStrategyRef = view.parentStrategyRef;
+    _proposalEvidenceRefs = view.proposalEvidenceRefs;
+    _reviewId = view.reviewId;
+    _reviewState = view.reviewState;
+    _reviewSummary = view.reviewSummary;
+    _reviewConclusion = view.reviewConclusion;
+    _reviewEvidenceRefs = view.reviewEvidenceRefs;
+  }
+
   Future<void> openOfflineSession({required String agentId}) async {
     if (_status == StrategyUiStatus.running) return;
+    final entryEpoch = _lifecycleEpoch;
+    if (!_bootstrapped && _restoreQuery != null) {
+      await bootstrap();
+      if (_disposed ||
+          entryEpoch != _lifecycleEpoch ||
+          _status == StrategyUiStatus.failed) {
+        return;
+      }
+    }
     if (hasSession) {
       _fail('strategy.session_already_open');
       return;
@@ -397,6 +443,7 @@ final class StrategyLoopController extends ChangeNotifier {
   void reset() {
     if (_disposed) return;
     _lifecycleEpoch += 1;
+    _bootstrapped = false;
     _status = StrategyUiStatus.idle;
     _errorCode = null;
     _sessionId = null;
@@ -451,6 +498,10 @@ final class StrategyLoopController extends ChangeNotifier {
       await operation(isCurrent);
       if (!isCurrent()) return;
       _status = StrategyUiStatus.ready;
+    } on StrategySessionRestoreFailure catch (error) {
+      if (!isCurrent()) return;
+      _status = StrategyUiStatus.failed;
+      _errorCode = error.code;
     } on AgentProtocolException catch (error) {
       if (!isCurrent()) return;
       _status = StrategyUiStatus.failed;

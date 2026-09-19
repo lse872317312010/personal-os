@@ -10,7 +10,8 @@ import 'package:personal_os_storage_api/storage_api.dart';
 /// This class accepts only complete, strictly codec-produced event JSON. The
 /// native side treats that JSON as opaque text; decoding happens here again so
 /// an invalid, old, or forward-incompatible row is never trusted.
-final class NativeSqlCipherEventStore implements EventStore {
+final class NativeSqlCipherEventStore
+    implements EventStore, CompleteProfileHistoryReader {
   NativeSqlCipherEventStore({MethodChannel? channel})
       : _channel = channel ??
             const MethodChannel('personal_os/internal/android_vault');
@@ -126,6 +127,7 @@ final class NativeSqlCipherEventStore implements EventStore {
   /// This is the only supported source for lossless archive creation. Paging
   /// continues until native returns a short page; cursor regressions,
   /// duplicate event IDs, and malformed sequence values fail closed.
+  @override
   Future<List<EventEnvelope>> readCompleteProfileHistory(
     EntityId profileId, {
     int pageSize = 500,

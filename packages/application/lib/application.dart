@@ -18,3 +18,4 @@ export 'src/observation_commands.dart';
 export 'src/observation_use_case.dart';
 export 'src/strategy_loop_commands.dart';
 export 'src/strategy_loop_use_case.dart';
+export 'src/strategy_session_read_model.dart';

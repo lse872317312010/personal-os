@@ -14,6 +14,17 @@ abstract interface class EventStore {
   Future<EventEnvelope?> readById(String eventId);
 }
 
+/// Optional capability for stores that can stream an entire profile history.
+///
+/// Read models use this instead of a bounded [EventStore.readBySubject] call
+/// when correctness depends on replaying every durable event.
+abstract interface class CompleteProfileHistoryReader {
+  Future<List<EventEnvelope>> readCompleteProfileHistory(
+    EntityId profileId, {
+    int pageSize = 500,
+  });
+}
+
 /// Stable, adapter-neutral persistence error codes.
 ///
 /// Adapter implementations may keep detailed diagnostics in private logs, but
