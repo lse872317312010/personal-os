@@ -10,7 +10,8 @@ import 'package:personal_os_storage_api/storage_api.dart';
 /// This class accepts only complete, strictly codec-produced event JSON. The
 /// native side treats that JSON as opaque text; decoding happens here again so
 /// an invalid, old, or forward-incompatible row is never trusted.
-final class NativeSqlCipherEventStore\n    implements EventStore, CompleteProfileHistoryReader {
+final class NativeSqlCipherEventStore
+    implements EventStore, CompleteProfileHistoryReader {
   NativeSqlCipherEventStore({MethodChannel? channel})
       : _channel = channel ??
             const MethodChannel('personal_os/internal/android_vault');
