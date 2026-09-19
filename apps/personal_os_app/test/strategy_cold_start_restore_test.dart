@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_os_app/src/composition/app_composition.dart';
+import 'package:personal_os_app/src/controller/strategy_loop_controller.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
