@@ -127,6 +127,7 @@ final class NativeSqlCipherEventStore
   /// This is the only supported source for lossless archive creation. Paging
   /// continues until native returns a short page; cursor regressions,
   /// duplicate event IDs, and malformed sequence values fail closed.
+  @override
   Future<List<EventEnvelope>> readCompleteProfileHistory(
     EntityId profileId, {
     int pageSize = 500,
