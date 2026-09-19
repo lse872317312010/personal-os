@@ -1,28 +1,22 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "recordKind": "synthetic",
   "targetClass": "redmi_turbo",
   "buildProfile": "debug",
   "candidateCommit": "0000000000000000000000000000000000000000",
-  "startedAtUtc": "2026-08-20T00:00:00Z",
-  "completedAtUtc": "2026-08-20T00:09:00Z",
+  "apkSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "startedAtUtc": "2026-09-19T00:00:00Z",
+  "completedAtUtc": "2026-09-19T00:09:00Z",
   "overall": "blocked",
-  "capabilities": {
-    "protectionLevel": "unavailable",
-    "userAuthenticationAvailable": false,
-    "deviceCredentialAvailable": false,
-    "nonExportableKeys": false,
-    "atomicDeviceRevocation": false
-  },
   "scenarios": [
     { "id": "install_launch", "result": "blocked", "checksPassed": 0, "checksTotal": 3, "failureCode": "not_run" },
-    { "id": "offline_operation", "result": "blocked", "checksPassed": 0, "checksTotal": 3, "failureCode": "not_run" },
-    { "id": "screen_lock", "result": "blocked", "checksPassed": 0, "checksTotal": 4, "failureCode": "not_run" },
+    { "id": "offline_loop", "result": "blocked", "checksPassed": 0, "checksTotal": 4, "failureCode": "not_run" },
+    { "id": "process_death", "result": "blocked", "checksPassed": 0, "checksTotal": 4, "failureCode": "not_run" },
     { "id": "device_reboot", "result": "blocked", "checksPassed": 0, "checksTotal": 4, "failureCode": "not_run" },
-    { "id": "capability_report", "result": "blocked", "checksPassed": 0, "checksTotal": 4, "failureCode": "not_run" },
-    { "id": "vault_wrong_key", "result": "blocked", "checksPassed": 0, "checksTotal": 3, "failureCode": "not_run" },
-    { "id": "trusted_device_recovery", "result": "blocked", "checksPassed": 0, "checksTotal": 5, "failureCode": "not_run" },
-    { "id": "offline_package_recovery", "result": "blocked", "checksPassed": 0, "checksTotal": 5, "failureCode": "not_run" },
-    { "id": "device_revocation", "result": "blocked", "checksPassed": 0, "checksTotal": 5, "failureCode": "not_run" }
+    { "id": "lock_unlock", "result": "blocked", "checksPassed": 0, "checksTotal": 4, "failureCode": "not_run" },
+    { "id": "permission_denied", "result": "blocked", "checksPassed": 0, "checksTotal": 3, "failureCode": "not_run" },
+    { "id": "battery_restriction", "result": "blocked", "checksPassed": 0, "checksTotal": 3, "failureCode": "not_run" },
+    { "id": "export_delete", "result": "blocked", "checksPassed": 0, "checksTotal": 5, "failureCode": "not_run" },
+    { "id": "recovery_drill", "result": "blocked", "checksPassed": 0, "checksTotal": 8, "failureCode": "not_run" }
   ]
 }
