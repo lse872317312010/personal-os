@@ -15,21 +15,25 @@ final class StrategyLoopController extends ChangeNotifier {
     required StrategyLoopUseCase strategyLoop,
     required ActionFeedbackUseCase actionFeedback,
     required EntityId profileId,
+    StrategySessionQueryHandler? restoreQuery,
     required ActorRef user,
   })  : _protocol = protocol,
         _strategyLoop = strategyLoop,
         _actionFeedback = actionFeedback,
         _profileId = profileId,
+        _restoreQuery = restoreQuery,
         _user = user;
 
   final PersonalOsAgentProtocolService _protocol;
   final StrategyLoopUseCase _strategyLoop;
   final ActionFeedbackUseCase _actionFeedback;
   final EntityId _profileId;
+  final StrategySessionQueryHandler? _restoreQuery;
   final ActorRef _user;
 
   int _lifecycleEpoch = 0;
-  bool _disposed = false;\n  bool _bootstrapped = false;
+  bool _disposed = false;
+  bool _bootstrapped = false;
 
   StrategyUiStatus _status = StrategyUiStatus.idle;
   String? _errorCode;
@@ -430,6 +434,7 @@ final class StrategyLoopController extends ChangeNotifier {
   void reset() {
     if (_disposed) return;
     _lifecycleEpoch += 1;
+    _bootstrapped = false;
     _status = StrategyUiStatus.idle;
     _errorCode = null;
     _sessionId = null;
@@ -484,7 +489,11 @@ final class StrategyLoopController extends ChangeNotifier {
       await operation(isCurrent);
       if (!isCurrent()) return;
       _status = StrategyUiStatus.ready;
-    } on StrategySessionRestoreFailure catch (error) {\n      if (!isCurrent()) return;\n      _status = StrategyUiStatus.failed;\n      _errorCode = error.code;\n    } on AgentProtocolException catch (error) {
+    } on StrategySessionRestoreFailure catch (error) {
+      if (!isCurrent()) return;
+      _status = StrategyUiStatus.failed;
+      _errorCode = error.code;
+    } on AgentProtocolException catch (error) {
       if (!isCurrent()) return;
       _status = StrategyUiStatus.failed;
       _errorCode = error.code;
