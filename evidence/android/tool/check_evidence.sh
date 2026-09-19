@@ -19,7 +19,9 @@ tool_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 python3 "$tool_dir/validate_evidence.py" "$record"
 
 jq -e '
-  .schemaVersion == 1 and
+  .schemaVersion == 2 and
+  (.candidateCommit | test("^[0-9a-f]{40}$")) and
+  (.apkSha256 | test("^[0-9a-f]{64}$")) and
   (.recordKind == "real_device" or .recordKind == "synthetic") and
   .targetClass == "redmi_turbo" and
   (.scenarios | length) == 9 and

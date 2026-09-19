@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://personal-os.invalid/evidence/android/evidence.schema.json",
-  "title": "Personal OS Android validation evidence",
+  "title": "Personal OS Redmi device validation evidence",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,40 +10,22 @@
     "targetClass",
     "buildProfile",
     "candidateCommit",
+    "apkSha256",
     "startedAtUtc",
     "completedAtUtc",
     "overall",
     "scenarios"
   ],
   "properties": {
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "recordKind": { "enum": ["real_device", "synthetic"] },
     "targetClass": { "const": "redmi_turbo" },
     "buildProfile": { "enum": ["debug", "profile", "release"] },
     "candidateCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "apkSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "startedAtUtc": { "type": "string", "format": "date-time" },
     "completedAtUtc": { "type": "string", "format": "date-time" },
     "overall": { "$ref": "#/$defs/result" },
-    "capabilities": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "protectionLevel",
-        "userAuthenticationAvailable",
-        "deviceCredentialAvailable",
-        "nonExportableKeys",
-        "atomicDeviceRevocation"
-      ],
-      "properties": {
-        "protectionLevel": {
-          "enum": ["unavailable", "software", "trusted_environment", "strongbox"]
-        },
-        "userAuthenticationAvailable": { "type": "boolean" },
-        "deviceCredentialAvailable": { "type": "boolean" },
-        "nonExportableKeys": { "type": "boolean" },
-        "atomicDeviceRevocation": { "type": "boolean" }
-      }
-    },
     "scenarios": {
       "type": "array",
       "minItems": 9,
@@ -61,14 +43,14 @@
         "id": {
           "enum": [
             "install_launch",
-            "offline_operation",
-            "screen_lock",
+            "offline_loop",
+            "process_death",
             "device_reboot",
-            "capability_report",
-            "vault_wrong_key",
-            "trusted_device_recovery",
-            "offline_package_recovery",
-            "device_revocation"
+            "lock_unlock",
+            "permission_denied",
+            "battery_restriction",
+            "export_delete",
+            "recovery_drill"
           ]
         },
         "result": { "$ref": "#/$defs/result" },
@@ -82,12 +64,16 @@
             "install_failed",
             "launch_failed",
             "network_dependency",
-            "lock_bypass",
             "state_not_restored",
-            "capability_mismatch",
-            "wrong_key_accepted",
+            "lock_bypass",
+            "permission_behavior_invalid",
+            "battery_behavior_invalid",
+            "export_failed",
+            "delete_failed",
+            "backup_failed",
+            "backup_authentication_failed",
+            "backup_tamper_accepted",
             "recovery_failed",
-            "revoked_device_authorized",
             "unexpected_result"
           ]
         }

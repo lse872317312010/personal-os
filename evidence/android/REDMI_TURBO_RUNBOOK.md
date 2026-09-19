@@ -1,134 +1,166 @@
-# Redmi Turbo device validation runbook
+# Redmi Turbo MVP device-validation runbook
 
-Status: **not run**. This is a future manual procedure, not test evidence.
+Status: **not run**. This is the canonical G3 procedure. Repository tests,
+Actions results, emulators, and synthetic records cannot mark a scenario as
+passed.
 
-## Safety rules
+## Safety and evidence boundary
 
-- Use a dedicated test profile and synthetic records only.
-- Disable log capture, screenshots containing personal data, crash uploads, and
-  screen recording. Never run `adb logcat`, inspect app storage, or copy device
-  databases.
-- Do not record serial number, Android ID, account ID, build fingerprint, Wi-Fi
-  details, filenames, notification text, biometric details, or exception text.
-- Record only the schema fields. A native capability report is a runtime claim,
-  not proof of StrongBox attestation.
-- Run destructive recovery and revocation tests only against disposable test
-  keys and synthetic vault data.
+- Use only a dedicated test profile and synthetic records.
+- Bind the record to the exact candidate commit and APK SHA-256 from verified
+  release provenance.
+- Never record a serial number, Android ID, account ID, build fingerprint,
+  biometric detail, filename, device path, photo, raw log, exception text, or
+  notification content.
+- Do not run `adb logcat`, pull app storage, copy the SQLCipher database, or
+  upload screenshots containing user content.
+- The only accepted record shape is schema version 2 in
+  `schema/evidence.schema.json`.
 
 ## Preparation
 
-1. Run `tool/build_check.sh` on the workstation. Stop on any failure.
-2. Connect the Redmi Turbo with USB debugging explicitly enabled for this test.
-3. Run `tool/adb_readiness.sh`. It reports only ready/not-ready and never emits
-   the device identifier.
-4. Build the app from the reviewed commit. Install it manually using the normal
-   Android development workflow; the helper scripts intentionally do not
-   install or mutate the device.
-5. Create a fresh JSON record from the synthetic example, change
-   `recordKind` to `real_device`, reset all scenario results to `blocked`, and
-   keep all test data synthetic.
+1. Verify the APK, checksum sidecar, and provenance:
+
+   ```sh
+   python3 tool/android_mvp/verify_release_candidate.py \
+     --apk personal-os-latest-debug.apk \
+     --checksum personal-os-latest-debug.apk.sha256 \
+     --provenance personal-os-latest-debug.provenance.json
+   ```
+
+2. Run workstation and ADB readiness checks:
+
+   ```sh
+   bash evidence/android/tool/build_check.sh
+   bash evidence/android/tool/adb_readiness.sh
+   ```
+
+3. Copy `records/synthetic.example.json` outside the repository. Change
+   `recordKind` to `real_device`, fill the verified commit and APK digest,
+   use real UTC start/end times, and leave every scenario blocked until it has
+   actually been executed.
+4. Install the exact verified APK. Do not rebuild between scenarios.
 
 ## Result rules
 
-A scenario is `pass` only when every listed check passes. It is `fail` when an
-observed result violates any check, with the closest allowlisted failure code.
-It is `blocked` when the scenario cannot be completed; use `not_run` or the
-closest allowlisted environmental code. Overall is `pass` only when all nine
-scenarios pass, `fail` if any fails, otherwise `blocked`.
+A scenario is `pass` only when every numbered check passes. It is `fail`
+when an observed result violates a check, using the closest allowlisted stable
+failure code. It remains `blocked` when a prerequisite is missing or it has
+not been run. Overall is `pass` only when all nine scenarios pass, `fail`
+when any scenario fails, and otherwise `blocked`.
 
-## Scenarios
+## Canonical nine scenarios
 
 ### 1. Install and launch (`install_launch`, 3 checks)
 
-1. Android accepts the reviewed build without requesting undeclared access.
-2. The app launches to its expected locked or onboarding state.
-3. No real user content is needed to proceed.
+1. Android installs the verified APK without requesting undeclared access.
+2. The first launch displays the locked Vault gate.
+3. No protected history, Blob reference, analysis result, or real content is
+   visible before authentication.
 
-Pass: all three. Fail: installation or launch fails, or real content is
-required (`install_failed`, `launch_failed`, or `unexpected_result`).
+Failure codes: `install_failed`, `launch_failed`, `lock_bypass`.
 
-### 2. Offline operation (`offline_operation`, 3 checks)
+### 2. Offline strategy loop (`offline_loop`, 4 checks)
 
-1. Enable airplane mode manually after creating one synthetic local record.
-2. Relaunch and read/update that synthetic record.
-3. Verify the change is queued locally without requiring a server response.
+1. Enable airplane mode before opening the Vault.
+2. Create a synthetic Agent/strategy session and reach at least one execution
+   and deterministic outcome.
+3. Confirm the UI remains functional without a server response or embedded
+   model dependency.
+4. Lock and unlock; the committed synthetic state remains readable.
 
-Pass: all three. Fail if core use becomes network-dependent
-(`network_dependency`).
+Failure codes: `network_dependency`, `state_not_restored`.
 
-### 3. Screen lock (`screen_lock`, 4 checks)
+### 3. Process death (`process_death`, 4 checks)
 
-1. Open the synthetic vault through the normal authentication gate.
-2. Lock the screen, wait beyond the configured grant lifetime, and unlock it.
-3. Return to the app; protected data must be gated.
-4. Cancel authentication; protected data must remain unavailable.
+1. Leave one open synthetic strategy session with a current execution outcome.
+2. Run `adb shell am force-stop com.personalos.app`, then relaunch with
+   `adb shell monkey -p com.personalos.app -c android.intent.category.LAUNCHER 1`.
+3. Confirm the app returns to the locked gate and exposes no protected state.
+4. Authenticate and confirm the same session identity, execution, outcome, and
+   review state are reconstructed without duplicate events.
 
-Pass: all four. Fail if protected state is exposed (`lock_bypass`).
+Failure codes: `lock_bypass`, `state_not_restored`.
 
 ### 4. Device reboot (`device_reboot`, 4 checks)
 
-1. With only synthetic data stored, reboot manually.
-2. Launch before authenticating; the vault must remain locked.
-3. Authenticate; committed synthetic state must be restored.
-4. Pending encrypted work must be recoverable without plaintext leakage.
+1. Reboot manually with only synthetic data stored.
+2. Launch before authentication and confirm the Vault stays locked.
+3. Authenticate and confirm committed appearance and strategy history restore.
+4. Continue the restored strategy once and confirm the new event persists.
 
-Pass: all four. Fail on bypass or lost committed state (`lock_bypass` or
-`state_not_restored`).
+Failure codes: `lock_bypass`, `state_not_restored`.
 
-### 5. Capability report (`capability_report`, 4 checks)
+### 5. Lock and unlock (`lock_unlock`, 4 checks)
 
-1. Read only the app's structured capability UI/export; do not use system logs.
-2. Confirm authentication and device-credential booleans match observed gates.
-3. Confirm non-exportability and atomic-revocation values are not hard-coded.
-4. Record the exact protection enum. Do not upgrade `trusted_environment` to
-   `strongbox` without a future attestation design.
+1. Open the Vault through the normal system authentication gate.
+2. Lock from the app and confirm all protected projections disappear.
+3. Cancel the next authentication attempt; the Vault remains locked.
+4. Authenticate again and confirm projections are rebuilt from durable events.
 
-Pass: all four. Fail on contradiction (`capability_mismatch`).
+Failure codes: `lock_bypass`, `state_not_restored`.
 
-### 6. Vault wrong-key rejection (`vault_wrong_key`, 3 checks)
+### 6. Permission denial (`permission_denied`, 3 checks)
 
-1. Use a deliberately unrelated disposable test key handle.
-2. Attempt to open a copied synthetic encrypted fixture.
-3. Confirm access fails closed and no partial plaintext becomes visible.
+1. Open Photo Picker and cancel; confirm no Blob, observation, or model call is
+   created. Photo Picker itself should not request shared-storage permission.
+2. Start camera capture, deny the runtime camera permission, and confirm the
+   operation fails closed with stable UI behavior.
+3. Reopen the app and confirm denial did not corrupt or mutate prior history.
 
-Pass: rejection with no plaintext. Fail if accepted (`wrong_key_accepted`).
+Failure codes: `permission_behavior_invalid`, `unexpected_result`.
 
-### 7. Trusted-device recovery (`trusted_device_recovery`, 5 checks)
+### 7. HyperOS battery restriction (`battery_restriction`, 3 checks)
 
-1. Use two dedicated test devices or an approved simulator as the trusted peer.
-2. Start migration with synthetic data and authenticate both endpoints.
-3. Confirm encrypted transfer requires explicit approval.
-4. Confirm the recovered vault matches synthetic fixture counts.
-5. Confirm the old transfer capability cannot be reused.
+1. Set the app to the restrictive HyperOS battery mode.
+2. Leave the app, allow the OS to stop it, and relaunch normally.
+3. Confirm no background service is required and committed state restores only
+   after Vault authentication.
 
-Pass: all five. Fail on mismatch, bypass, or replay (`recovery_failed`).
+Failure codes: `battery_behavior_invalid`, `state_not_restored`.
 
-### 8. Offline-package recovery (`offline_package_recovery`, 5 checks)
+### 8. Export and local deletion (`export_delete`, 5 checks)
 
-1. Create a disposable encrypted recovery package from synthetic data.
-2. Move it through an approved test-only path without recording filenames.
-3. Enter a dedicated high-entropy test recovery code.
-4. Confirm a wrong code reveals no data; then recover with the correct code.
-5. Confirm the recovery capability is rotated or invalidated as designed.
+1. With synthetic history present, export an encrypted `.posb` backup.
+2. Cancel one export attempt and confirm no success state is reported.
+3. Lock the Vault, then clear the app's local storage through Android Settings.
+4. Relaunch and authenticate into a fresh Vault; old local history must be
+   absent.
+5. Confirm the external encrypted backup remains the only recovery capability
+   and that deleting local storage did not expose plaintext.
 
-Pass: all five. Fail on disclosure, wrong-code acceptance, or unusable correct
-recovery (`recovery_failed` or `wrong_key_accepted`).
+Failure codes: `export_failed`, `delete_failed`, `lock_bypass`.
 
-### 9. Device revocation (`device_revocation`, 5 checks)
+### 9. Encrypted recovery drill (`recovery_drill`, 8 checks)
 
-1. Provision two disposable device identities with synthetic data.
-2. Revoke one through the approved test flow.
-3. Confirm revocation and account-epoch rotation complete as one operation.
-4. Confirm the revoked device cannot authorize new data, online or offline.
-5. Confirm the retained device can create and later synchronize new data.
+1. Start from a fresh Vault after the deletion scenario.
+2. Select the previously exported encrypted backup.
+3. Enter a deliberately wrong test passphrase; confirm
+   `backup.authentication_failed` and zero restored events.
+4. Modify one byte in a disposable copy of the backup outside the phone; import
+   it and confirm authentication failure with zero restored events.
+5. Import the original backup with the correct passphrase.
+6. Confirm the app locks immediately after the atomic restore.
+7. Authenticate and compare only non-sensitive event counts and workflow state
+   with the pre-export baseline.
+8. Force-stop and relaunch once more; after authentication the restored state
+   must remain identical and usable.
 
-Pass: all five. Fail if the revoked device authorizes future data
-(`revoked_device_authorized`) or rotation is incomplete (`unexpected_result`).
+Failure codes: `backup_authentication_failed`,
+`backup_tamper_accepted`, `backup_failed`, `recovery_failed`,
+`state_not_restored`.
 
 ## Finalization
 
-1. Set counts, allowlisted codes, scenario results, and overall result only.
-2. Run `tool/check_evidence.sh path/to/record.json`.
-3. Review the JSON manually for prohibited identifiers or free text.
-4. Remove disposable app data and test keys using normal UI/platform controls.
-   Do not use helper scripts to delete device data.
+Validate the completed record:
+
+```sh
+bash evidence/android/tool/check_evidence.sh /path/to/record.json
+python3 tool/android_mvp/validate_redmi_evidence.py \
+  /path/to/record.json --require-ready
+```
+
+Review the JSON manually for prohibited identifiers or free text before
+retaining it. A successful structural check means only that the record is
+well-formed; `DEVICE_VERIFIED` requires a real-device record with all nine
+scenarios passed.

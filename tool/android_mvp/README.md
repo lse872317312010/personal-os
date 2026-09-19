@@ -40,9 +40,15 @@ require enabling **Install via USB**. The install script replaces only the
 debug package `com.personalos.app`, then opens it. It deliberately does not use
 `adb logcat`, `adb bugreport`, screenshot, pull, or filesystem commands.
 
-The current MVP has no network, camera, microphone, location, contacts, or
-shared-storage permission. Its `blob://` field is a synthetic reference entry;
-it is not a photo picker.
+The current Android MVP uses the system Photo Picker without shared-storage
+permission and requests camera permission only when native camera capture is
+started. Event history remains in SQLCipher; media remains behind opaque
+`blob://` references. Portable `.posb` backups are passphrase-protected in
+native code before the system document picker writes them.
+
+The canonical Redmi G3 procedure is
+`evidence/android/REDMI_TURBO_RUNBOOK.md`. The legacy RDM-numbered checklist
+must not be used for a `DEVICE_VERIFIED` claim.
 
 Only the debug APK flow is prepared. Release signing is deliberately not
 configured; no signing key or password belongs in this repository.

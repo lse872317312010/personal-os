@@ -11,6 +11,8 @@ python3 -m unittest discover -s tool/contract_audit/tests -p 'test_*.py'
 python3 -m unittest discover -s tool/mvp_acceptance/tests -p 'test_*.py'
 python3 evidence/android/tool/validate_evidence.py \
   evidence/android/records/synthetic.example.json
+python3 -m unittest discover -s evidence/android/tool -p 'test_*.py'
+python3 -m unittest tool/android_mvp/test_validate_redmi_evidence.py
 python3 -m unittest tool/tests/test_evidence_ledger.py
 python3 -m unittest tool/tests/test_audit_remote_branches.py
 python3 tool/evidence_ledger.py --ledger evidence/mvp/status.json
