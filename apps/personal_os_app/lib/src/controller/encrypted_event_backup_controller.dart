@@ -138,7 +138,7 @@ final class EncryptedEventBackupController extends ChangeNotifier {
     required EntityId profileId,
     VoidCallback? onRestoreCompleted,
   })  : _historyReader = eventStore is CompleteProfileHistoryReader
-            ? eventStore
+            ? eventStore as CompleteProfileHistoryReader
             : null,
         _restore = EventArchiveRestoreService(eventStore: eventStore),
         _port = port,
