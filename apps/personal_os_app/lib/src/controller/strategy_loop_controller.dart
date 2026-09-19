@@ -121,9 +121,14 @@ final class StrategyLoopController extends ChangeNotifier {
 
   Future<void> openOfflineSession({required String agentId}) async {
     if (_status == StrategyUiStatus.running) return;
+    final entryEpoch = _lifecycleEpoch;
     if (!_bootstrapped && _restoreQuery != null) {
       await bootstrap();
-      if (_disposed || _status == StrategyUiStatus.failed) return;
+      if (_disposed ||
+          entryEpoch != _lifecycleEpoch ||
+          _status == StrategyUiStatus.failed) {
+        return;
+      }
     }
     if (hasSession) {
       _fail('strategy.session_already_open');
