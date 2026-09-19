@@ -21,7 +21,7 @@ def check(item_id):
 def valid_ledger():
     common = {"status": "pass", "commit": COMMIT, "checked_at": "2026-08-20T12:00:00Z", "checked_by": "owner"}
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "kind": "real",
         "candidate_commit": COMMIT,
         "gates": {
@@ -35,6 +35,26 @@ def valid_ledger():
                 "cycle_start": "2026-08-01",
                 "cycle_end": "2026-08-20",
                 "steps": [check(x) for x in sorted(audit_module.DOGFOOD_STEPS)],
+                "continuity_checks": [
+                    check(x) for x in sorted(audit_module.DOGFOOD_CONTINUITY)
+                ],
+                "rounds": [
+                    {
+                        "round": 1,
+                        "strategy_ref": "strategy:v1@3",
+                        "harness_ref": "harness:first",
+                        "execution_count": 3,
+                        "outcome_count": 2,
+                    },
+                    {
+                        "round": 2,
+                        "strategy_ref": "strategy:v2@3",
+                        "parent_strategy_ref": "strategy:v1@3",
+                        "harness_ref": "harness:second",
+                        "execution_count": 2,
+                        "outcome_count": 2,
+                    },
+                ],
                 "safety_checks": [check(x) for x in sorted(audit_module.DOGFOOD_SAFETY)],
             },
         },
@@ -74,6 +94,34 @@ class AuditTests(unittest.TestCase):
         ledger["gates"]["dogfood"]["steps"] = [x for x in ledger["gates"]["dogfood"]["steps"] if x["id"] != "revision"]
         passed, _ = audit_module.audit(ledger)
         self.assertFalse(passed[4])
+
+    def test_dogfood_requires_two_distinct_harnesses(self):
+        ledger = valid_ledger()
+        ledger["gates"]["dogfood"]["rounds"][1]["harness_ref"] = "harness:first"
+        passed, errors = audit_module.audit(ledger)
+        self.assertFalse(passed[4])
+        self.assertTrue(any("dogfood" in error for error in errors))
+
+    def test_dogfood_requires_v2_parent_lineage(self):
+        ledger = valid_ledger()
+        ledger["gates"]["dogfood"]["rounds"][1]["parent_strategy_ref"] = "strategy:other@1"
+        passed, errors = audit_module.audit(ledger)
+        self.assertFalse(passed[4])
+        self.assertTrue(any("dogfood" in error for error in errors))
+
+    def test_dogfood_requires_explicit_continuity_checks(self):
+        ledger = valid_ledger()
+        ledger["gates"]["dogfood"]["continuity_checks"].pop()
+        passed, errors = audit_module.audit(ledger)
+        self.assertFalse(passed[4])
+        self.assertTrue(any("dogfood" in error for error in errors))
+
+    def test_redmi_apk_must_match_built_artifact(self):
+        ledger = valid_ledger()
+        ledger["gates"]["redmi_device"]["apk_sha256"] = "c" * 64
+        passed, errors = audit_module.audit(ledger)
+        self.assertFalse(passed[3])
+        self.assertTrue(any("redmi_device" in error for error in errors))
 
     def test_pass_without_evidence_reference_is_rejected(self):
         ledger = valid_ledger()
