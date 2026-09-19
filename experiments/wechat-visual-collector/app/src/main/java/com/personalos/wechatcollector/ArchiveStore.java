@@ -21,7 +21,12 @@ final class ArchiveStore {
 
     static File file(Context context) { return new File(context.getFilesDir(), FILE_NAME); }
 
-    static synchronized int append(Context context, List<String> lines) throws Exception {
+    static synchronized int append(
+            Context context,
+            String sessionId,
+            String groupLabel,
+            int pageIndex,
+            List<String> lines) throws Exception {
         Set<String> existing = hashes(context);
         int inserted = 0;
         try (FileOutputStream stream = context.openFileOutput(FILE_NAME, Context.MODE_APPEND)) {
@@ -32,6 +37,9 @@ final class ArchiveStore {
                 if (!existing.add(hash)) continue;
                 JSONObject object = new JSONObject();
                 object.put("capturedAt", System.currentTimeMillis());
+                object.put("sessionId", sessionId);
+                object.put("groupLabel", groupLabel);
+                object.put("pageIndex", pageIndex);
                 object.put("text", normalized);
                 object.put("sha256", hash);
                 stream.write((object.toString() + "\n").getBytes(StandardCharsets.UTF_8));
