@@ -146,6 +146,10 @@ final class PersonalOsAgentProtocolService {
         'invalid context query',
       );
     }
+    await _requireSessionAccess(
+      sessionId: sessionId,
+      requiredCapability: 'context.query',
+    );
     final page = await _contextSource.query(
       sessionId: sessionId,
       purpose: purpose,
@@ -169,13 +173,17 @@ final class PersonalOsAgentProtocolService {
   Future<ContextRecord?> getObject({
     required EntityId sessionId,
     required ObjectRef ref,
-  }) {
+  }) async {
     if (ref.revision == null) {
       throw const AgentProtocolException(
         AgentProtocolError.unpinnedReference,
         'get_object requires a pinned reference',
       );
     }
+    await _requireSessionAccess(
+      sessionId: sessionId,
+      requiredCapability: 'object.get',
+    );
     return _contextSource.get(sessionId: sessionId, ref: ref);
   }
 
@@ -194,10 +202,11 @@ final class PersonalOsAgentProtocolService {
         'Agent identity does not match proposal session',
       );
     }
-    await _requireSessionIdentity(
+    await _requireSessionAccess(
       sessionId: proposal.sessionId,
       profileId: profileId,
       agent: agent,
+      requiredCapability: 'proposal.submit',
     );
     return _strategyLoop.submitProposal(
       proposal.toCommand(
@@ -225,10 +234,11 @@ final class PersonalOsAgentProtocolService {
         'Agent identity does not match review session',
       );
     }
-    await _requireSessionIdentity(
+    await _requireSessionAccess(
       sessionId: review.sessionId,
       profileId: profileId,
       agent: agent,
+      requiredCapability: 'review.submit',
     );
     return _actionFeedback.createReview(
       review.toCommand(
@@ -241,10 +251,11 @@ final class PersonalOsAgentProtocolService {
     );
   }
 
-  Future<void> _requireSessionIdentity({
+  Future<void> _requireSessionAccess({
     required EntityId sessionId,
-    required EntityId profileId,
-    required ActorRef agent,
+    EntityId? profileId,
+    ActorRef? agent,
+    String? requiredCapability,
   }) async {
     final events = await _eventStore.readBySubject(
       ObjectRef(type: 'agent_session', id: sessionId),
@@ -256,17 +267,64 @@ final class PersonalOsAgentProtocolService {
         break;
       }
     }
-    final belongsToProfile = opened?.subjectRefs.any(
-          (subject) => subject.type == 'profile' && subject.id == profileId,
-        ) ??
-        false;
-    final sameAgent = opened?.actor.actorId == agent.actorId &&
-        opened?.actor.onBehalfOf == agent.onBehalfOf &&
-        opened?.payload['agent_id'] == agent.actorId;
-    if (!belongsToProfile || !sameAgent) {
+    if (opened == null) {
       throw const AgentProtocolException(
-        AgentProtocolError.invalidRequest,
-        'Agent identity does not own this session',
+        AgentProtocolError.accessDenied,
+        'Agent session access denied',
+      );
+    }
+
+    if (profileId != null) {
+      final belongsToProfile = opened.subjectRefs.any(
+        (subject) => subject.type == 'profile' && subject.id == profileId,
+      );
+      if (!belongsToProfile) {
+        throw const AgentProtocolException(
+          AgentProtocolError.accessDenied,
+          'Agent session access denied',
+        );
+      }
+    }
+    if (agent != null) {
+      final sameAgent = opened.actor.actorId == agent.actorId &&
+          opened.actor.onBehalfOf == agent.onBehalfOf &&
+          opened.payload['agent_id'] == agent.actorId;
+      if (!sameAgent) {
+        throw const AgentProtocolException(
+          AgentProtocolError.accessDenied,
+          'Agent session access denied',
+        );
+      }
+    }
+    if (requiredCapability != null) {
+      final raw = opened.payload['capabilities'];
+      final capabilities =
+          raw is List ? raw.whereType<String>().toSet() : const <String>{};
+      if (!capabilities.contains(requiredCapability)) {
+        throw const AgentProtocolException(
+          AgentProtocolError.accessDenied,
+          'Agent session capability denied',
+        );
+      }
+    }
+
+    var projections = <String, ObjectProjection>{};
+    var seen = <String>{};
+    for (final event in events) {
+      final reduction = reduceCore(
+        projections: projections,
+        seenEventIds: seen,
+        event: event,
+      );
+      if (reduction.disposition != ReductionDisposition.applied) continue;
+      projections = Map<String, ObjectProjection>.of(reduction.projections);
+      seen = Set<String>.of(reduction.seenEventIds);
+    }
+    final state = projections['agent_session:${sessionId.value}']?.state;
+    if (state != 'opened' && state != 'proposalSubmitted') {
+      throw const AgentProtocolException(
+        AgentProtocolError.sessionClosed,
+        'Agent session is closed',
       );
     }
   }
@@ -288,7 +346,7 @@ final class PersonalOsAgentProtocolService {
         'invalid Agent session close request',
       );
     }
-    await _requireSessionIdentity(
+    await _requireSessionAccess(
       sessionId: sessionId,
       profileId: profileId,
       agent: agent,
