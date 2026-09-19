@@ -179,6 +179,7 @@ final class AppComposition {
       strategyLoop: strategyLoop,
       actionFeedback: actionFeedback,
       profileId: profileId,
+      restoreQuery: StrategySessionQueryHandler(eventStore),
       user: userActor,
     );
     return AppComposition(
