@@ -296,18 +296,6 @@ final class PersonalOsAgentProtocolService {
         );
       }
     }
-    if (requiredCapability != null) {
-      final raw = opened.payload['capabilities'];
-      final capabilities =
-          raw is List ? raw.whereType<String>().toSet() : const <String>{};
-      if (!capabilities.contains(requiredCapability)) {
-        throw const AgentProtocolException(
-          AgentProtocolError.accessDenied,
-          'Agent session capability denied',
-        );
-      }
-    }
-
     var projections = <String, ObjectProjection>{};
     var seen = <String>{};
     for (final event in events) {
@@ -326,6 +314,17 @@ final class PersonalOsAgentProtocolService {
         AgentProtocolError.sessionClosed,
         'Agent session is closed',
       );
+    }
+    if (requiredCapability != null) {
+      final raw = opened.payload['capabilities'];
+      final capabilities =
+          raw is List ? raw.whereType<String>().toSet() : const <String>{};
+      if (!capabilities.contains(requiredCapability)) {
+        throw const AgentProtocolException(
+          AgentProtocolError.accessDenied,
+          'Agent session capability denied',
+        );
+      }
     }
   }
 
