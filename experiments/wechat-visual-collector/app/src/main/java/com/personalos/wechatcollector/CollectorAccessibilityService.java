@@ -65,8 +65,8 @@ public class CollectorAccessibilityService extends AccessibilityService {
         params.gravity = Gravity.TOP | Gravity.END;
         params.x = dp(12);
         params.y = dp(220);
+        bubble.setClickable(true);
         bubble.setOnClickListener(v -> toggleCollection());
-        bubble.setOnTouchListener(new DragListener());
         windowManager.addView(bubble, params);
     }
 
@@ -158,29 +158,4 @@ public class CollectorAccessibilityService extends AccessibilityService {
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
 
-    private final class DragListener implements View.OnTouchListener {
-        private int startX, startY;
-        private float downX, downY;
-        private boolean moved;
-        @Override public boolean onTouch(View view, MotionEvent event) {
-            switch (event.getActionMasked()) {
-                case MotionEvent.ACTION_DOWN:
-                    startX = params.x; startY = params.y;
-                    downX = event.getRawX(); downY = event.getRawY(); moved = false;
-                    return true;
-                case MotionEvent.ACTION_MOVE:
-                    float dx = event.getRawX() - downX;
-                    float dy = event.getRawY() - downY;
-                    if (Math.abs(dx) + Math.abs(dy) > dp(8)) moved = true;
-                    params.x = Math.max(0, startX - Math.round(dx));
-                    params.y = Math.max(0, startY + Math.round(dy));
-                    windowManager.updateViewLayout(bubble, params);
-                    return true;
-                case MotionEvent.ACTION_UP:
-                    if (!moved) view.performClick();
-                    return true;
-                default: return false;
-            }
-        }
-    }
 }
