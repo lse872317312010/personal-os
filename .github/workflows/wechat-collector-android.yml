@@ -1,0 +1,41 @@
+name: WeChat Collector Android APK
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/wechat-collector-android.yml"
+      - "experiments/wechat-visual-collector/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+      - name: Build debug APK
+        working-directory: experiments/wechat-visual-collector
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Verify and stage APK
+        run: |
+          set -Eeuo pipefail
+          apk=experiments/wechat-visual-collector/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$apk"
+          mkdir -p release
+          cp "$apk" release/wechat-visual-collector-debug.apk
+          sha256sum release/wechat-visual-collector-debug.apk > release/wechat-visual-collector-debug.apk.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wechat-visual-collector-${{ github.sha }}
+          path: release/*
+          retention-days: 7
