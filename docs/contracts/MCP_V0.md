@@ -39,7 +39,7 @@ Input:
 - `capabilities`: protocol features understood by the caller
 - `purpose`: short reason for access
 
-Returns a session ID and the granted capability subset.
+Returns a session ID and the granted capability subset. Requested capabilities are not ambient authority: every later read or write revalidates the stored grant and the current session lifecycle.
 
 ### `personal_os.query_context`
 
@@ -119,6 +119,10 @@ All errors use:
 Required codes: `invalid_request`, `unsupported_version`,
 `session_closed`, `access_denied`, `not_found`, `stale_reference`,
 `validation_failed`, and `internal_error`.
+
+A missing capability returns `access_denied`. A closed or failed session returns
+`session_closed`. Neither response includes database paths, raw exceptions,
+keys, profile content, or the capabilities of another session.
 
 ## Compatibility rules
 
