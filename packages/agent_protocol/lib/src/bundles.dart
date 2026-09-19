@@ -21,6 +21,12 @@ abstract final class AgentProtocolError {
   static const invalidRequest = 'invalid_request';
   static const unsupportedVersion = 'unsupported_version';
   static const unpinnedReference = 'unpinned_reference';
+  static const sessionClosed = 'session_closed';
+  static const accessDenied = 'access_denied';
+  static const notFound = 'not_found';
+  static const staleReference = 'stale_reference';
+  static const validationFailed = 'validation_failed';
+  static const internalError = 'internal_error';
 }
 
 final class ContextRecord {
