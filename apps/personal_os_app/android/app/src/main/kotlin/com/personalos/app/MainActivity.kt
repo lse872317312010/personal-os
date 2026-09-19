@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import com.personalos.app.backup.PortableEventBackupChannel
 import com.personalos.app.model.AndroidNativeModelCredentialPrompt
 import com.personalos.app.model.EphemeralNativeModelCredentialProvider
 import com.personalos.app.model.NativeAppearanceModelChannel
@@ -24,6 +25,8 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterFragmentActivity() {
     private var vaultChannel: MethodChannel? = null
     private var vaultHandler: NativeVaultChannel? = null
+    private var backupChannel: MethodChannel? = null
+    private var backupHandler: PortableEventBackupChannel? = null
     private var sourceChannel: MethodChannel? = null
     private var sourceHandler: ControlledSourceChannel? = null
     private var cameraCapture: ControlledCameraCapture? = null
@@ -39,6 +42,20 @@ class MainActivity : FlutterFragmentActivity() {
     private val cameraLauncher: ActivityResultLauncher<Uri> by lazy {
         registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
             cameraCapture?.onCaptured(success)
+        }
+    }
+
+    private val backupCreateDocumentLauncher: ActivityResultLauncher<String> by lazy {
+        registerForActivityResult(
+            ActivityResultContracts.CreateDocument("application/octet-stream"),
+        ) { uri ->
+            backupHandler?.onDocumentCreated(uri)
+        }
+    }
+
+    private val backupOpenDocumentLauncher: ActivityResultLauncher<Array<String>> by lazy {
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            backupHandler?.onDocumentOpened(uri)
         }
     }
 
@@ -58,6 +75,26 @@ class MainActivity : FlutterFragmentActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             NativeVaultChannel.CHANNEL_NAME,
         ).also { it.setMethodCallHandler(vault) }
+
+        val backup = PortableEventBackupChannel(
+            activity = this,
+            contentResolver = contentResolver,
+            createDocument = backupCreateDocumentLauncher,
+            openDocument = backupOpenDocumentLauncher,
+            isVaultActive = {
+                try {
+                    vault.currentSessionId()
+                    true
+                } catch (_: Throwable) {
+                    false
+                }
+            },
+        )
+        backupHandler = backup
+        backupChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            PortableEventBackupChannel.CHANNEL_NAME,
+        ).also { it.setMethodCallHandler(backup) }
 
         val modelAdapter = if (BuildConfig.PERSONAL_OS_OPENAI_ENABLED) {
             StructuredExternalAppearanceModelTransport(
@@ -105,7 +142,11 @@ class MainActivity : FlutterFragmentActivity() {
             try {
                 handler.retireTokens()
             } finally {
-                nativeModel.revokeRuntimeCredential()
+                try {
+                    nativeModel.revokeRuntimeCredential()
+                } finally {
+                    backup.onVaultInvalidated()
+                }
             }
         }
         sourceChannel = MethodChannel(
@@ -119,6 +160,10 @@ class MainActivity : FlutterFragmentActivity() {
         modelChannel = null
         modelHandler?.dispose()
         modelHandler = null
+        backupChannel?.setMethodCallHandler(null)
+        backupChannel = null
+        backupHandler?.dispose()
+        backupHandler = null
         vaultChannel?.setMethodCallHandler(null)
         vaultChannel = null
         vaultHandler?.dispose()
@@ -136,6 +181,8 @@ class MainActivity : FlutterFragmentActivity() {
         modelHandler = null
         vaultHandler?.dispose()
         vaultHandler = null
+        backupHandler?.dispose()
+        backupHandler = null
         sourceHandler?.dispose()
         sourceHandler = null
         cameraCapture = null

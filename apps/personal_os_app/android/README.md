@@ -197,11 +197,41 @@ and failed acknowledgement all clear the owned native credential.
   keys, close all database handles, and stop worker executors.
 - Keystore hardware backing, StrongBox, Camera/Photo Picker runtime behavior,
   Redmi-device behavior, migration from any pre-existing plaintext file, rekey,
-  deletion, export, real-model behavior, and real-device evidence are unverified.
+  deletion, encrypted-backup behavior, real-model behavior, and real-device
+  evidence are unverified.
 - Channel errors return only stable codes and fixed safe messages; `details` is
   always null. Raw exceptions, paths, aliases, and stack traces never cross
   the channel. Event-content conflicts use only the fixed conflict code and
   message; event IDs and JSON are never included in channel error details.
+
+## Encrypted event backup
+
+`MainActivity` registers `personal_os/internal/event_backup` for portable
+event-history backup and restore. Export reads the complete profile history via
+the paged Vault API, applies the D3 export ceiling and forbidden-field policy,
+then creates the deterministic `personal-os.events` archive. The Android
+adapter prompts for a passphrase in a `FLAG_SECURE` native dialog, derives a
+256-bit key with PBKDF2-HMAC-SHA256 (210,000 iterations and a random 16-byte
+salt), and authenticates/encrypts the archive with AES-256-GCM and a random
+12-byte nonce. Only the encrypted `.posb` envelope is written through
+Android's system document picker.
+
+Import selects a document through the system picker, obtains the passphrase in
+native UI, bounds the encrypted input to 16 MiB plus envelope overhead, and
+authenticates before returning the in-memory archive to the Dart restore
+service. The restore service verifies the archive format, event count,
+checksum, duplicate IDs, and every event envelope before one atomic Vault
+append. Existing identical events remain idempotent; any divergent event ID
+conflict rolls back the complete restore. A successful restore locks the Vault,
+clears volatile controllers, and requires a new authenticated unlock so all
+views replay the restored history.
+
+Passphrase character arrays, derived key bytes, plaintext byte arrays, and
+ciphertext work buffers are cleared on success, failure, cancellation, Vault
+invalidation, and channel teardown where the platform representation permits.
+The passphrase never enters a MethodChannel, Flutter value, file name, log, or
+persistent store. Cancellation and failures cross Flutter only as fixed status
+or stable `backup.*` codes without paths or exception text.
 
 The native vault and controlled-source implementations must remain compatible
 with their Dart contracts. Their presence in the Android composition is an

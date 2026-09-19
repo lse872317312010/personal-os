@@ -59,7 +59,10 @@ final class VaultLockScreen extends StatelessWidget {
                         key: const Key('unlock-error'),
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+                          color: controller.errorCode ==
+                                  'backup.restore_completed'
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).colorScheme.error,
                         ),
                       ),
                     ],
@@ -73,6 +76,7 @@ final class VaultLockScreen extends StatelessWidget {
 }
 
 String _unlockErrorText(String code) => switch (code) {
+      'backup.restore_completed' => '备份恢复完成。请重新解锁以加载恢复后的历史。',
       'security.unlock_cancelled' => '已取消解锁。',
       'security.unlock_denied' => '系统未授权解锁，请重试。',
       'security.unlock_unavailable' => '当前无法使用系统解锁。',

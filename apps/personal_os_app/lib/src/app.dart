@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'composition/app_composition.dart';
 import 'controller/app_controller.dart';
+import 'controller/encrypted_event_backup_controller.dart';
 import 'controller/strategy_loop_controller.dart';
 import 'navigation/app_destination.dart';
 import 'screens/screens.dart';
@@ -42,6 +43,7 @@ final class _PersonalOsAppState extends State<PersonalOsApp> {
             return _UnlockedShell(
               controller: controller,
               strategyController: widget.composition.strategyController,
+              backupController: widget.composition.backupController,
               mode: widget.composition.mode,
             );
           },
@@ -53,11 +55,13 @@ final class _UnlockedShell extends StatelessWidget {
   const _UnlockedShell({
     required this.controller,
     required this.strategyController,
+    required this.backupController,
     required this.mode,
   });
 
   final AppController controller;
   final StrategyLoopController strategyController;
+  final EncryptedEventBackupController backupController;
   final AppExperienceMode mode;
 
   @override
@@ -76,6 +80,7 @@ final class _UnlockedShell extends StatelessWidget {
         body: switch (controller.destination) {
           AppDestination.home => HomeScreen(
               controller: controller,
+              backupController: backupController,
               mode: mode,
             ),
           AppDestination.capture => CaptureScreen(
