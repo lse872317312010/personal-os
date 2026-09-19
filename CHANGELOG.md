@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-09-19 — MCP adapter authority hardening
+
+### Added
+
+- MCP 2025-06-18 JSON-RPC handshake, tool discovery and six-tool dispatch adapter;
+- volatile Harness binding, server-owned Session revision and explicit `revokeAll()`;
+- Android foreground MCP transport security contract.
+
+### Hardened
+
+- every context read, object read, proposal and review now rechecks its granted capability;
+- proposal/review/close reject closed or failed durable Agent sessions;
+- Harness/profile mismatches return stable `access_denied`;
+- transport failures never return raw exception text, paths, keys or user content.
+
+### Not Yet Enabled
+
+- no Android socket, HTTP listener, LAN binding or background service is enabled;
+- live MCP remains unavailable until lifecycle, bearer, body-bound and loopback Android tests pass.
+
 ## 2026-09-15 — Android external-agent strategy loop
 
 ### Accepted
