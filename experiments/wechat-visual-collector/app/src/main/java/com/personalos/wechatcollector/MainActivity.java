@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -19,6 +20,9 @@ import java.io.File;
 
 public class MainActivity extends Activity {
     private TextView preview;
+    private EditText groupInput;
+    private EditText pagesInput;
+    private EditText intervalInput;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -34,7 +38,17 @@ public class MainActivity extends Activity {
         TextView title = text("微信视觉采集实验", 24, true);
         content.addView(title);
         content.addView(text(
-                "1. 开启无障碍服务\n2. 打开自己的目标微信群\n3. 点击蓝色“采”悬浮按钮：保存当前可见文字并翻到更早一屏\n4. 回到这里查看或分享JSONL\n\n本实验不自动登录、不后台无限采集、不读取微信数据库。", 16, false));
+                "v0.2 一键连续采集\n1. 填写群标签、屏数和间隔并保存\n2. 开启无障碍服务\n3. 打开自己的目标微信群\n4. 点击蓝色“采”：自动采集和翻页；按钮变成“停”，再次点击立即停止\n5. 回到这里查看或分享JSONL\n\n本实验不自动登录、不读取微信数据库。", 16, false));
+
+        android.content.SharedPreferences preferences =
+                getSharedPreferences("collector_settings", MODE_PRIVATE);
+        groupInput = input("群标签", preferences.getString("group_label", "测试群"));
+        pagesInput = input("连续采集屏数（1～30）", String.valueOf(preferences.getInt("pages", 5)));
+        intervalInput = input("翻页间隔毫秒（800～10000）", String.valueOf(preferences.getLong("interval_ms", 1600L)));
+        content.addView(groupInput);
+        content.addView(pagesInput);
+        content.addView(intervalInput);
+        content.addView(button("保存采集设置", v -> saveSettings()));
 
         content.addView(button("开启/检查无障碍权限", v ->
                 startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))));
@@ -66,6 +80,37 @@ public class MainActivity extends Activity {
         lp.topMargin = dp(8);
         button.setLayoutParams(lp);
         return button;
+    }
+
+    private EditText input(String hint, String value) {
+        EditText input = new EditText(this);
+        input.setHint(hint);
+        input.setText(value);
+        input.setSingleLine(true);
+        input.setTextSize(16);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = dp(6);
+        input.setLayoutParams(lp);
+        return input;
+    }
+
+    private void saveSettings() {
+        try {
+            String label = groupInput.getText().toString().trim();
+            if (label.isEmpty()) throw new IllegalArgumentException("群标签不能为空");
+            int pages = Integer.parseInt(pagesInput.getText().toString().trim());
+            long interval = Long.parseLong(intervalInput.getText().toString().trim());
+            if (pages < 1 || pages > 30) throw new IllegalArgumentException("屏数必须为1～30");
+            if (interval < 800 || interval > 10_000) throw new IllegalArgumentException("间隔必须为800～10000毫秒");
+            getSharedPreferences("collector_settings", MODE_PRIVATE).edit()
+                    .putString("group_label", label)
+                    .putInt("pages", pages)
+                    .putLong("interval_ms", interval)
+                    .apply();
+            toast("设置已保存");
+        } catch (Exception error) {
+            toast(error.getMessage());
+        }
     }
 
     private TextView text(String value, int sp, boolean bold) {
