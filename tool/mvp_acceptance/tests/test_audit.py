@@ -89,9 +89,13 @@ class AuditTests(unittest.TestCase):
         self.assertFalse(passed[3])
         self.assertTrue(any("redmi_device" in error for error in errors))
 
-    def test_dogfood_requires_feedback_revision(self):
+    def test_dogfood_requires_first_round_feedback(self):
         ledger = valid_ledger()
-        ledger["gates"]["dogfood"]["steps"] = [x for x in ledger["gates"]["dogfood"]["steps"] if x["id"] != "revision"]
+        ledger["gates"]["dogfood"]["steps"] = [
+            x
+            for x in ledger["gates"]["dogfood"]["steps"]
+            if x["id"] != "feedback_v1"
+        ]
         passed, _ = audit_module.audit(ledger)
         self.assertFalse(passed[4])
 
