@@ -128,6 +128,8 @@ final class PersonalOsMcpJsonRpcAdapter {
       return _toolFailure(error.code);
     } on StrategyLoopFailure {
       return _toolFailure(AgentProtocolError.validationFailed);
+    } on FeedbackUseCaseFailure {
+      return _toolFailure(AgentProtocolError.validationFailed);
     } catch (_) {
       return _toolFailure(AgentProtocolError.internalError);
     }
