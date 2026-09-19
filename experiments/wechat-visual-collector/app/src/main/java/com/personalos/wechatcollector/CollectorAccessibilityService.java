@@ -17,12 +17,20 @@ import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class CollectorAccessibilityService extends AccessibilityService {
     private static final String WECHAT = "com.tencent.mm";
     private WindowManager windowManager;
     private TextView bubble;
     private WindowManager.LayoutParams params;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private boolean running;
+    private int currentPage;
+    private int targetPages;
+    private long intervalMs;
+    private String sessionId;
+    private String groupLabel;
 
     @Override public void onServiceConnected() {
         super.onServiceConnected();
@@ -57,33 +65,69 @@ public class CollectorAccessibilityService extends AccessibilityService {
         params.gravity = Gravity.TOP | Gravity.END;
         params.x = dp(12);
         params.y = dp(220);
-        bubble.setOnClickListener(v -> captureAndScroll());
+        bubble.setOnClickListener(v -> toggleCollection());
         bubble.setOnTouchListener(new DragListener());
         windowManager.addView(bubble, params);
     }
 
-    private void captureAndScroll() {
+    private void toggleCollection() {
+        if (running) {
+            stopCollection("已手动停止");
+            return;
+        }
+        android.content.SharedPreferences preferences =
+                getSharedPreferences("collector_settings", MODE_PRIVATE);
+        targetPages = Math.max(1, Math.min(30, preferences.getInt("pages", 5)));
+        intervalMs = Math.max(800L, Math.min(10_000L, preferences.getLong("interval_ms", 1600L)));
+        groupLabel = preferences.getString("group_label", "未命名群");
+        sessionId = UUID.randomUUID().toString();
+        currentPage = 0;
+        running = true;
+        bubble.setText("停");
+        toast("开始连续采集 " + targetPages + " 屏；再次点击可停止");
+        captureCycle();
+    }
+
+    private void captureCycle() {
+        if (!running) return;
         AccessibilityNodeInfo root = getRootInActiveWindow();
         if (root == null || root.getPackageName() == null || !WECHAT.contentEquals(root.getPackageName())) {
-            toast("请先打开微信目标群聊");
+            stopCollection("已停止：请保持在微信目标群聊");
             return;
         }
         List<String> lines = new ArrayList<>();
         collect(root, lines);
         try {
-            int inserted = ArchiveStore.append(this, lines);
-            toast("保存 " + inserted + " 条新文本，正在翻到更早消息");
+            int inserted = ArchiveStore.append(
+                    this, sessionId, groupLabel, currentPage, lines);
+            currentPage++;
+            toast("第 " + currentPage + "/" + targetPages + " 屏，新增 " + inserted + " 条");
         } catch (Exception error) {
-            toast("保存失败：" + error.getMessage());
+            stopCollection("保存失败：" + error.getMessage());
+            return;
+        }
+        if (currentPage >= targetPages) {
+            stopCollection("采集完成，共 " + currentPage + " 屏");
             return;
         }
         AccessibilityNodeInfo scrollable = findScrollable(root);
         if (scrollable == null) {
-            toast("当前页面没有找到可滚动区域");
+            stopCollection("已停止：当前页面没有找到可滚动区域");
             return;
         }
-        new Handler(Looper.getMainLooper()).postDelayed(
-                () -> scrollable.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD), 350);
+        boolean accepted = scrollable.performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
+        if (!accepted) {
+            stopCollection("已停止：微信未接受翻页动作");
+            return;
+        }
+        handler.postDelayed(this::captureCycle, intervalMs);
+    }
+
+    private void stopCollection(String message) {
+        running = false;
+        handler.removeCallbacksAndMessages(null);
+        if (bubble != null) bubble.setText("采");
+        toast(message);
     }
 
     private void collect(AccessibilityNodeInfo node, List<String> output) {
@@ -109,7 +153,7 @@ public class CollectorAccessibilityService extends AccessibilityService {
     }
 
     private void toast(String message) {
-        new Handler(Looper.getMainLooper()).post(() -> Toast.makeText(this, message, Toast.LENGTH_SHORT).show());
+        handler.post(() -> Toast.makeText(this, message, Toast.LENGTH_SHORT).show());
     }
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
