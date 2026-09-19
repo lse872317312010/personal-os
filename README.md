@@ -70,20 +70,26 @@ Personal OS保存个人已有资产、当前状态、目标、约束、策略、
 - native SQLCipher存储；
 - Encrypted Blob；
 - Photo Picker和Camera；
-- Task与Review基础流程；
+- Task、Execution、Outcome与结构化Review流程；
+- PersonalAsset、Strategy、AgentSession领域对象与生命周期；
+- 厂商无关Agent Protocol v0和固定revision Context/Proposal/Review Bundle；
+- Android两轮Strategy UI、Harness身份绑定、handoff与冷启动恢复；
+- 可验证无损事件归档和口令加密的Android备份/原子恢复；
 - 构建、测试、APK SHA-256和provenance链。
 
 这些代码是新方向的重要基础，但现有Android内置OpenAI路径、Windows spike和多设备同步不再属于当前MVP主线。代码处置必须在影响分析后完成。
 
 ## 当前状态
 
-产品方向重构中：
+外部Agent策略主链已进入设备与真实使用验证阶段：
 
-- 产品、MVP、需求、用例、验收、路线图和推荐架构正在转向外部Agent + MCP；
-- 尚未完成Strategy/Outcome/AgentSession增量领域设计；
-- 尚未实现Android MCP Gateway；
-- 尚未完成两轮真实dogfood；
-- 当前不能视为新方向的MVP Ready。
+- 领域、事件、SQLite projection、Application authority与Agent Protocol v0已经落地；
+- Context、Proposal和Review Bundle使用同一厂商无关协议，并已验证两个Harness的历史接续；
+- Android可完成策略提案确认、执行/结果记录、结构化复盘、Strategy v2谱系展示和冷启动恢复；
+- 加密备份支持错误口令/篡改拒绝、原子恢复和恢复后强制重锁；
+- G0–G2由仓库CI验证；G3必须在Redmi真机执行规范九场景；
+- Android前台实时MCP传输和同一Goal的2–6周真实两轮dogfood尚未完成；
+- 在G3与G4真实证据齐备前，项目不能宣称 `DOGFOOD_READY`。
 
 ## 文档入口
 
