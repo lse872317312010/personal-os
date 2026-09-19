@@ -13,6 +13,9 @@ required=(
   "$repo_root/tool/android_mvp/validate_redmi_evidence.py"
   "$repo_root/docs/REDMI_DOGFOOD_RUNBOOK.md"
   "$repo_root/docs/REDMI_DOGFOOD_EVIDENCE_TEMPLATE.json"
+  "$repo_root/evidence/android/REDMI_TURBO_RUNBOOK.md"
+  "$repo_root/evidence/android/schema/evidence.schema.json"
+  "$repo_root/evidence/android/tool/validate_evidence.py"
 )
 
 for file in "${required[@]}"; do
@@ -35,9 +38,13 @@ fi
 
 grep -Fq "process-restart surrogate" \
   "$repo_root/tests/integration_test/dogfood_flow_test.dart"
-grep -Fq "不能证明操作系统杀进程后的冷启动恢复" \
+grep -Fq "evidence/android/REDMI_TURBO_RUNBOOK.md" \
   "$repo_root/docs/REDMI_DOGFOOD_RUNBOOK.md"
-grep -Fq '"BLOCKED"' \
+grep -Fq "不能替代真机结果" \
+  "$repo_root/docs/REDMI_DOGFOOD_RUNBOOK.md"
+grep -Fq '"schemaVersion": 2' \
+  "$repo_root/docs/REDMI_DOGFOOD_EVIDENCE_TEMPLATE.json"
+grep -Fq '"result": "blocked"' \
   "$repo_root/docs/REDMI_DOGFOOD_EVIDENCE_TEMPLATE.json"
 
 echo "Dogfood assets are present, shell syntax is valid, and non-device limits are documented."
