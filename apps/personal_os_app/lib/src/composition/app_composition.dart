@@ -129,6 +129,7 @@ final class AppComposition {
     ControlledSourcePort? sourcePort,
     SourceBlobIngestionPort? sourceBlobIngestion,
     AppearanceAnalysisGateway? modelGateway,
+    EncryptedEventBackupPort? backupPort,
   }) {
     final clock = _SystemClock();
     final policyClock = _SystemPolicyClock();
