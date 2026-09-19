@@ -28,8 +28,7 @@ void main() {
         'clientInfo': <String, Object?>{'name': 'test-harness'},
       },
     );
-    final initializeResult =
-        initialized!['result']! as Map<String, Object?>;
+    final initializeResult = initialized!['result']! as Map<String, Object?>;
     expect(
       initializeResult['protocolVersion'],
       personalOsMcpTransportVersion,
@@ -52,9 +51,7 @@ void main() {
     final result = listed!['result']! as Map<String, Object?>;
     final tools = result['tools']! as List<Object?>;
     expect(
-      tools
-          .map((item) => (item! as Map<String, Object?>)['name'])
-          .toSet(),
+      tools.map((item) => (item! as Map<String, Object?>)['name']).toSet(),
       <String>{
         PersonalOsMcpTools.openSession,
         PersonalOsMcpTools.queryContext,
@@ -155,7 +152,8 @@ void main() {
       'initialize',
       const <String, Object?>{'protocolVersion': 'future-version'},
     );
-    expect(_errorStableCode(unsupported), AgentProtocolError.unsupportedVersion);
+    expect(
+        _errorStableCode(unsupported), AgentProtocolError.unsupportedVersion);
 
     await _initialize(adapter);
     final failed = await _toolResult(
