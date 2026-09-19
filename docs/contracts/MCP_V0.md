@@ -13,6 +13,18 @@ strategies.
 Every response carries a `session_id`, `protocol_version`, and pinned object
 references. Any accepted write is attributed to the originating Agent session.
 
+## MCP JSON-RPC adapter
+
+The pure Dart adapter supports MCP `2025-06-18` initialization,
+`tools/list`, and `tools/call` for the six v0 tools. It owns volatile
+Harness bindings and Session revisions, and exposes only stable redacted
+errors. It does not open a socket.
+
+Android live transport remains disabled until
+[`architecture/ANDROID_MCP_TRANSPORT.md`](../../architecture/ANDROID_MCP_TRANSPORT.md)
+is satisfied. In particular, no LAN listener or background service is implied
+by the adapter.
+
 ## MCP resources
 
 | URI template | Purpose |
