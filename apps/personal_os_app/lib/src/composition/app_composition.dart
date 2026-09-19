@@ -41,10 +41,10 @@ final class AppComposition {
   final EventStore eventStore;
   final AppExperienceMode mode;
 
-  factory AppComposition.inMemoryDemo() {
+  factory AppComposition.inMemoryDemo({EventStore? eventStore}) {
     final policyClock = _SystemPolicyClock();
     return _build(
-      eventStore: InMemoryEventStore(),
+      eventStore: eventStore ?? InMemoryEventStore(),
       mode: AppExperienceMode.syntheticDemo,
       initialGrants: <ConsentGrant>[
         _demoAppearanceConsent(policyClock.now()),
@@ -132,7 +132,7 @@ final class AppComposition {
       eventStore: eventStore,
       fallback: consentRepository,
     );
-    final ids = _SequentialIds();
+    final ids = _RuntimeIds();
     final resolvedModelGateway = modelGateway ??
         const FixtureAppearanceAnalysisGateway(
           behavior: FixtureAppearanceBehavior.syntheticSuccess,
@@ -320,9 +320,12 @@ ConsentGrant _demoAppearanceConsent(DateTime now) => ConsentGrant(
       status: ConsentStatus.active,
     );
 
-final class _SequentialIds implements IdGenerator {
+final class _RuntimeIds implements IdGenerator {
+  _RuntimeIds() : _bootNonce = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+
+  final String _bootNonce;
   int _next = 0;
 
   @override
-  String nextId(String namespace) => '$namespace-${++_next}';
+  String nextId(String namespace) => '$namespace-$_bootNonce-${++_next}';
 }
