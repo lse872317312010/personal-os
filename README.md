@@ -88,7 +88,8 @@ Personal OS保存个人已有资产、当前状态、目标、约束、策略、
 - Android可完成策略提案确认、执行/结果记录、结构化复盘、Strategy v2谱系展示和冷启动恢复；
 - 加密备份支持错误口令/篡改拒绝、原子恢复和恢复后强制重锁；
 - G0–G2由仓库CI验证；G3必须在Redmi真机执行规范九场景；
-- Android前台实时MCP传输和同一Goal的2–6周真实两轮dogfood尚未完成；
+- MCP 2025-06-18 JSON-RPC适配与逐调用capability校验已实现，但Android前台网络监听仍未开启；
+- 同一Goal的2–6周真实两轮dogfood尚未完成；
 - 在G3与G4真实证据齐备前，项目不能宣称 `DOGFOOD_READY`。
 
 ## 文档入口
