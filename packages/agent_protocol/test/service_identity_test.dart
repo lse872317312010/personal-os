@@ -93,7 +93,100 @@ void main() {
         isA<AgentProtocolException>().having(
           (error) => error.code,
           'code',
-          AgentProtocolError.invalidRequest,
+          AgentProtocolError.accessDenied,
+        ),
+      ),
+    );
+  });
+
+  test('granted capabilities and open lifecycle are enforced', () async {
+    final store = _EventStore();
+    final ids = _Ids();
+    final service = PersonalOsAgentProtocolService(
+      eventStore: store,
+      strategyLoop: StrategyLoopUseCase(
+        eventStore: store,
+        ids: ids,
+        clock: const _Clock(),
+      ),
+      actionFeedback: ActionFeedbackUseCase(
+        eventStore: store,
+        ids: ids,
+        clock: const _Clock(),
+      ),
+      contextSource: const _NoContext(),
+      ids: ids,
+      clock: const _Clock(),
+    );
+
+    final contextOnly = await service.openSession(
+      agent: _agent('context-only'),
+      profileId: EntityId('primary-user'),
+      purpose: 'read context',
+      requestedCapabilities: const <String>['context.query'],
+    );
+    expect(
+      () => service.submitProposal(
+        bundleJson: _proposal(contextOnly.sessionId.value, 'denied'),
+        agent: _agent(
+          'context-only',
+          sessionId: contextOnly.sessionId.value,
+        ),
+        profileId: EntityId('primary-user'),
+        expectedSessionRevision: contextOnly.revision,
+      ),
+      throwsA(
+        isA<AgentProtocolException>().having(
+          (error) => error.code,
+          'code',
+          AgentProtocolError.accessDenied,
+        ),
+      ),
+    );
+
+    final proposalOnly = await service.openSession(
+      agent: _agent('proposal-only'),
+      profileId: EntityId('primary-user'),
+      purpose: 'write proposal',
+      requestedCapabilities: const <String>['proposal.submit'],
+    );
+    expect(
+      () => service.queryContext(
+        sessionId: proposalOnly.sessionId,
+        purpose: 'unauthorized read',
+        objectTypes: const <String>{'goal'},
+      ),
+      throwsA(
+        isA<AgentProtocolException>().having(
+          (error) => error.code,
+          'code',
+          AgentProtocolError.accessDenied,
+        ),
+      ),
+    );
+
+    final boundAgent = _agent(
+      'proposal-only',
+      sessionId: proposalOnly.sessionId.value,
+    );
+    await service.closeSession(
+      sessionId: proposalOnly.sessionId,
+      profileId: EntityId('primary-user'),
+      expectedRevision: proposalOnly.revision,
+      agent: boundAgent,
+    );
+    expect(
+      () => service.submitProposal(
+        bundleJson: _proposal(proposalOnly.sessionId.value, 'closed'),
+        agent: boundAgent,
+        profileId: EntityId('primary-user'),
+        expectedSessionRevision: proposalOnly.revision,
+      ),
+      throwsA(
+        isA<AgentProtocolException>().having(
+          (error) => error.code,
+          'code',
+          AgentProtocolError.sessionClosed,
         ),
       ),
     );
@@ -135,7 +228,7 @@ void main() {
         isA<AgentProtocolException>().having(
           (error) => error.code,
           'code',
-          AgentProtocolError.invalidRequest,
+          AgentProtocolError.accessDenied,
         ),
       ),
     );
