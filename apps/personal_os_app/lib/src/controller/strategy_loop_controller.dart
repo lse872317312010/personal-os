@@ -29,7 +29,7 @@ final class StrategyLoopController extends ChangeNotifier {
   final ActorRef _user;
 
   int _lifecycleEpoch = 0;
-  bool _disposed = false;
+  bool _disposed = false;\n  bool _bootstrapped = false;
 
   StrategyUiStatus _status = StrategyUiStatus.idle;
   String? _errorCode;
@@ -81,6 +81,39 @@ final class StrategyLoopController extends ChangeNotifier {
       (_strategyId == null ||
           _outcomeId != null ||
           _strategyState == 'abandoned');
+
+  Future<void> bootstrap() async {
+    final query = _restoreQuery;
+    if (query == null || _bootstrapped || _disposed) return;
+    await _run((isCurrent) async {
+      final view = await query.execute(_profileId);
+      if (!isCurrent()) return 'stale';
+      if (view != null) _applyRestoredSession(view);
+      _bootstrapped = true;
+      return view == null ? 'restore_empty' : 'session_restored';
+    });
+  }
+
+  void _applyRestoredSession(StrategySessionView view) {
+    _sessionId = view.sessionId;
+    _sessionRevision = view.sessionRevision;
+    _agentId = view.agentId;
+    _strategyId = view.strategyId;
+    _strategyRevision = view.strategyRevision;
+    _strategyState = view.strategyState;
+    _executionId = view.executionId;
+    _outcomeId = view.outcomeId;
+    _contextBundle = null;
+    _proposalTitle = view.proposalTitle;
+    _proposalRationale = view.proposalRationale;
+    _parentStrategyRef = view.parentStrategyRef;
+    _proposalEvidenceRefs = view.proposalEvidenceRefs;
+    _reviewId = view.reviewId;
+    _reviewState = view.reviewState;
+    _reviewSummary = view.reviewSummary;
+    _reviewConclusion = view.reviewConclusion;
+    _reviewEvidenceRefs = view.reviewEvidenceRefs;
+  }
 
   Future<void> openOfflineSession({required String agentId}) async {
     if (_status == StrategyUiStatus.running) return;
@@ -451,7 +484,7 @@ final class StrategyLoopController extends ChangeNotifier {
       await operation(isCurrent);
       if (!isCurrent()) return;
       _status = StrategyUiStatus.ready;
-    } on AgentProtocolException catch (error) {
+    } on StrategySessionRestoreFailure catch (error) {\n      if (!isCurrent()) return;\n      _status = StrategyUiStatus.failed;\n      _errorCode = error.code;\n    } on AgentProtocolException catch (error) {
       if (!isCurrent()) return;
       _status = StrategyUiStatus.failed;
       _errorCode = error.code;
