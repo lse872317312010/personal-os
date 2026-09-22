@@ -44,6 +44,7 @@ final class _PersonalOsAppState extends State<PersonalOsApp>
             errorCode: 'vault.lifecycle_background',
           );
         }
+        return;
       case AppLifecycleState.resumed:
       case AppLifecycleState.inactive:
         break;
