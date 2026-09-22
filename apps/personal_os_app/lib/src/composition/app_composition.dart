@@ -15,6 +15,7 @@ import 'package:personal_os_security_api/security_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 import 'package:personal_os_source_api/source_api.dart';
 
+import '../controller/agent_access_controller.dart';
 import '../controller/app_controller.dart';
 import '../controller/encrypted_event_backup_controller.dart';
 import '../controller/strategy_loop_controller.dart';
@@ -34,6 +35,7 @@ final class AppComposition {
     required this.controller,
     required this.strategyController,
     required this.backupController,
+    required this.agentAccessController,
     required this.eventStore,
     required this.mode,
   });
@@ -41,6 +43,7 @@ final class AppComposition {
   final AppController controller;
   final StrategyLoopController strategyController;
   final EncryptedEventBackupController backupController;
+  final AgentAccessController agentAccessController;
   final EventStore eventStore;
   final AppExperienceMode mode;
 
@@ -182,6 +185,14 @@ final class AppComposition {
       ids: ids,
       clock: clock,
     );
+    final mcpAdapter = PersonalOsMcpJsonRpcAdapter(
+      service: protocol,
+      profileId: profileId,
+    );
+    final agentAccessController = AgentAccessController(
+      handleRequest: mcpAdapter.handle,
+      revokeAll: mcpAdapter.revokeAll,
+    );
     final strategyController = StrategyLoopController(
       protocol: protocol,
       strategyLoop: strategyLoop,
@@ -228,6 +239,7 @@ final class AppComposition {
               : null,
       actor: userActor,
       onVaultLocked: () {
+        agentAccessController.stop();
         strategyController.reset();
         backupController.reset();
       },
@@ -247,6 +259,7 @@ final class AppComposition {
       mode: mode,
       strategyController: strategyController,
       backupController: backupController,
+      agentAccessController: agentAccessController,
       controller: controller,
     );
   }
