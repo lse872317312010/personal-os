@@ -24,4 +24,19 @@ void main() {
     await tester.pump();
     expect(find.text('我的 Personal OS'), findsOneWidget);
   });
+
+  testWidgets('backgrounding revokes an unlocked vault session', (tester) async {
+    await tester.pumpWidget(
+      PersonalOsApp(composition: AppComposition.inMemoryDemo()),
+    );
+    await tester.tap(find.byKey(const Key('unlock-vault')));
+    await tester.pump();
+    expect(find.text('今天，从一个小改变开始'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+
+    expect(find.text('我的 Personal OS'), findsOneWidget);
+    expect(find.text('今天，从一个小改变开始'), findsNothing);
+  });
 }
