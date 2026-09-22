@@ -13,6 +13,18 @@ strategies.
 Every response carries a `session_id`, `protocol_version`, and pinned object
 references. Any accepted write is attributed to the originating Agent session.
 
+## MCP JSON-RPC adapter
+
+The pure Dart adapter supports MCP `2025-06-18` initialization,
+`tools/list`, and `tools/call` for the six v0 tools. It owns volatile
+Harness bindings and Session revisions, and exposes only stable redacted
+errors. It does not open a socket.
+
+Android live transport remains disabled until
+[`architecture/ANDROID_MCP_TRANSPORT.md`](../../architecture/ANDROID_MCP_TRANSPORT.md)
+is satisfied. In particular, no LAN listener or background service is implied
+by the adapter.
+
 ## MCP resources
 
 | URI template | Purpose |
@@ -39,7 +51,7 @@ Input:
 - `capabilities`: protocol features understood by the caller
 - `purpose`: short reason for access
 
-Returns a session ID and the granted capability subset.
+Returns a session ID and the granted capability subset. Requested capabilities are not ambient authority: every later read or write revalidates the stored grant and the current session lifecycle.
 
 ### `personal_os.query_context`
 
@@ -119,6 +131,10 @@ All errors use:
 Required codes: `invalid_request`, `unsupported_version`,
 `session_closed`, `access_denied`, `not_found`, `stale_reference`,
 `validation_failed`, and `internal_error`.
+
+A missing capability returns `access_denied`. A closed or failed session returns
+`session_closed`. Neither response includes database paths, raw exceptions,
+keys, profile content, or the capabilities of another session.
 
 ## Compatibility rules
 
