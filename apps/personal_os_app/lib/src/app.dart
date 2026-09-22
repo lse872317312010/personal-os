@@ -16,7 +16,40 @@ final class PersonalOsApp extends StatefulWidget {
   State<PersonalOsApp> createState() => _PersonalOsAppState();
 }
 
-final class _PersonalOsAppState extends State<PersonalOsApp> {
+/// The Android Vault is foreground-only. Moving the app out of view must
+/// invalidate the unlocked in-memory session before any future MCP transport
+/// can be considered available.
+final class _PersonalOsAppState extends State<PersonalOsApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+        if (widget.composition.controller.vaultUnlocked) {
+          widget.composition.controller.lockVault(
+            errorCode: 'vault.lifecycle_background',
+          );
+        }
+      case AppLifecycleState.resumed:
+      case AppLifecycleState.inactive:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) => MaterialApp(
         title: 'Personal OS',
