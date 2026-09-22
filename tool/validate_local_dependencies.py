@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate local Dart path dependencies without requiring a Dart SDK."""
+"""Validate workspace Dart path dependencies without requiring a Dart SDK."""
 
 from __future__ import annotations
 
@@ -9,7 +9,12 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_ROOTS = (ROOT / "packages", ROOT / "adapters", ROOT / "test_contract")
+PACKAGE_ROOTS = (
+    ROOT / "packages",
+    ROOT / "adapters",
+    ROOT / "apps",
+    ROOT / "test_contract",
+)
 PATH_LINE = re.compile(r"^\s*path:\s*([^#]+?)\s*$")
 
 

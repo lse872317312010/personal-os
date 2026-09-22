@@ -20,7 +20,7 @@ Personal OS保存个人已有资产、当前状态、目标、约束、策略、
 ## 当前冻结决策
 
 - MVP只保留Android；
-- Redmi Turbo是首个Primary Vault和dogfooding设备；
+- Redmi Turbo是首个Primary Vault和dogfood设备；
 - Flutter UI + Dart-first core继续保留；
 - Android Vault是核心数据唯一权威端；
 - 推理元交互完全交给外部Agent/Harness；
