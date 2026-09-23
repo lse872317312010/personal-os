@@ -34,7 +34,7 @@ void main() {
     await tester.pump();
     expect(find.text('今天，从一个小改变开始'), findsOneWidget);
     expect(
-      composition.agentAccessController.start(vaultUnlocked: true),
+      composition.agentAccessController.start(),
       isTrue,
     );
 
