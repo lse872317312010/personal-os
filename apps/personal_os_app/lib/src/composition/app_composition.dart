@@ -189,9 +189,11 @@ final class AppComposition {
       service: protocol,
       profileId: profileId,
     );
+    late final AppController controller;
     final agentAccessController = AgentAccessController(
       handleRequest: mcpAdapter.handle,
       revokeAll: mcpAdapter.revokeAll,
+      vaultUnlocked: () => controller.vaultUnlocked,
     );
     final strategyController = StrategyLoopController(
       protocol: protocol,
@@ -202,7 +204,7 @@ final class AppComposition {
       user: userActor,
     );
     late final EncryptedEventBackupController backupController;
-    final controller = AppController(
+    controller = AppController(
       analyzeAppearance: useCase,
       actionFeedback: actionFeedback,
       profileId: profileId,
