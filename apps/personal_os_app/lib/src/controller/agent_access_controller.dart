@@ -12,21 +12,24 @@ final class AgentAccessController extends ChangeNotifier {
   AgentAccessController({
     required AgentRequestHandler handleRequest,
     required VoidCallback revokeAll,
+    required bool Function() vaultUnlocked,
   })  : _handleRequest = handleRequest,
-        _revokeAll = revokeAll;
+        _revokeAll = revokeAll,
+        _vaultUnlocked = vaultUnlocked;
 
   final AgentRequestHandler _handleRequest;
   final VoidCallback _revokeAll;
+  final bool Function() _vaultUnlocked;
+  int _epoch = 0;
 
   bool _active = false;
   bool get active => _active;
 
   /// Starts a volatile access window after an explicit user action.
   ///
-  /// The caller must pass the current authoritative Vault state. A locked
-  /// Vault always fails closed.
-  bool start({required bool vaultUnlocked}) {
-    if (!vaultUnlocked || _active) return false;
+  /// The current authoritative Vault state is checked at the boundary.
+  bool start() {
+    if (!_vaultUnlocked() || _active) return false;
     _revokeAll();
     _active = true;
     notifyListeners();
@@ -35,12 +38,12 @@ final class AgentAccessController extends ChangeNotifier {
 
   Future<Map<String, Object?>?> handle(
     Map<String, Object?> request,
-  ) {
-    if (!_active) {
+  ) async {
+    if (!_active || !_vaultUnlocked()) {
       if (!request.containsKey('id')) {
-        return Future<Map<String, Object?>?>.value(null);
+        return null;
       }
-      return Future<Map<String, Object?>?>.value(<String, Object?>{
+      return <String, Object?>{
         'jsonrpc': '2.0',
         'id': request['id'],
         'error': <String, Object?>{
@@ -51,22 +54,28 @@ final class AgentAccessController extends ChangeNotifier {
             'retryable': false,
           },
         },
-      });
+      };
     }
-    return _handleRequest(request);
+    final epoch = _epoch;
+    final response = await _handleRequest(request);
+    if (!_active || !_vaultUnlocked() || epoch != _epoch) {
+      return null;
+    }
+    return response;
   }
 
   /// Stops access synchronously and revokes every volatile Agent binding.
   void stop() {
-    _revokeAll();
-    if (!_active) return;
+    final wasActive = _active;
+    _epoch++;
     _active = false;
-    notifyListeners();
+    _revokeAll();
+    if (wasActive) notifyListeners();
   }
 
   @override
   void dispose() {
-    _revokeAll();
+    stop();
     super.dispose();
   }
 }
