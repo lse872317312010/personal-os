@@ -77,12 +77,20 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('synthetic-preview-notice')), findsOneWidget);
-      expect(tester.takeException(), isNull, reason: 'after unlock at $viewport');
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'after unlock at $viewport',
+      );
 
       await tester.tap(find.text('开始首次分析'));
       await tester.pumpAndSettle();
       expect(find.text('内置合成示例'), findsOneWidget);
-      expect(tester.takeException(), isNull, reason: 'on analysis at $viewport');
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: 'on analysis at $viewport',
+      );
     }
   });
 
