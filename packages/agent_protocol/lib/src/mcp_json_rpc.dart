@@ -88,20 +88,7 @@ final class PersonalOsMcpJsonRpcAdapter {
     _clientReady = false;
   }
 
-  Future<Map<String, Object?>?> _handleToolCall(
-    Object? id,
-    Map<String, Object?> params,
-    int accessEpoch,
-  ) async {
-    final result = await _callTool(params, accessEpoch);
-    if (accessEpoch != _accessEpoch) return null;
-    return _success(id, result);
-  }
-
-  Future<Map<String, Object?>> _callTool(
-    Map<String, Object?> params,
-    int accessEpoch,
-  ) async {
+  Map<String, Object?> _initialize(Map<String, Object?> params) {
     final requested = _string(params['protocolVersion'], 'protocolVersion');
     if (requested != personalOsMcpTransportVersion) {
       throw const AgentProtocolException(
@@ -129,8 +116,19 @@ final class PersonalOsMcpJsonRpcAdapter {
     }
   }
 
+  Future<Map<String, Object?>?> _handleToolCall(
+    Object? id,
+    Map<String, Object?> params,
+    int accessEpoch,
+  ) async {
+    final result = await _callTool(params, accessEpoch);
+    if (accessEpoch != _accessEpoch) return null;
+    return _success(id, result);
+  }
+
   Future<Map<String, Object?>> _callTool(
     Map<String, Object?> params,
+    int accessEpoch,
   ) async {
     try {
       final name = _string(params['name'], 'name');
