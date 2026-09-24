@@ -65,7 +65,7 @@ final class PersonalOsMcpJsonRpcAdapter {
       if (method == 'tools/call') {
         _requireReady();
         if (!hasId) return null;
-        return _handleToolCall(id, params, accessEpoch);
+        return await _handleToolCall(id, params, accessEpoch);
       }
       throw const _JsonRpcFailure(-32601, 'method_not_found');
     } on _JsonRpcFailure catch (error) {
