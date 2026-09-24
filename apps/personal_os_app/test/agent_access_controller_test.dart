@@ -7,7 +7,7 @@ import 'package:personal_os_app/src/controller/agent_access_controller.dart';
 void main() {
   test('locked Vault cannot start Agent access', () {
     var revocations = 0;
-    final unlocked = false;
+    const unlocked = false;
     final controller = AgentAccessController(
       handleRequest: (request) async => request,
       revokeAll: () => revocations++,
@@ -21,7 +21,7 @@ void main() {
 
   test('explicit start enables requests and stop revokes synchronously', () async {
     var revocations = 0;
-    final unlocked = true;
+    const unlocked = true;
     final controller = AgentAccessController(
       handleRequest: (request) async => <String, Object?>{
         'jsonrpc': '2.0',
