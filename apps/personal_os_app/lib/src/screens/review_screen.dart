@@ -49,8 +49,8 @@ final class ReviewScreen extends StatelessWidget {
             ),
           ],
           if (controller.feedbackCode case final code?) ...<Widget>[
-            Text('${controller.feedbackSubmission.name}: $code',
-                key: const Key('review-feedback-code')),
+            Text(_reviewFeedbackLabel(code),
+                key: const Key('review-feedback-message')),
             if (code == 'review_accepted' || code == 'review_rejected')
               const Padding(
                 padding: EdgeInsets.only(top: 12),
@@ -61,6 +61,15 @@ final class ReviewScreen extends StatelessWidget {
         ],
       );
 }
+
+String _reviewFeedbackLabel(String code) => switch (code) {
+      'task_completed' => '已记录完成，即将进入复盘。',
+      'task_skipped' => '已记录跳过，即将进入复盘。',
+      'review_created' => '已生成本次复盘，请确认结果。',
+      'review_accepted' => '已确认复盘结果有效。',
+      'review_rejected' => '已标记本次复盘无效。',
+      _ => '复盘操作未完成，请稍后重试。',
+    };
 
 String _reviewStateLabel(String? state) => switch (state) {
       'accepted' => '有效',
