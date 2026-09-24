@@ -18,7 +18,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(composition.controller.taskState(taskId), 'completed');
-    expect(find.text('succeeded: task_completed'), findsOneWidget);
+    expect(find.text('已记录完成，即将进入复盘。'), findsOneWidget);
+    expect(find.textContaining('succeeded:'), findsNothing);
     expect(
       (composition.eventStore as InMemoryEventStore)
           .readEvents()
@@ -37,7 +38,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(composition.controller.taskState(taskId), 'skipped');
-    expect(find.text('succeeded: task_skipped'), findsOneWidget);
+    expect(find.text('已记录跳过，即将进入复盘。'), findsOneWidget);
+    expect(find.textContaining('succeeded:'), findsNothing);
     expect(
       (composition.eventStore as InMemoryEventStore)
           .readEvents()
@@ -57,11 +59,13 @@ void main() {
 
     await tester.tap(find.byKey(const Key('create-review')));
     await tester.pumpAndSettle();
+    expect(find.text('已生成本次复盘，请确认结果。'), findsOneWidget);
     await tester.tap(find.byKey(const Key('accept-review')));
     await tester.pumpAndSettle();
 
     expect(composition.controller.reviewState, 'accepted');
-    expect(find.text('succeeded: review_accepted'), findsOneWidget);
+    expect(find.text('已确认复盘结果有效。'), findsOneWidget);
+    expect(find.textContaining('succeeded:'), findsNothing);
     expect(
       (composition.eventStore as InMemoryEventStore)
           .readEvents()
@@ -89,7 +93,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(composition.controller.reviewState, 'rejected');
-    expect(find.text('succeeded: review_rejected'), findsOneWidget);
+    expect(find.text('已标记本次复盘无效。'), findsOneWidget);
+    expect(find.textContaining('succeeded:'), findsNothing);
     expect(
       (composition.eventStore as InMemoryEventStore)
           .readEvents()
