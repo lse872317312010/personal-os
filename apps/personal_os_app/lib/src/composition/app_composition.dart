@@ -23,6 +23,7 @@ import 'android_platform_security_bridge.dart';
 import 'method_channel_appearance_analysis_gateway.dart';
 import 'method_channel_controlled_source_port.dart';
 import 'method_channel_source_blob_ingestion_port.dart';
+import 'agent_access_event_store.dart';
 import 'native_sqlcipher_event_store.dart';
 import 'native_sqlcipher_session_coordinator.dart';
 
@@ -185,12 +186,39 @@ final class AppComposition {
       ids: ids,
       clock: clock,
     );
+    late final AppController controller;
+    late final AgentAccessController agentAccessController;
+    final agentEventStore = AgentAccessEventStore(
+      inner: eventStore,
+      isAuthorized: () =>
+          agentAccessController.active && controller.vaultUnlocked,
+    );
+    final agentStrategyLoop = StrategyLoopUseCase(
+      eventStore: agentEventStore,
+      ids: ids,
+      clock: clock,
+    );
+    final agentActionFeedback = ActionFeedbackUseCase(
+      eventStore: agentEventStore,
+      ids: ids,
+      clock: clock,
+    );
+    final agentProtocol = PersonalOsAgentProtocolService(
+      eventStore: agentEventStore,
+      strategyLoop: agentStrategyLoop,
+      actionFeedback: agentActionFeedback,
+      contextSource: EventBackedAgentContextSource(
+        eventStore: agentEventStore,
+        profileId: profileId,
+      ),
+      ids: ids,
+      clock: clock,
+    );
     final mcpAdapter = PersonalOsMcpJsonRpcAdapter(
-      service: protocol,
+      service: agentProtocol,
       profileId: profileId,
     );
-    late final AppController controller;
-    final agentAccessController = AgentAccessController(
+    agentAccessController = AgentAccessController(
       handleRequest: mcpAdapter.handle,
       revokeAll: mcpAdapter.revokeAll,
       vaultUnlocked: () => controller.vaultUnlocked,
