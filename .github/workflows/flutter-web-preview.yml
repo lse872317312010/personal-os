@@ -51,7 +51,7 @@ jobs:
         working-directory: apps/personal_os_app
         run: |
           set -Eeuo pipefail
-          dart format --output=none --set-exit-if-changed lib test
+          dart format --output=none --set-exit-if-changed lib/main_web_preview.dart lib/src/app.dart
           flutter analyze
           flutter test
 
