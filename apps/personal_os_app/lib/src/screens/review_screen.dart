@@ -63,6 +63,8 @@ final class ReviewScreen extends StatelessWidget {
 }
 
 String _reviewFeedbackLabel(String code) => switch (code) {
+      'task_completed' => '已记录完成，即将进入复盘。',
+      'task_skipped' => '已记录跳过，即将进入复盘。',
       'review_created' => '已生成本次复盘，请确认结果。',
       'review_accepted' => '已确认复盘结果有效。',
       'review_rejected' => '已标记本次复盘无效。',
