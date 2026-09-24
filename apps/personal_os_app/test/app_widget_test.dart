@@ -25,18 +25,24 @@ void main() {
     expect(find.text('我的 Personal OS'), findsOneWidget);
   });
 
-  testWidgets('backgrounding revokes an unlocked vault session', (tester) async {
+  testWidgets('backgrounding revokes Vault and Agent access', (tester) async {
+    final composition = AppComposition.inMemoryDemo();
     await tester.pumpWidget(
-      PersonalOsApp(composition: AppComposition.inMemoryDemo()),
+      PersonalOsApp(composition: composition),
     );
     await tester.tap(find.byKey(const Key('unlock-vault')));
     await tester.pump();
     expect(find.text('今天，从一个小改变开始'), findsOneWidget);
+    expect(
+      composition.agentAccessController.start(),
+      isTrue,
+    );
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
     await tester.pump();
 
     expect(find.text('我的 Personal OS'), findsOneWidget);
     expect(find.text('今天，从一个小改变开始'), findsNothing);
+    expect(composition.agentAccessController.active, isFalse);
   });
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:personal_os_agent_protocol/agent_protocol.dart';
@@ -142,6 +143,42 @@ void main() {
     );
     expect(denied['isError'], isTrue);
     expect(_toolErrorCode(denied), AgentProtocolError.accessDenied);
+  });
+
+  test('revokeAll prevents a pending open from restoring its binding',
+      () async {
+    final store = _PendingAppendEventStore();
+    final adapter = _adapter(store);
+    await _initialize(adapter);
+
+    final opening = _request(
+      adapter,
+      1,
+      'tools/call',
+      const <String, Object?>{
+        'name': PersonalOsMcpTools.openSession,
+        'arguments': <String, Object?>{
+          'agent_id': 'revoked-harness',
+          'purpose': 'pending open',
+          'capabilities': <Object?>['context.query'],
+        },
+      },
+    );
+    adapter.revokeAll();
+    store.completeAppend();
+    expect(await opening, isNull);
+
+    await _initialize(adapter);
+    final staleBinding = await _toolResult(
+      adapter,
+      2,
+      PersonalOsMcpTools.queryContext,
+      const <String, Object?>{
+        'session_id': 'agent_session-1',
+      },
+    );
+    expect(staleBinding['isError'], isTrue);
+    expect(_toolErrorCode(staleBinding), AgentProtocolError.accessDenied);
   });
 
   test('unsupported versions and internal failures stay redacted', () async {
@@ -333,6 +370,18 @@ class _EventStore implements EventStore {
     return limit == null
         ? matches
         : matches.take(limit).toList(growable: false);
+  }
+}
+
+final class _PendingAppendEventStore extends _EventStore {
+  final Completer<void> _append = Completer<void>();
+
+  void completeAppend() => _append.complete();
+
+  @override
+  Future<void> appendAll(List<EventEnvelope> events) async {
+    await _append.future;
+    await super.appendAll(events);
   }
 }
 

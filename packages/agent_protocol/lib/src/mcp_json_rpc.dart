@@ -29,10 +29,12 @@ final class PersonalOsMcpJsonRpcAdapter {
 
   bool _initializeAccepted = false;
   bool _clientReady = false;
+  int _accessEpoch = 0;
 
   Future<Map<String, Object?>?> handle(
     Map<String, Object?> request,
   ) async {
+    final accessEpoch = _accessEpoch;
     final hasId = request.containsKey('id');
     final id = request['id'];
     try {
@@ -63,7 +65,7 @@ final class PersonalOsMcpJsonRpcAdapter {
       if (method == 'tools/call') {
         _requireReady();
         if (!hasId) return null;
-        return _success(id, await _callTool(params));
+        return await _handleToolCall(id, params, accessEpoch);
       }
       throw const _JsonRpcFailure(-32601, 'method_not_found');
     } on _JsonRpcFailure catch (error) {
@@ -80,6 +82,7 @@ final class PersonalOsMcpJsonRpcAdapter {
   /// Drops every volatile network binding. A Vault lock or transport stop must
   /// call this even if durable Agent sessions are already closed separately.
   void revokeAll() {
+    _accessEpoch++;
     _sessions.clear();
     _initializeAccepted = false;
     _clientReady = false;
@@ -113,15 +116,28 @@ final class PersonalOsMcpJsonRpcAdapter {
     }
   }
 
+  Future<Map<String, Object?>?> _handleToolCall(
+    Object? id,
+    Map<String, Object?> params,
+    int accessEpoch,
+  ) async {
+    final result = await _callTool(params, accessEpoch);
+    if (accessEpoch != _accessEpoch) return null;
+    return _success(id, result);
+  }
+
   Future<Map<String, Object?>> _callTool(
     Map<String, Object?> params,
+    int accessEpoch,
   ) async {
     try {
       final name = _string(params['name'], 'name');
       final arguments = params['arguments'] == null
           ? <String, Object?>{}
           : _map(params['arguments'], 'arguments');
-      final payload = await _dispatchTool(name, arguments);
+      _requireCurrent(accessEpoch);
+      final payload = await _dispatchTool(name, arguments, accessEpoch);
+      _requireCurrent(accessEpoch);
       return _toolResult(payload);
     } on AgentProtocolException catch (error) {
       return _toolFailure(error.code);
@@ -137,20 +153,21 @@ final class PersonalOsMcpJsonRpcAdapter {
   Future<Map<String, Object?>> _dispatchTool(
     String name,
     Map<String, Object?> arguments,
+    int accessEpoch,
   ) async {
     switch (name) {
       case PersonalOsMcpTools.openSession:
-        return _openSession(arguments);
+        return _openSession(arguments, accessEpoch);
       case PersonalOsMcpTools.queryContext:
-        return _queryContext(arguments);
+        return _queryContext(arguments, accessEpoch);
       case PersonalOsMcpTools.getObject:
-        return _getObject(arguments);
+        return _getObject(arguments, accessEpoch);
       case PersonalOsMcpTools.submitProposal:
-        return _submitProposal(arguments);
+        return _submitProposal(arguments, accessEpoch);
       case PersonalOsMcpTools.submitReview:
-        return _submitReview(arguments);
+        return _submitReview(arguments, accessEpoch);
       case PersonalOsMcpTools.closeSession:
-        return _closeSession(arguments);
+        return _closeSession(arguments, accessEpoch);
       default:
         throw const AgentProtocolException(
           AgentProtocolError.invalidRequest,
@@ -161,6 +178,7 @@ final class PersonalOsMcpJsonRpcAdapter {
 
   Future<Map<String, Object?>> _openSession(
     Map<String, Object?> arguments,
+    int accessEpoch,
   ) async {
     final agentId = _string(arguments['agent_id'], 'agent_id');
     final purpose = _string(arguments['purpose'], 'purpose');
@@ -178,6 +196,7 @@ final class PersonalOsMcpJsonRpcAdapter {
       purpose: purpose,
       requestedCapabilities: requested,
     );
+    _requireCurrent(accessEpoch);
     final binding = _SessionBinding(
       agentId: agentId,
       purpose: purpose,
@@ -195,6 +214,7 @@ final class PersonalOsMcpJsonRpcAdapter {
 
   Future<Map<String, Object?>> _queryContext(
     Map<String, Object?> arguments,
+    int accessEpoch,
   ) async {
     final sessionId = _sessionId(arguments);
     final binding = _binding(sessionId);
@@ -209,6 +229,7 @@ final class PersonalOsMcpJsonRpcAdapter {
           ? 100
           : _integer(arguments['limit'], 'limit'),
     );
+    _requireCurrent(accessEpoch);
     final decoded = jsonDecode(bundle);
     if (decoded is! Map) {
       throw const AgentProtocolException(
@@ -221,6 +242,7 @@ final class PersonalOsMcpJsonRpcAdapter {
 
   Future<Map<String, Object?>> _getObject(
     Map<String, Object?> arguments,
+    int accessEpoch,
   ) async {
     final sessionId = _sessionId(arguments);
     _binding(sessionId);
@@ -228,6 +250,7 @@ final class PersonalOsMcpJsonRpcAdapter {
       sessionId: sessionId,
       ref: _objectRef(arguments['ref']),
     );
+    _requireCurrent(accessEpoch);
     if (record == null) {
       throw const AgentProtocolException(
         AgentProtocolError.notFound,
@@ -239,6 +262,7 @@ final class PersonalOsMcpJsonRpcAdapter {
 
   Future<Map<String, Object?>> _submitProposal(
     Map<String, Object?> arguments,
+    int accessEpoch,
   ) async {
     final sessionId = _sessionId(arguments);
     final binding = _binding(sessionId);
@@ -249,6 +273,7 @@ final class PersonalOsMcpJsonRpcAdapter {
       profileId: _profileId,
       expectedSessionRevision: binding.revision,
     );
+    _requireCurrent(accessEpoch);
     binding.revision += 1;
     return <String, Object?>{
       'object_id': result.objectId.value,
@@ -259,6 +284,7 @@ final class PersonalOsMcpJsonRpcAdapter {
 
   Future<Map<String, Object?>> _submitReview(
     Map<String, Object?> arguments,
+    int accessEpoch,
   ) async {
     final sessionId = _sessionId(arguments);
     final binding = _binding(sessionId);
@@ -267,6 +293,7 @@ final class PersonalOsMcpJsonRpcAdapter {
       agent: _agent(sessionId, binding),
       profileId: _profileId,
     );
+    _requireCurrent(accessEpoch);
     return <String, Object?>{
       'review_id': result.reviewId,
       'event_id': result.eventId,
@@ -276,6 +303,7 @@ final class PersonalOsMcpJsonRpcAdapter {
 
   Future<Map<String, Object?>> _closeSession(
     Map<String, Object?> arguments,
+    int accessEpoch,
   ) async {
     final sessionId = _sessionId(arguments);
     final binding = _binding(sessionId);
@@ -288,11 +316,16 @@ final class PersonalOsMcpJsonRpcAdapter {
           ? false
           : _boolean(arguments['failed'], 'failed'),
     );
+    _requireCurrent(accessEpoch);
     _sessions.remove(sessionId.value);
     return <String, Object?>{
       'session_id': sessionId.value,
       'closed': true,
     };
+  }
+
+  void _requireCurrent(int accessEpoch) {
+    if (accessEpoch != _accessEpoch) throw const _AccessRevoked();
   }
 
   EntityId _sessionId(Map<String, Object?> arguments) =>
@@ -317,6 +350,10 @@ final class PersonalOsMcpJsonRpcAdapter {
         onBehalfOf: _profileId.value,
         capabilityRefs: binding.capabilities,
       );
+}
+
+final class _AccessRevoked implements Exception {
+  const _AccessRevoked();
 }
 
 final class _SessionBinding {

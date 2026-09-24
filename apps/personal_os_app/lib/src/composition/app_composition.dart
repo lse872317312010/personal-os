@@ -15,6 +15,7 @@ import 'package:personal_os_security_api/security_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 import 'package:personal_os_source_api/source_api.dart';
 
+import '../controller/agent_access_controller.dart';
 import '../controller/app_controller.dart';
 import '../controller/encrypted_event_backup_controller.dart';
 import '../controller/strategy_loop_controller.dart';
@@ -22,6 +23,7 @@ import 'android_platform_security_bridge.dart';
 import 'method_channel_appearance_analysis_gateway.dart';
 import 'method_channel_controlled_source_port.dart';
 import 'method_channel_source_blob_ingestion_port.dart';
+import 'agent_access_event_store.dart';
 import 'native_sqlcipher_event_store.dart';
 import 'native_sqlcipher_session_coordinator.dart';
 
@@ -34,6 +36,7 @@ final class AppComposition {
     required this.controller,
     required this.strategyController,
     required this.backupController,
+    required this.agentAccessController,
     required this.eventStore,
     required this.mode,
   });
@@ -41,6 +44,7 @@ final class AppComposition {
   final AppController controller;
   final StrategyLoopController strategyController;
   final EncryptedEventBackupController backupController;
+  final AgentAccessController agentAccessController;
   final EventStore eventStore;
   final AppExperienceMode mode;
 
@@ -182,6 +186,43 @@ final class AppComposition {
       ids: ids,
       clock: clock,
     );
+    late final AppController controller;
+    late final AgentAccessController agentAccessController;
+    final agentEventStore = AgentAccessEventStore(
+      inner: eventStore,
+      isAuthorized: () =>
+          agentAccessController.active && controller.vaultUnlocked,
+    );
+    final agentStrategyLoop = StrategyLoopUseCase(
+      eventStore: agentEventStore,
+      ids: ids,
+      clock: clock,
+    );
+    final agentActionFeedback = ActionFeedbackUseCase(
+      eventStore: agentEventStore,
+      ids: ids,
+      clock: clock,
+    );
+    final agentProtocol = PersonalOsAgentProtocolService(
+      eventStore: agentEventStore,
+      strategyLoop: agentStrategyLoop,
+      actionFeedback: agentActionFeedback,
+      contextSource: EventBackedAgentContextSource(
+        eventStore: agentEventStore,
+        profileId: profileId,
+      ),
+      ids: ids,
+      clock: clock,
+    );
+    final mcpAdapter = PersonalOsMcpJsonRpcAdapter(
+      service: agentProtocol,
+      profileId: profileId,
+    );
+    agentAccessController = AgentAccessController(
+      handleRequest: mcpAdapter.handle,
+      revokeAll: mcpAdapter.revokeAll,
+      vaultUnlocked: () => controller.vaultUnlocked,
+    );
     final strategyController = StrategyLoopController(
       protocol: protocol,
       strategyLoop: strategyLoop,
@@ -191,7 +232,7 @@ final class AppComposition {
       user: userActor,
     );
     late final EncryptedEventBackupController backupController;
-    final controller = AppController(
+    controller = AppController(
       analyzeAppearance: useCase,
       actionFeedback: actionFeedback,
       profileId: profileId,
@@ -228,6 +269,7 @@ final class AppComposition {
               : null,
       actor: userActor,
       onVaultLocked: () {
+        agentAccessController.stop();
         strategyController.reset();
         backupController.reset();
       },
@@ -247,6 +289,7 @@ final class AppComposition {
       mode: mode,
       strategyController: strategyController,
       backupController: backupController,
+      agentAccessController: agentAccessController,
       controller: controller,
     );
   }
