@@ -1,0 +1,104 @@
+name: Flutter Web synthetic preview
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/flutter-web-preview.yml"
+      - "apps/personal_os_app/**"
+      - "packages/**"
+      - "adapters/**"
+      - "pubspec.yaml"
+      - "analysis_options.yaml"
+  push:
+    paths:
+      - ".github/workflows/flutter-web-preview.yml"
+      - "apps/personal_os_app/**"
+      - "packages/**"
+      - "adapters/**"
+      - "pubspec.yaml"
+      - "analysis_options.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-web-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Build and test in Chrome
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.0"
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        working-directory: apps/personal_os_app
+        run: flutter pub get
+
+      - name: Format, analyze, and run widget suite
+        working-directory: apps/personal_os_app
+        run: |
+          set -Eeuo pipefail
+          dart format --output=none --set-exit-if-changed lib test
+          flutter analyze
+          flutter test
+
+      - name: Run end-to-end journey in Chrome
+        working-directory: apps/personal_os_app
+        run: flutter test --platform chrome test/mvp_journey_test.dart
+
+      - name: Build synthetic web preview
+        working-directory: apps/personal_os_app
+        run: flutter build web --release --base-href /personal-os/ --target lib/main_web_preview.dart
+
+      - name: Upload preview build
+        uses: actions/upload-artifact@v4
+        with:
+          name: personal-os-web-preview
+          path: apps/personal_os_app/build/web
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Publish synthetic preview to GitHub Pages
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Download tested web build
+        uses: actions/download-artifact@v4
+        with:
+          name: personal-os-web-preview
+          path: site
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
