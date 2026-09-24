@@ -111,23 +111,32 @@ final class _UnlockedShell extends StatelessWidget {
             ),
           ],
         ),
-        body: switch (controller.destination) {
-          AppDestination.home => HomeScreen(
-              controller: controller,
-              backupController: backupController,
-              mode: mode,
+        body: Column(
+          children: <Widget>[
+            if (mode == AppExperienceMode.syntheticDemo)
+              const _SyntheticPreviewNotice(),
+            Expanded(
+              child: switch (controller.destination) {
+                AppDestination.home => HomeScreen(
+                    controller: controller,
+                    backupController: backupController,
+                    mode: mode,
+                  ),
+                AppDestination.capture => CaptureScreen(
+                    controller: controller,
+                    mode: mode,
+                  ),
+                AppDestination.claims =>
+                  ClaimReviewScreen(controller: controller),
+                AppDestination.plan => PlanScreen(controller: controller),
+                AppDestination.strategy =>
+                  StrategyLoopScreen(controller: strategyController),
+                AppDestination.tasks => TaskScreen(controller: controller),
+                AppDestination.review => ReviewScreen(controller: controller),
+              },
             ),
-          AppDestination.capture => CaptureScreen(
-              controller: controller,
-              mode: mode,
-            ),
-          AppDestination.claims => ClaimReviewScreen(controller: controller),
-          AppDestination.plan => PlanScreen(controller: controller),
-          AppDestination.strategy =>
-            StrategyLoopScreen(controller: strategyController),
-          AppDestination.tasks => TaskScreen(controller: controller),
-          AppDestination.review => ReviewScreen(controller: controller),
-        },
+          ],
+        ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _primaryIndex(controller.destination),
           onDestinationSelected: (index) => controller.navigate(
@@ -163,6 +172,30 @@ final class _UnlockedShell extends StatelessWidget {
           ],
         ),
       );
+}
+
+final class _SyntheticPreviewNotice extends StatelessWidget {
+  const _SyntheticPreviewNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      key: const Key('synthetic-preview-notice'),
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.tertiaryContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '合成体验：只使用内存演示数据，刷新或关闭页面后清空。'
+        '请勿输入真实个人信息；不会上传云端，也不代表真实模型结果。',
+        style: theme.textTheme.bodySmall,
+      ),
+    );
+  }
 }
 
 int _primaryIndex(AppDestination destination) => switch (destination) {
