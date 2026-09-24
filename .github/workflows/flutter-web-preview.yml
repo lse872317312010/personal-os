@@ -11,6 +11,7 @@ on:
       - "pubspec.yaml"
       - "analysis_options.yaml"
   push:
+    branches: [main]
     paths:
       - ".github/workflows/flutter-web-preview.yml"
       - "apps/personal_os_app/**"
