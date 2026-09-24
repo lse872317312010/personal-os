@@ -57,9 +57,8 @@ final class TaskScreen extends StatelessWidget {
         if (tasks.isNotEmpty && !controller.planStarted)
           const Text('请先在分析流程中确认并选择行动计划。'),
         if (controller.feedbackCode case final code?) ...<Widget>[
-          Text('${controller.feedbackSubmission.name}: $code',
-              key: const Key('task-feedback-code')),
-          Text(_feedbackLabel(code)),
+          Text(_feedbackLabel(code),
+              key: const Key('task-feedback-message')),
         ],
       ],
     );
