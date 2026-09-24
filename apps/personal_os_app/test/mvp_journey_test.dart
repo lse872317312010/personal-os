@@ -14,6 +14,9 @@ void main() {
     await tester.tap(find.byKey(const Key('unlock-vault')));
     await tester.pump();
 
+    expect(find.byKey(const Key('synthetic-preview-notice')), findsOneWidget);
+    expect(find.textContaining('刷新或关闭页面后清空'), findsOneWidget);
+
     await tester.tap(find.text('开始首次分析'));
     await tester.pumpAndSettle();
     expect(find.text('内置合成示例'), findsOneWidget);
