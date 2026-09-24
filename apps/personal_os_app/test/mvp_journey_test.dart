@@ -58,6 +58,34 @@ void main() {
     expect(composition.controller.completedStep, 5);
   });
 
+  testWidgets('synthetic preview fits phone and desktop browser viewports',
+      (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    const viewports = <Size>[
+      Size(390, 844),
+      Size(1280, 800),
+    ];
+    for (final viewport in viewports) {
+      tester.view.physicalSize = viewport;
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(
+        PersonalOsApp(composition: AppComposition.inMemoryDemo()),
+      );
+      await tester.tap(find.byKey(const Key('unlock-vault')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('synthetic-preview-notice')), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'after unlock at $viewport');
+
+      await tester.tap(find.text('开始首次分析'));
+      await tester.pumpAndSettle();
+      expect(find.text('内置合成示例'), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: 'on analysis at $viewport');
+    }
+  });
+
   testWidgets('analysis is disabled and explains missing consent in Chinese',
       (tester) async {
     await tester.pumpWidget(
