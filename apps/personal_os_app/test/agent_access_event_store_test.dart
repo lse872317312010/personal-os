@@ -5,7 +5,7 @@ import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_events/events.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 
-import '../lib/src/composition/agent_access_event_store.dart';
+import 'package:personal_os_app/src/composition/agent_access_event_store.dart';
 
 void main() {
   test('locked Agent lease denies storage reads and writes', () async {
