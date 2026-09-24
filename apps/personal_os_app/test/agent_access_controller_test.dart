@@ -78,7 +78,7 @@ void main() {
   });
 
   test('pending response is discarded after stop and restart', () async {
-    final unlocked = true;
+    const unlocked = true;
     final pending = Completer<Map<String, Object?>?>();
     final controller = AgentAccessController(
       handleRequest: (request) => pending.future,
