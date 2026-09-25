@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -163,9 +165,8 @@ void main() {
     expect(find.textContaining('先完成或跳过'), findsOneWidget);
   });
 
-  testWidgets(
-    'synthetic web strategy preview exports an offline Context Bundle',
-    (tester) async {
+  testWidgets('offline strategy preview reports its review prerequisite',
+      (tester) async {
     final composition = AppComposition.inMemoryDemo();
     addTearDown(composition.strategyController.dispose);
     await tester.pumpWidget(PersonalOsApp(composition: composition));
@@ -194,6 +195,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Session ID:'), findsOneWidget);
 
+    await tester.enterText(
+      find.byKey(const Key('proposal-bundle-input')),
+      jsonEncode(<String, Object?>{
+        'protocol_version': 'personal-os.mcp.v0',
+        'proposal_id': 'browser-preview-revision',
+        'session_id': composition.strategyController.sessionId,
+        'created_at': '2026-09-25T00:00:00Z',
+        'strategy': <String, Object?>{
+          'title': 'Revised browser preview strategy',
+          'rationale': 'A revision requires a user accepted review.',
+          'goal_refs': <Object?>[
+            <String, Object?>{
+              'type': 'goal',
+              'id': 'goal-browser-preview',
+              'revision': 1,
+            },
+          ],
+          'asset_refs': <Object?>[],
+          'parent_strategy': <String, Object?>{
+            'type': 'strategy',
+            'id': 'strategy-browser-preview',
+            'revision': 1,
+          },
+          'actions': <Object?>[
+            <String, Object?>{
+              'id': 'browser-preview-action',
+              'instruction': 'Run the bounded browser preview.',
+            },
+          ],
+        },
+      }),
+    );
+    await tester.tap(find.byKey(const Key('import-proposal')));
+    await tester.pumpAndSettle();
+    expect(find.text('修订策略前请先导入并接受一份复盘。'), findsOneWidget);
+    expect(find.textContaining('invalid_request'), findsNothing);
+    expect(
+      find.textContaining('strategy.accepted_review_required'),
+      findsNothing,
+    );
+
     await tester.tap(find.byKey(const Key('export-context')));
     await tester.pumpAndSettle();
     final bundle = tester
@@ -203,6 +245,5 @@ void main() {
     expect(bundle, contains('"protocol_version"'));
     expect(bundle, contains('"session_id"'));
     expect(tester.takeException(), isNull);
-    },
-  );
+  });
 }
