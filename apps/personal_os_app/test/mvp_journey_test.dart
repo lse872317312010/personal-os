@@ -241,7 +241,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
       find.byKey(const Key('strategy-error-message')),
-      300,
+      -300,
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('修订策略前请先导入并接受一份复盘。'), findsOneWidget);
