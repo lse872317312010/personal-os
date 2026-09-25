@@ -101,7 +101,8 @@ final class _UnlockedShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
         builder: (context, constraints) {
-          final useNavigationRail = constraints.maxWidth >= 900;
+          final useNavigationRail =
+              constraints.maxWidth >= 900 && constraints.maxHeight >= 560;
           return Scaffold(
             appBar: AppBar(
               title: Text(controller.destination.label),
