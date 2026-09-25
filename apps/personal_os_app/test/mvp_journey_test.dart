@@ -162,4 +162,45 @@ void main() {
     );
     expect(find.textContaining('先完成或跳过'), findsOneWidget);
   });
+
+  testWidgets('synthetic web strategy preview exports an offline Context Bundle',
+      (tester) async {
+    final composition = AppComposition.inMemoryDemo();
+    addTearDown(composition.strategyController.dispose);
+    await tester.pumpWidget(PersonalOsApp(composition: composition));
+    await tester.tap(find.byKey(const Key('unlock-vault')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('策略'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('浏览器演示只在当前页面内存运行'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('手机保存资产、策略和真实反馈'), findsNothing);
+
+    await tester.enterText(find.byKey(const Key('agent-id-input')), '');
+    await tester.tap(find.byKey(const Key('open-agent-session')));
+    await tester.pumpAndSettle();
+    expect(find.text('Agent / Harness ID 必须为 1–100 个字符。'), findsOneWidget);
+    expect(find.textContaining('strategy.agent_id_invalid'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const Key('agent-id-input')),
+      'browser-preview-agent',
+    );
+    await tester.tap(find.byKey(const Key('open-agent-session')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Session ID:'), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('export-context')));
+    await tester.pumpAndSettle();
+    final bundle = tester
+        .widget<SelectableText>(find.byKey(const Key('context-bundle-output')))
+        .data!;
+    expect(bundle, contains('personal-os.mcp.v0'));
+    expect(bundle, contains('"protocol_version"'));
+    expect(bundle, contains('"session_id"'));
+    expect(tester.takeException(), isNull);
+  });
 }
