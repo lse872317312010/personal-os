@@ -402,6 +402,7 @@ String _strategyErrorText(String code) => switch (code) {
       'strategy.session_or_review_bundle_required' =>
         '请先创建会话，再粘贴 Review Bundle。',
       'strategy.pending_review_required' => '当前没有等待确认的复盘。',
+      'strategy.accepted_review_required' => '修订策略前请先导入并接受一份复盘。',
       'strategy.session_or_bundle_required' =>
         '请先创建会话，再粘贴 Proposal Bundle。',
       'strategy.pending_proposal_required' => '当前没有等待确认的策略。',
