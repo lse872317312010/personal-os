@@ -168,8 +168,10 @@ final class _UnlockedShell extends StatelessWidget {
               AppDestination.claims =>
                 ClaimReviewScreen(controller: controller),
               AppDestination.plan => PlanScreen(controller: controller),
-              AppDestination.strategy =>
-                StrategyLoopScreen(controller: strategyController),
+              AppDestination.strategy => StrategyLoopScreen(
+                  controller: strategyController,
+                  mode: mode,
+                ),
               AppDestination.tasks => TaskScreen(controller: controller),
               AppDestination.review => ReviewScreen(controller: controller),
             },

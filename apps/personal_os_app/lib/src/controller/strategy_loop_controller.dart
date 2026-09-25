@@ -292,7 +292,7 @@ final class StrategyLoopController extends ChangeNotifier {
       final proposal = ProposalBundleCodec.decodeString(bundleJson);
       if (proposal.parentStrategy != null && _reviewState != 'accepted') {
         throw const AgentProtocolException(
-          AgentProtocolError.invalidRequest,
+          'strategy.accepted_review_required',
           'an accepted review is required before a revised strategy',
         );
       }

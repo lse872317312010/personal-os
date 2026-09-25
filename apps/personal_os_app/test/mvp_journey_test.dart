@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -161,5 +163,96 @@ void main() {
       isNull,
     );
     expect(find.textContaining('先完成或跳过'), findsOneWidget);
+  });
+
+  testWidgets('offline strategy preview reports its review prerequisite',
+      (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    tester.view.physicalSize = const Size(390, 1800);
+    tester.view.devicePixelRatio = 1;
+
+    final composition = AppComposition.inMemoryDemo();
+    addTearDown(composition.strategyController.dispose);
+    await tester.pumpWidget(PersonalOsApp(composition: composition));
+    await tester.tap(find.byKey(const Key('unlock-vault')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('策略'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('浏览器演示只在当前页面内存运行'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('手机保存资产、策略和真实反馈'), findsNothing);
+
+    await tester.enterText(find.byKey(const Key('agent-id-input')), '');
+    await tester.tap(find.byKey(const Key('open-agent-session')));
+    await tester.pumpAndSettle();
+    expect(find.text('Agent / Harness ID 必须为 1–100 个字符。'), findsOneWidget);
+    expect(find.textContaining('strategy.agent_id_invalid'), findsNothing);
+
+    await tester.enterText(
+      find.byKey(const Key('agent-id-input')),
+      'browser-preview-agent',
+    );
+    await tester.tap(find.byKey(const Key('open-agent-session')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Session ID:'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('proposal-bundle-input')),
+      jsonEncode(<String, Object?>{
+        'protocol_version': 'personal-os.mcp.v0',
+        'proposal_id': 'browser-preview-revision',
+        'session_id': composition.strategyController.sessionId,
+        'created_at': '2026-09-25T00:00:00Z',
+        'strategy': <String, Object?>{
+          'title': 'Revised browser preview strategy',
+          'rationale': 'A revision requires a user accepted review.',
+          'goal_refs': <Object?>[
+            <String, Object?>{
+              'type': 'goal',
+              'id': 'goal-browser-preview',
+              'revision': 1,
+            },
+          ],
+          'asset_refs': <Object?>[],
+          'parent_strategy': <String, Object?>{
+            'type': 'strategy',
+            'id': 'strategy-browser-preview',
+            'revision': 1,
+          },
+          'actions': <Object?>[
+            <String, Object?>{
+              'id': 'browser-preview-action',
+              'instruction': 'Run the bounded browser preview.',
+            },
+          ],
+        },
+      }),
+    );
+    await tester.tap(find.byKey(const Key('import-proposal')));
+    await tester.pumpAndSettle();
+    expect(
+      composition.strategyController.errorCode,
+      'strategy.accepted_review_required',
+    );
+    expect(find.text('修订策略前请先导入并接受一份复盘。'), findsOneWidget);
+    expect(find.textContaining('invalid_request'), findsNothing);
+    expect(
+      find.textContaining('strategy.accepted_review_required'),
+      findsNothing,
+    );
+
+    await tester.tap(find.byKey(const Key('export-context')));
+    await tester.pumpAndSettle();
+    final bundle = tester
+        .widget<SelectableText>(find.byKey(const Key('context-bundle-output')))
+        .data!;
+    expect(bundle, contains('personal-os.mcp.v0'));
+    expect(bundle, contains('"protocol_version"'));
+    expect(bundle, contains('"session_id"'));
+    expect(tester.takeException(), isNull);
   });
 }
