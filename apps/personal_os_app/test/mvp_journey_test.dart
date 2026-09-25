@@ -239,6 +239,11 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('import-proposal')));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('strategy-error-message')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('修订策略前请先导入并接受一份复盘。'), findsOneWidget);
     expect(find.textContaining('invalid_request'), findsNothing);
     expect(
@@ -246,8 +251,18 @@ void main() {
       findsNothing,
     );
 
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('export-context')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.byKey(const Key('export-context')));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('context-bundle-output')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     final bundle = tester
         .widget<SelectableText>(find.byKey(const Key('context-bundle-output')))
         .data!;
