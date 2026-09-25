@@ -195,6 +195,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Session ID:'), findsOneWidget);
 
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('proposal-bundle-input')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.enterText(
       find.byKey(const Key('proposal-bundle-input')),
       jsonEncode(<String, Object?>{
@@ -226,6 +231,11 @@ void main() {
           ],
         },
       }),
+    );
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('import-proposal')),
+      300,
+      scrollable: find.byType(Scrollable).first,
     );
     await tester.tap(find.byKey(const Key('import-proposal')));
     await tester.pumpAndSettle();
