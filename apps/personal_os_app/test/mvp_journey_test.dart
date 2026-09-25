@@ -66,6 +66,7 @@ void main() {
     const viewports = <Size>[
       Size(390, 844),
       Size(1280, 800),
+      Size(1280, 480),
     ];
     for (final viewport in viewports) {
       tester.view.physicalSize = viewport;
@@ -77,7 +78,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('synthetic-preview-notice')), findsOneWidget);
-      if (viewport.width >= 900) {
+      if (viewport.width >= 900 && viewport.height >= 560) {
         final rail = find.byKey(const Key('desktop-navigation-rail'));
         expect(rail, findsOneWidget);
         expect(find.byKey(const Key('mobile-navigation-bar')), findsNothing);
@@ -106,6 +107,8 @@ void main() {
         isNull,
         reason: 'after unlock at $viewport',
       );
+
+      if (viewport.height < 560) continue;
 
       await tester.tap(find.text('开始首次分析'));
       await tester.pumpAndSettle();
