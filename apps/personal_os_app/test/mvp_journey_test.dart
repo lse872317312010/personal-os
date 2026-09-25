@@ -167,6 +167,11 @@ void main() {
 
   testWidgets('offline strategy preview reports its review prerequisite',
       (tester) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    tester.view.physicalSize = const Size(390, 1800);
+    tester.view.devicePixelRatio = 1;
+
     final composition = AppComposition.inMemoryDemo();
     addTearDown(composition.strategyController.dispose);
     await tester.pumpWidget(PersonalOsApp(composition: composition));
@@ -195,11 +200,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('Session ID:'), findsOneWidget);
 
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('proposal-bundle-input')),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
     await tester.enterText(
       find.byKey(const Key('proposal-bundle-input')),
       jsonEncode(<String, Object?>{
@@ -232,17 +232,11 @@ void main() {
         },
       }),
     );
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('import-proposal')),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
     await tester.tap(find.byKey(const Key('import-proposal')));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('strategy-error-message')),
-      -300,
-      scrollable: find.byType(Scrollable).first,
+    expect(
+      composition.strategyController.errorCode,
+      'strategy.accepted_review_required',
     );
     expect(find.text('修订策略前请先导入并接受一份复盘。'), findsOneWidget);
     expect(find.textContaining('invalid_request'), findsNothing);
@@ -251,18 +245,8 @@ void main() {
       findsNothing,
     );
 
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('export-context')),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
     await tester.tap(find.byKey(const Key('export-context')));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('context-bundle-output')),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
     final bundle = tester
         .widget<SelectableText>(find.byKey(const Key('context-bundle-output')))
         .data!;
