@@ -390,7 +390,7 @@ final class _StatusCard extends StatelessWidget {
             ],
           ),
         ),
-  );
+      );
 }
 
 String _strategyErrorText(String code) => switch (code) {
