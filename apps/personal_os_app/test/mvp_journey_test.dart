@@ -163,8 +163,9 @@ void main() {
     expect(find.textContaining('先完成或跳过'), findsOneWidget);
   });
 
-  testWidgets('synthetic web strategy preview exports an offline Context Bundle',
-      (tester) async {
+  testWidgets(
+    'synthetic web strategy preview exports an offline Context Bundle',
+    (tester) async {
     final composition = AppComposition.inMemoryDemo();
     addTearDown(composition.strategyController.dispose);
     await tester.pumpWidget(PersonalOsApp(composition: composition));
@@ -202,5 +203,6 @@ void main() {
     expect(bundle, contains('"protocol_version"'));
     expect(bundle, contains('"session_id"'));
     expect(tester.takeException(), isNull);
-  });
+    },
+  );
 }
