@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">微信视觉采集实验</string>
+    <string name="service_description">仅在微信前台读取当前可见的无障碍文本；点击悬浮按钮后才保存并滚动。</string>
+</resources>
