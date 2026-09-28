@@ -91,7 +91,11 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
 
   Future<void> _importAgentReply() async {
     try {
-      final reply = parseAgentHandoffReply(_agentReply.text);
+      final replyText = _agentReply.text;
+      final pendingInboxReply = widget.replyInbox?.pendingReply;
+      final importedInboxReply =
+          pendingInboxReply != null && pendingInboxReply == replyText;
+      final reply = parseAgentHandoffReply(replyText);
       final controller = widget.controller;
       if (reply.kind == AgentReplyKind.review) {
         await controller.importReview(reply.bundleJson);
@@ -105,7 +109,11 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               : controller.hasPendingReview);
       if (!imported) return;
       _agentReply.clear();
-      await widget.replyInbox?.clearPendingReply();
+      if (importedInboxReply) {
+        await widget.replyInbox?.clearPendingReply();
+      } else {
+        _syncReplyFromInbox();
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('建议已导入，请查看内容并决定是否接受。')),
