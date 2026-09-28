@@ -83,7 +83,9 @@ void main() {
     expect(calls.single.arguments, isNull);
   });
 
-  test('loads the next native reply after the current one is cleared', () async {
+  test(
+    'loads the next native reply after the current one is cleared',
+    () async {
     final port = _FakeReplyPort('first reply');
     final inbox = AgentReplyInboxController(
       port: port,
@@ -105,7 +107,8 @@ void main() {
 
     expect(inbox.pendingReply, 'second reply');
     expect(port.calls, 2);
-  });
+    },
+  );
 
   test('reply availability signal has no body and waits for Vault unlock',
       () async {
