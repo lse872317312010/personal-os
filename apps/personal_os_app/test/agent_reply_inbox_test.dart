@@ -211,8 +211,9 @@ void main() {
     expect(composition.replyInbox.pendingReply, isNull);
     expect(composition.controller.vaultUnlocked, isFalse);
   });
-  testWidgets('preserves an existing draft when a shared reply arrives',
-      (tester) async {
+  testWidgets(
+    'preserves an existing draft when a shared reply arrives',
+    (tester) async {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     tester.view.physicalSize = const Size(390, 1800);
@@ -273,6 +274,7 @@ void main() {
       'shared assistant reply',
     );
 
+    await tester.ensureVisible(replyInput);
     await tester.enterText(replyInput, 'another unsent draft');
     final discardReply =
         find.byKey(const Key('discard-received-agent-reply'));
@@ -285,7 +287,8 @@ void main() {
       'another unsent draft',
     );
     expect(composition.strategyController.hasPendingProposal, isFalse);
-  });
+    },
+  );
 
   testWidgets('does not attach a reply when its session was not restored',
       (tester) async {
