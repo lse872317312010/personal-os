@@ -1,3 +1,4 @@
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -37,8 +38,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   final AgentTextSharePort _agentTextShare =
       const MethodChannelAgentTextShare();
 
-  bool get _canUseSystemShare =>
-      widget.mode == AppExperienceMode.secureVault;
+  bool get _canUseSystemShare => widget.mode == AppExperienceMode.secureVault;
 
   @override
   void initState() {
@@ -536,9 +536,8 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                           const SizedBox(height: 12),
                           Card(
                             key: const Key('agent-reply-format-repair'),
-                            color: Theme.of(context)
-                                .colorScheme
-                                .tertiaryContainer,
+                            color:
+                                Theme.of(context).colorScheme.tertiaryContainer,
                             child: Padding(
                               padding: const EdgeInsets.all(12),
                               child: Column(
@@ -546,9 +545,8 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                 children: <Widget>[
                                   Text(
                                     '不用手动修改 JSON',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleSmall,
+                                    style:
+                                        Theme.of(context).textTheme.titleSmall,
                                   ),
                                   const SizedBox(height: 4),
                                   const Text(
@@ -566,8 +564,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                         ),
                                         onPressed: busy
                                             ? null
-                                            : () =>
-                                                _copyFormatRepairRequest(
+                                            : () => _copyFormatRepairRequest(
                                                   context,
                                                 ),
                                         icon: const Icon(Icons.copy),
@@ -580,8 +577,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                           ),
                                           onPressed: busy
                                               ? null
-                                              : () =>
-                                                  _shareFormatRepairRequest(
+                                              : () => _shareFormatRepairRequest(
                                                     context,
                                                   ),
                                           icon: const Icon(Icons.ios_share),
