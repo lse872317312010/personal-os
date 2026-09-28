@@ -214,81 +214,82 @@ void main() {
   testWidgets(
     'preserves an existing draft when a shared reply arrives',
     (tester) async {
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        tester.view.physicalSize = const Size(390, 1800);
-        tester.view.devicePixelRatio = 1;
-    
-        final port = _FakeReplyPort(null);
-        final composition = AppComposition.inMemoryDemo(replyInboxPort: port);
-        addTearDown(composition.strategyController.dispose);
-        await composition.strategyController.openOfflineSession(
-          agentId: 'generic-share-test',
-        );
-    
-        await tester.pumpWidget(PersonalOsApp(composition: composition));
-        await tester.tap(find.byKey(const Key('unlock-vault')));
-        await tester.pumpAndSettle();
-        composition.controller.navigate(AppDestination.strategy);
-        await tester.pumpAndSettle();
-    
-        final replyInput = find.byKey(const Key('agent-reply-input'));
-        await tester.scrollUntilVisible(
-          replyInput,
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
-        await tester.enterText(replyInput, 'my unsent draft');
-    
-        port.reply = 'shared assistant reply';
-        await port.signalReplyAvailable();
-        await tester.pumpAndSettle();
-    
-        expect(
-          tester.widget<TextField>(replyInput).controller!.text,
-          'my unsent draft',
-        );
-        expect(composition.replyInbox.pendingReply, 'shared assistant reply');
-        expect(composition.strategyController.hasPendingProposal, isFalse);
-        expect(composition.strategyController.hasPendingReview, isFalse);
-    
-        final loadReply = find.byKey(const Key('load-received-agent-reply'));
-        await tester.ensureVisible(loadReply);
-        await tester.tap(loadReply);
-        await tester.pumpAndSettle();
-        expect(find.text('替换当前输入？'), findsOneWidget);
-        await tester.tap(find.text('保留当前输入'));
-        await tester.pumpAndSettle();
-        expect(
-          tester.widget<TextField>(replyInput).controller!.text,
-          'my unsent draft',
-        );
-    
-        await tester.ensureVisible(loadReply);
-        await tester.tap(loadReply);
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('替换输入'));
-        await tester.pumpAndSettle();
-        expect(
-          tester.widget<TextField>(replyInput).controller!.text,
-          'shared assistant reply',
-        );
-    
-        await tester.ensureVisible(replyInput);
-        await tester.enterText(replyInput, 'another unsent draft');
-        final discardReply =
-            find.byKey(const Key('discard-received-agent-reply'));
-        await tester.ensureVisible(discardReply);
-        await tester.tap(discardReply);
-        await tester.pumpAndSettle();
-        expect(composition.replyInbox.pendingReply, isNull);
-        expect(
-          tester.widget<TextField>(replyInput).controller!.text,
-          'another unsent draft',
-        );
-        expect(composition.strategyController.hasPendingProposal, isFalse);
-    
-  
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.view.physicalSize = const Size(390, 1800);
+      tester.view.devicePixelRatio = 1;
+
+      final port = _FakeReplyPort(null);
+      final composition = AppComposition.inMemoryDemo(replyInboxPort: port);
+      addTearDown(composition.strategyController.dispose);
+      await composition.strategyController.openOfflineSession(
+        agentId: 'generic-share-test',
+      );
+
+      await tester.pumpWidget(PersonalOsApp(composition: composition));
+      await tester.tap(find.byKey(const Key('unlock-vault')));
+      await tester.pumpAndSettle();
+      composition.controller.navigate(AppDestination.strategy);
+      await tester.pumpAndSettle();
+
+      final replyInput = find.byKey(const Key('agent-reply-input'));
+      await tester.scrollUntilVisible(
+        replyInput,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.enterText(replyInput, 'my unsent draft');
+
+      port.reply = 'shared assistant reply';
+      await port.signalReplyAvailable();
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.widget<TextField>(replyInput).controller!.text,
+        'my unsent draft',
+      );
+      expect(composition.replyInbox.pendingReply, 'shared assistant reply');
+      expect(composition.strategyController.hasPendingProposal, isFalse);
+      expect(composition.strategyController.hasPendingReview, isFalse);
+
+      final loadReply = find.byKey(const Key('load-received-agent-reply'));
+      await tester.ensureVisible(loadReply);
+      await tester.tap(loadReply);
+      await tester.pumpAndSettle();
+      expect(find.text('替换当前输入？'), findsOneWidget);
+      await tester.tap(find.text('保留当前输入'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(replyInput).controller!.text,
+        'my unsent draft',
+      );
+
+      await tester.ensureVisible(loadReply);
+      await tester.tap(loadReply);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('替换输入'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(replyInput).controller!.text,
+        'shared assistant reply',
+      );
+
+      await tester.ensureVisible(replyInput);
+      await tester.enterText(replyInput, 'another unsent draft');
+      final discardReply =
+          find.byKey(const Key('discard-received-agent-reply'));
+      await tester.ensureVisible(discardReply);
+      await tester.tap(discardReply);
+      await tester.pumpAndSettle();
+      expect(composition.replyInbox.pendingReply, isNull);
+      expect(
+        tester.widget<TextField>(replyInput).controller!.text,
+        'another unsent draft',
+      );
+      expect(composition.strategyController.hasPendingProposal, isFalse);
+
+
+
     },
   );
 
