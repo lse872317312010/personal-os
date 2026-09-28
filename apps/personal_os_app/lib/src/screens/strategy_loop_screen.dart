@@ -116,19 +116,19 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
           ],
         ),
       );
-      if (!mounted || confirmed != true) return;
+      if (!context.mounted || confirmed != true) return;
     }
 
     try {
       await Clipboard.setData(ClipboardData(text: prompt));
     } on Object {
-      if (!mounted) return;
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('复制失败，请检查设备剪贴板权限后重试。')),
       );
       return;
     }
-    if (!mounted) return;
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('协作内容已复制。粘贴到任意 AI 助手，再把回复粘贴回来。')),
     );
