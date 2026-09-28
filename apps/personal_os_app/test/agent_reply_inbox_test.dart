@@ -287,9 +287,6 @@ void main() {
         'another unsent draft',
       );
       expect(composition.strategyController.hasPendingProposal, isFalse);
-
-
-
     },
   );
 
