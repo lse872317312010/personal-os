@@ -42,6 +42,9 @@ final class StrategyLoopController extends ChangeNotifier {
   EntityId? _strategyId;
   int _strategyRevision = 0;
   String? _strategyState;
+  List<StrategySessionAction> _strategyActions =
+      const <StrategySessionAction>[];
+  String? _selectedActionId;
   EntityId? _executionId;
   EntityId? _outcomeId;
   String? _contextBundle;
@@ -61,6 +64,16 @@ final class StrategyLoopController extends ChangeNotifier {
   String? get sessionId => _sessionId?.value;
   String? get strategyId => _strategyId?.value;
   String? get strategyState => _strategyState;
+  List<StrategySessionAction> get strategyActions => _strategyActions;
+  String? get selectedActionId => _selectedActionId;
+  StrategySessionAction? get selectedAction {
+    final id = _selectedActionId;
+    if (id == null) return null;
+    for (final action in _strategyActions) {
+      if (action.id == id) return action;
+    }
+    return null;
+  }
   String? get executionId => _executionId?.value;
   String? get outcomeId => _outcomeId?.value;
   String? get contextBundle => _contextBundle;
@@ -105,6 +118,8 @@ final class StrategyLoopController extends ChangeNotifier {
     _strategyId = view.strategyId;
     _strategyRevision = view.strategyRevision;
     _strategyState = view.strategyState;
+    _strategyActions = List<StrategySessionAction>.unmodifiable(view.actions);
+    _selectedActionId = _defaultActionSelection(_strategyActions);
     _executionId = view.executionId;
     _outcomeId = view.outcomeId;
     _contextBundle = null;
@@ -183,6 +198,8 @@ final class StrategyLoopController extends ChangeNotifier {
       _strategyId = null;
       _strategyRevision = 0;
       _strategyState = null;
+      _strategyActions = const <StrategySessionAction>[];
+      _selectedActionId = null;
       _executionId = null;
       _outcomeId = null;
       _contextBundle = null;
@@ -290,6 +307,13 @@ final class StrategyLoopController extends ChangeNotifier {
     }
     await _run((isCurrent) async {
       final proposal = ProposalBundleCodec.decodeString(bundleJson);
+      final strategyActions = _strategyActionsFromProposal(proposal.actions);
+      if (strategyActions.length != proposal.actions.length) {
+        throw const AgentProtocolException(
+          AgentProtocolError.invalidRequest,
+          'strategy actions require unique IDs and instructions',
+        );
+      }
       if (proposal.parentStrategy != null && _reviewState != 'accepted') {
         throw const AgentProtocolException(
           'strategy.accepted_review_required',
@@ -306,6 +330,8 @@ final class StrategyLoopController extends ChangeNotifier {
       _strategyId = result.objectId;
       _strategyRevision = 1;
       _strategyState = 'proposed';
+      _strategyActions = strategyActions;
+      _selectedActionId = _defaultActionSelection(_strategyActions);
       _proposalTitle = proposal.title;
       _proposalRationale = proposal.rationale;
       final parent = proposal.parentStrategy;
@@ -373,6 +399,23 @@ final class StrategyLoopController extends ChangeNotifier {
     });
   }
 
+  void selectAction(String actionId) {
+    if (_disposed || _status == StrategyUiStatus.running) return;
+    if (!canRecordExecution) {
+      _fail('strategy.active_strategy_required');
+      return;
+    }
+    final normalizedActionId = actionId.trim();
+    if (!_strategyActions.any((action) => action.id == normalizedActionId)) {
+      _fail('strategy.action_not_in_strategy');
+      return;
+    }
+    _selectedActionId = normalizedActionId;
+    _status = StrategyUiStatus.ready;
+    _errorCode = null;
+    notifyListeners();
+  }
+
   Future<void> recordExecution({
     required String actionId,
     required ExecutionStatus executionStatus,
@@ -383,8 +426,21 @@ final class StrategyLoopController extends ChangeNotifier {
       _fail('strategy.active_strategy_required');
       return;
     }
-    if (actionId.trim().isEmpty) {
+    final normalizedActionId = actionId.trim();
+    if (normalizedActionId.isEmpty) {
       _fail('strategy.action_required');
+      return;
+    }
+    if (!_strategyActions.any((action) => action.id == normalizedActionId)) {
+      _fail('strategy.action_not_in_strategy');
+      return;
+    }
+    if (_selectedActionId == null) {
+      _fail('strategy.action_selection_required');
+      return;
+    }
+    if (_selectedActionId != normalizedActionId) {
+      _fail('strategy.action_selection_mismatch');
       return;
     }
     await _run((isCurrent) async {
@@ -398,7 +454,7 @@ final class StrategyLoopController extends ChangeNotifier {
             id: strategyId,
             revision: Revision(_strategyRevision),
           ),
-          actionId: EntityId(actionId.trim()),
+          actionId: EntityId(normalizedActionId),
           status: executionStatus,
           note: note,
         ),
@@ -451,6 +507,8 @@ final class StrategyLoopController extends ChangeNotifier {
     _strategyId = null;
     _strategyRevision = 0;
     _strategyState = null;
+    _strategyActions = const <StrategySessionAction>[];
+    _selectedActionId = null;
     _executionId = null;
     _outcomeId = null;
     _contextBundle = null;
@@ -535,4 +593,31 @@ final class StrategyLoopController extends ChangeNotifier {
     _errorCode = code;
     notifyListeners();
   }
+}
+
+String? _defaultActionSelection(List<StrategySessionAction> actions) =>
+    actions.length == 1 ? actions.single.id : null;
+
+List<StrategySessionAction> _strategyActionsFromProposal(
+  Iterable<Map<String, Object?>> rawActions,
+) {
+  final actions = <StrategySessionAction>[];
+  final ids = <String>{};
+  for (final item in rawActions) {
+    final id = item['id'];
+    final instruction = item['instruction'];
+    if (id is! String ||
+        id.isEmpty ||
+        id.trim() != id ||
+        instruction is! String ||
+        instruction.trim().isEmpty) {
+      continue;
+    }
+    if (!ids.add(id)) return const <StrategySessionAction>[];
+    actions.add(StrategySessionAction(
+      id: id,
+      instruction: instruction.trim(),
+    ));
+  }
+  return List<StrategySessionAction>.unmodifiable(actions);
 }
