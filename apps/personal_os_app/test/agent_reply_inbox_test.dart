@@ -86,27 +86,27 @@ void main() {
   test(
     'loads the next native reply after the current one is cleared',
     () async {
-    final port = _FakeReplyPort('first reply');
-    final inbox = AgentReplyInboxController(
-      port: port,
-      isVaultUnlocked: () => true,
-    );
-    addTearDown(inbox.dispose);
+      final port = _FakeReplyPort('first reply');
+      final inbox = AgentReplyInboxController(
+        port: port,
+        isVaultUnlocked: () => true,
+      );
+      addTearDown(inbox.dispose);
 
-    await inbox.receivePendingReply();
-    expect(inbox.pendingReply, 'first reply');
-    expect(port.calls, 1);
+      await inbox.receivePendingReply();
+      expect(inbox.pendingReply, 'first reply');
+      expect(port.calls, 1);
 
-    // A second Android share stays in the native slot while this one is shown.
-    port.reply = 'second reply';
-    await port.signalReplyAvailable();
-    expect(inbox.pendingReply, 'first reply');
-    expect(port.calls, 1);
+      // A second Android share stays in the native slot while this one is shown.
+      port.reply = 'second reply';
+      await port.signalReplyAvailable();
+      expect(inbox.pendingReply, 'first reply');
+      expect(port.calls, 1);
 
-    await inbox.clearPendingReply();
+      await inbox.clearPendingReply();
 
-    expect(inbox.pendingReply, 'second reply');
-    expect(port.calls, 2);
+      expect(inbox.pendingReply, 'second reply');
+      expect(port.calls, 2);
     },
   );
 
