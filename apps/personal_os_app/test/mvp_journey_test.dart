@@ -559,6 +559,7 @@ void main() {
       );
     },
   );
+
   testWidgets(
     'a shared reply stays unread while locked and opens in its restored session',
     (tester) async {
