@@ -76,6 +76,9 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
       if (!mounted) return;
       final controller = widget.controller;
       if (controller.hasPendingReview || controller.hasPendingProposal) {
+        if (reply.firstActionId case final actionId?) {
+          _actionId.text = actionId;
+        }
         _agentReply.clear();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('建议已导入，请查看内容并决定是否接受。')),
@@ -285,24 +288,11 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                           ),
                         ),
                       ),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton.icon(
-                          key: const Key('copy-context-bundle'),
-                          onPressed: () async {
-                            await Clipboard.setData(
-                              ClipboardData(text: bundle),
-                            );
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Context Bundle 已复制'),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.copy),
-                          label: const Text('只复制原始 Context Bundle'),
-                        ),
+                      FilledButton.tonalIcon(
+                        key: const Key('export-context'),
+                        onPressed: busy ? null : controller.exportContext,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('重新准备协作上下文'),
                       ),
                     ],
                     TextField(
@@ -355,6 +345,16 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                       Text('Execution ID: $id'),
                     if (controller.outcomeId case final id?)
                       Text('Outcome ID: $id'),
+                    if (controller.canRecordExecution) ...<Widget>[
+                      TextField(
+                        key: const Key('action-id-input'),
+                        controller: _actionId,
+                        decoration: const InputDecoration(
+                          labelText: 'Action ID（高级）',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     if (controller.reviewId case final id?)
                       Text('Review ID: $id (${controller.reviewState})'),
                     if (controller.proposalEvidenceRefs.isNotEmpty)
@@ -375,7 +375,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               if (controller.reviewId != null) ...<Widget>[
                 const SizedBox(height: 20),
                 Text(
-                  '策略复盘（${controller.reviewState}）',
+                  '策略复盘（${_reviewStateText(controller.reviewState)}）',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
@@ -387,7 +387,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                       children: <Widget>[
                         Text(controller.reviewSummary ?? '无复盘摘要'),
                         if (controller.reviewConclusion case final conclusion?)
-                          Text('结论：$conclusion'),
+                          Text('结论：${_reviewConclusionText(conclusion)}'),
                       ],
                     ),
                   ),
@@ -482,11 +482,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               ],
               if (controller.canRecordExecution) ...<Widget>[
                 const SizedBox(height: 20),
-                TextField(
-                  key: const Key('action-id-input'),
-                  controller: _actionId,
-                  decoration: const InputDecoration(labelText: 'Action ID'),
-                ),
+                const Text('完成建议中的行动后，记录实际执行情况。'),
                 const SizedBox(height: 8),
                 FilledButton.tonal(
                   key: const Key('record-execution'),
@@ -496,7 +492,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                             actionId: _actionId.text,
                             executionStatus: ExecutionStatus.completed,
                           ),
-                  child: const Text('记录为已完成'),
+                  child: const Text('记录行动已完成'),
                 ),
               ],
               if (controller.canRecordOutcome) ...<Widget>[
@@ -541,8 +537,6 @@ final class _StatusCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
               Text('当前状态：${_strategyStateText(controller.strategyState)}'),
-              if (controller.hasSession)
-                Text('当前助手：${controller.agentId}'),
               if (controller.errorCode case final error?)
                 Text(
                   _strategyErrorText(error),
@@ -566,6 +560,21 @@ String _strategyStateText(String? state) => switch (state) {
       'completed' => '已完成',
       'abandoned' => '已停止',
       _ => '尚未导入策略',
+    };
+
+String _reviewStateText(String? state) => switch (state) {
+      'draft' => '等待你确认',
+      'accepted' => '已接受',
+      'rejected' => '已拒绝',
+      _ => '处理中',
+    };
+
+String _reviewConclusionText(String conclusion) => switch (conclusion) {
+      'effective' => '有效',
+      'ineffective' => '效果不佳',
+      'inconclusive' => '暂时无法判断',
+      'executionInsufficient' => '执行证据不足',
+      _ => conclusion,
     };
 
 String _strategyErrorText(String code) => switch (code) {
