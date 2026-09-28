@@ -100,9 +100,9 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
         builder: (dialogContext) => AlertDialog(
           title: const Text('确认复制个人上下文'),
           content: const Text(
-            '这会把当前导出的目标、资产、策略和历史记录放入剪贴板。'
-            '只有在你粘贴到外部 AI 助手后，内容才会发送给对应服务。'
-            '请确认你愿意分享这些信息。',
+            '这会把当前导出的目标、资产、策略和历史记录放入系统剪贴板。'
+            '设备或输入法可能同步或暂存剪贴板内容；粘贴到外部 AI 助手后，'
+            '对应服务也会收到这些信息。请确认你愿意分享。',
           ),
           actions: <Widget>[
             TextButton(
