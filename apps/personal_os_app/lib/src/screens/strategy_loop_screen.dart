@@ -105,7 +105,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               : controller.hasPendingReview);
       if (!imported) return;
       _agentReply.clear();
-      widget.replyInbox?.clearPendingReply();
+      await widget.replyInbox?.clearPendingReply();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('建议已导入，请查看内容并决定是否接受。')),
       );
