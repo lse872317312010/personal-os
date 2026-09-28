@@ -22,13 +22,14 @@ void main() {
 
   test('detects a raw proposal JSON object', () {
     const response = '''
-{"protocol_version":"personal-os.mcp.v0","proposal_id":"p1","strategy":{"title":"Test"}}
+{"protocol_version":"personal-os.mcp.v0","proposal_id":"p1","strategy":{"title":"Test","actions":[{"id":"first-action","instruction":"Try it"}]}}
 ''';
 
     final reply = parseAgentHandoffReply(response);
 
     expect(reply.kind, AgentReplyKind.proposal);
     expect(reply.bundleJson, contains('"proposal_id":"p1"'));
+    expect(reply.firstActionId, 'first-action');
   });
 
   test('detects a fenced review inside a normal assistant reply', () {
