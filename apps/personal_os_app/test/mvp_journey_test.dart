@@ -626,7 +626,6 @@ void main() {
       expect(composition.strategyController.hasSession, isTrue);
     },
   );
-
 }
 
 final class _ReplyInboxPort implements AgentReplyInboxPort {
