@@ -52,6 +52,8 @@ jobs:
         working-directory: apps/personal_os_app
         run: |
           set -Eeuo pipefail
+          dart format --output=show lib/src/agent_interop/agent_handoff.dart > /tmp/agent_handoff_formatted.dart
+          diff -u lib/src/agent_interop/agent_handoff.dart /tmp/agent_handoff_formatted.dart || true
           dart format --output=none --set-exit-if-changed lib/main_web_preview.dart lib/src/app.dart lib/src/agent_interop/agent_handoff.dart test/agent_handoff_test.dart test/mvp_journey_test.dart
           flutter analyze
           flutter test
