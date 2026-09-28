@@ -6,6 +6,7 @@ import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
 
 import '../agent_interop/agent_handoff.dart';
+import '../agent_interop/agent_text_share.dart';
 import '../composition/app_composition.dart';
 import '../controller/strategy_loop_controller.dart';
 
@@ -29,6 +30,8 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   final _review = TextEditingController();
   final _proposal = TextEditingController();
   final _outcome = TextEditingController();
+  final AgentTextSharePort _agentTextShare =
+      const MethodChannelAgentTextShare();
 
   @override
   void initState() {
@@ -90,9 +93,12 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     }
   }
 
-  Future<void> _copyHandoff(BuildContext context) async {
+  Future<String?> _prepareHandoff(
+    BuildContext context, {
+    required bool useSystemShare,
+  }) async {
     final bundle = await widget.controller.refreshContextForHandoff();
-    if (!context.mounted) return;
+    if (!context.mounted) return null;
     if (bundle == null) {
       final errorCode = widget.controller.errorCode;
       final message = errorCode == null
@@ -101,33 +107,42 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message)),
       );
-      return;
+      return null;
     }
     final prompt = buildAgentHandoffPrompt(bundle);
-    if (widget.mode == AppExperienceMode.secureVault) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          title: const Text('确认复制个人上下文'),
-          content: const Text(
-            '这会把当前导出的目标、资产、策略和历史记录放入系统剪贴板。'
-            '设备或输入法可能同步或暂存剪贴板内容；粘贴到外部 AI 助手后，'
-            '对应服务也会收到这些信息。请确认你愿意分享。',
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('继续复制'),
-            ),
-          ],
+    if (widget.mode != AppExperienceMode.secureVault) return prompt;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(useSystemShare ? '确认发送个人上下文' : '确认复制个人上下文'),
+        content: Text(
+          useSystemShare
+              ? '这会把当前导出的目标、资产、策略和历史记录交给系统分享菜单中你选择的应用。'
+                  '对应应用和服务可能保存或处理这些信息。请确认你愿意分享。'
+              : '这会把当前导出的目标、资产、策略和历史记录放入系统剪贴板。'
+                  '设备或输入法可能同步或暂存剪贴板内容；粘贴到外部 AI 助手后，'
+                  '对应服务也会收到这些信息。请确认你愿意分享。',
         ),
-      );
-      if (!context.mounted || confirmed != true) return;
-    }
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(useSystemShare ? '继续发送' : '继续复制'),
+          ),
+        ],
+      ),
+    );
+    if (!context.mounted || confirmed != true) return null;
+    return prompt;
+  }
+
+  Future<void> _copyHandoff(BuildContext context) async {
+    final prompt = await _prepareHandoff(context, useSystemShare: false);
+    if (prompt == null || !context.mounted) return;
 
     try {
       await Clipboard.setData(ClipboardData(text: prompt));
@@ -140,8 +155,26 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     }
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('协作内容已复制。粘贴到任意 AI 助手，再把回复粘贴回来。')),
+      const SnackBar(
+        content: Text('协作内容已复制。粘贴到任意 AI 助手，再把回复粘贴回来。'),
+      ),
     );
+  }
+
+  Future<void> _shareHandoff(BuildContext context) async {
+    final prompt = await _prepareHandoff(context, useSystemShare: true);
+    if (prompt == null || !context.mounted) return;
+
+    try {
+      await _agentTextShare.share(prompt);
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('无法打开系统分享菜单，请改用“复制协作内容”。'),
+        ),
+      );
+    }
   }
 
   Future<void> _closeAgentSession() async {
@@ -204,7 +237,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          '已连接：${controller.agentId}',
+                          '协作会话：${controller.agentId}',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 8),
@@ -212,8 +245,8 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                           const Text('正在准备协作内容…')
                         else ...<Widget>[
                           const Text(
-                            '每次复制都会自动准备最新上下文。粘贴到你选择的 AI '
-                            '助手后，再把完整回复粘贴到下方。',
+                            '每次发送或复制都会自动准备最新上下文。可选择系统分享，'
+                            '或复制后粘贴到常用助手；完成后把完整回复粘贴到下方。',
                           ),
                           const SizedBox(height: 12),
                           FilledButton.tonalIcon(
@@ -223,6 +256,14 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                             icon: const Icon(Icons.copy),
                             label: const Text('复制协作内容'),
                           ),
+                          if (widget.mode == AppExperienceMode.secureVault)
+                            OutlinedButton.icon(
+                              key: const Key('share-agent-handoff'),
+                              onPressed:
+                                  busy ? null : () => _shareHandoff(context),
+                              icon: const Icon(Icons.ios_share),
+                              label: const Text('选择 AI 助手发送'),
+                            ),
                         ],
                         const SizedBox(height: 16),
                         TextField(

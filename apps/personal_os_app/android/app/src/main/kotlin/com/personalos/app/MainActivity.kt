@@ -1,9 +1,11 @@
 package com.personalos.app
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import com.personalos.app.agent.AgentTextShareChannel
 import com.personalos.app.backup.PortableEventBackupChannel
 import com.personalos.app.model.AndroidNativeModelCredentialPrompt
 import com.personalos.app.model.EphemeralNativeModelCredentialProvider
@@ -32,6 +34,7 @@ class MainActivity : FlutterFragmentActivity() {
     private var cameraCapture: ControlledCameraCapture? = null
     private var modelChannel: MethodChannel? = null
     private var modelHandler: NativeAppearanceModelChannel? = null
+    private var agentTextShareChannel: MethodChannel? = null
 
     private val cameraPermissionLauncher: ActivityResultLauncher<String> by lazy {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -95,6 +98,13 @@ class MainActivity : FlutterFragmentActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             PortableEventBackupChannel.CHANNEL_NAME,
         ).also { it.setMethodCallHandler(backup) }
+
+        agentTextShareChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            AgentTextShareChannel.CHANNEL_NAME,
+        ).also { channel ->
+            channel.setMethodCallHandler(AgentTextShareChannel(this))
+        }
 
         val modelAdapter = if (BuildConfig.PERSONAL_OS_OPENAI_ENABLED) {
             StructuredExternalAppearanceModelTransport(
@@ -160,6 +170,8 @@ class MainActivity : FlutterFragmentActivity() {
         modelChannel = null
         modelHandler?.dispose()
         modelHandler = null
+        agentTextShareChannel?.setMethodCallHandler(null)
+        agentTextShareChannel = null
         backupChannel?.setMethodCallHandler(null)
         backupChannel = null
         backupHandler?.dispose()
