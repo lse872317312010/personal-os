@@ -28,7 +28,6 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   final _agentReply = TextEditingController();
   final _review = TextEditingController();
   final _proposal = TextEditingController();
-  final _actionId = TextEditingController(text: 'action-1');
   final _outcome = TextEditingController();
 
   @override
@@ -43,7 +42,6 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     _agentReply.dispose();
     _review.dispose();
     _proposal.dispose();
-    _actionId.dispose();
     _outcome.dispose();
     super.dispose();
   }
@@ -68,22 +66,22 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   Future<void> _importAgentReply() async {
     try {
       final reply = parseAgentHandoffReply(_agentReply.text);
+      final controller = widget.controller;
       if (reply.kind == AgentReplyKind.review) {
-        await widget.controller.importReview(reply.bundleJson);
+        await controller.importReview(reply.bundleJson);
       } else {
-        await widget.controller.importProposal(reply.bundleJson);
+        await controller.importProposal(reply.bundleJson);
       }
       if (!mounted) return;
-      final controller = widget.controller;
-      if (controller.hasPendingReview || controller.hasPendingProposal) {
-        if (reply.firstActionId case final actionId?) {
-          _actionId.text = actionId;
-        }
-        _agentReply.clear();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('建议已导入，请查看内容并决定是否接受。')),
-        );
-      }
+      final imported = controller.status == StrategyUiStatus.ready &&
+          (reply.kind == AgentReplyKind.proposal
+              ? controller.hasPendingProposal
+              : controller.hasPendingReview);
+      if (!imported) return;
+      _agentReply.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('建议已导入，请查看内容并决定是否接受。')),
+      );
     } on AgentHandoffFormatException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -148,6 +146,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
         builder: (context, _) {
           final controller = widget.controller;
           final busy = controller.status == StrategyUiStatus.running;
+          final selectedActionId = controller.selectedActionId;
           return ListView(
             padding: const EdgeInsets.all(20),
             children: <Widget>[
@@ -345,16 +344,6 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                       Text('Execution ID: $id'),
                     if (controller.outcomeId case final id?)
                       Text('Outcome ID: $id'),
-                    if (controller.canRecordExecution) ...<Widget>[
-                      TextField(
-                        key: const Key('action-id-input'),
-                        controller: _actionId,
-                        decoration: const InputDecoration(
-                          labelText: 'Action ID（高级）',
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
                     if (controller.reviewId case final id?)
                       Text('Review ID: $id (${controller.reviewState})'),
                     if (controller.proposalEvidenceRefs.isNotEmpty)
@@ -482,18 +471,64 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               ],
               if (controller.canRecordExecution) ...<Widget>[
                 const SizedBox(height: 20),
-                const Text('完成建议中的行动后，记录实际执行情况。'),
+                const Text('选择你实际完成的行动，再记录执行情况。'),
                 const SizedBox(height: 8),
-                FilledButton.tonal(
-                  key: const Key('record-execution'),
-                  onPressed: busy
-                      ? null
-                      : () => controller.recordExecution(
-                            actionId: _actionId.text,
-                            executionStatus: ExecutionStatus.completed,
-                          ),
-                  child: const Text('记录行动已完成'),
-                ),
+                if (controller.strategyActions.isEmpty)
+                  const Text(
+                    '当前策略没有可识别的行动，暂时无法安全记录执行。'
+                    '请重新导入一份包含行动内容的策略建议。',
+                  )
+                else ...<Widget>[
+                  if (controller.strategyActions.length == 1)
+                    Text(
+                      '本次记录：${controller.strategyActions.single.instruction}',
+                      key: const Key('selected-execution-action'),
+                    )
+                  else
+                    InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: '你完成了哪一步？',
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          key: const Key('execution-action-picker'),
+                          value: selectedActionId,
+                          hint: const Text('请选择实际完成的行动'),
+                          isExpanded: true,
+                          items: controller.strategyActions
+                              .map(
+                                (action) => DropdownMenuItem<String>(
+                                  value: action.id,
+                                  child: Text(
+                                    action.instruction,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: busy
+                              ? null
+                              : (actionId) {
+                                  if (actionId != null) {
+                                    controller.selectAction(actionId);
+                                  }
+                                },
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  FilledButton.tonal(
+                    key: const Key('record-execution'),
+                    onPressed: busy || selectedActionId == null
+                        ? null
+                        : () => controller.recordExecution(
+                              actionId: selectedActionId,
+                              executionStatus: ExecutionStatus.completed,
+                            ),
+                    child: const Text('记录行动已完成'),
+                  ),
+                ],
               ],
               if (controller.canRecordOutcome) ...<Widget>[
                 const SizedBox(height: 20),
@@ -591,6 +626,9 @@ String _strategyErrorText(String code) => switch (code) {
       'strategy.accepted_strategy_required' => '请先确认策略，再激活执行。',
       'strategy.active_strategy_required' => '请先激活策略，再记录执行。',
       'strategy.action_required' => '当前没有可记录的行动，请检查策略后重试。',
+      'strategy.action_selection_required' => '请先选择你实际完成的行动。',
+      'strategy.action_not_in_strategy' => '该行动不属于当前策略，请从策略步骤中重新选择。',
+      'strategy.action_selection_mismatch' => '行动选择已变化，请重新选择后再记录。',
       'strategy.execution_or_observation_required' => '请先记录执行，并填写实际结果或观察。',
       'strategy.restore_ambiguous_open_sessions' => '发现多个未完成的策略会话，无法安全恢复。',
       'strategy.restore_malformed_state' => '策略历史无法恢复，请检查本地记录。',
