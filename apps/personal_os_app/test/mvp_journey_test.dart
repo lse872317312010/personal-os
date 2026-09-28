@@ -559,6 +559,73 @@ void main() {
       );
     },
   );
+  testWidgets(
+    'a shared reply stays unread while locked and opens in its restored session',
+    (tester) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.view.physicalSize = const Size(390, 1800);
+      tester.view.devicePixelRatio = 1;
+
+      final replyPort = _ReplyInboxPort();
+      final composition = AppComposition.inMemoryDemo(
+        replyInboxPort: replyPort,
+      );
+      addTearDown(composition.strategyController.dispose);
+      addTearDown(composition.replyInbox.dispose);
+
+      await tester.pumpWidget(PersonalOsApp(composition: composition));
+      await tester.tap(find.byKey(const Key('unlock-vault')));
+      await tester.pumpAndSettle();
+
+      final navigation = find.byKey(const Key('mobile-navigation-bar'));
+      await tester.tap(
+        find.descendant(of: navigation, matching: find.text('策略')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('open-agent-session')));
+      await tester.pumpAndSettle();
+      expect(composition.strategyController.hasSession, isTrue);
+
+      await tester.tap(
+        find.descendant(of: navigation, matching: find.text('首页')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('lock-vault')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('unlock-vault')), findsOneWidget);
+
+      const reply = 'A reply from a provider-neutral assistant.';
+      await replyPort.share(reply);
+      await tester.pumpAndSettle();
+
+      // The inbox must not read reply text until the Vault is unlocked.
+      expect(find.text(reply), findsNothing);
+      await tester.tap(find.byKey(const Key('unlock-vault')));
+      await tester.pumpAndSettle();
+
+      final banner = find.byKey(const Key('incoming-agent-reply-banner'));
+      expect(banner, findsOneWidget);
+      expect(find.text(reply), findsNothing);
+      await tester.tap(
+        find.descendant(of: banner, matching: find.text('查看回复')),
+      );
+      await tester.pumpAndSettle();
+
+      final replyField = find.byKey(const Key('agent-reply-input'));
+      await tester.scrollUntilVisible(
+        replyField,
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(
+        tester.widget<TextField>(replyField).controller!.text,
+        reply,
+      );
+      expect(composition.strategyController.hasSession, isTrue);
+    },
+  );
+
 }
 
 final class _ReplyInboxPort implements AgentReplyInboxPort {
