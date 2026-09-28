@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
 
+import 'package:personal_os_app/src/agent_interop/agent_reply_inbox.dart';
 import 'package:personal_os_app/src/app.dart';
 import 'package:personal_os_app/src/composition/app_composition.dart';
 import 'package:personal_os_app/src/screens/strategy_loop_screen.dart';
@@ -373,6 +374,98 @@ void main() {
   );
 
   testWidgets(
+    'manual import preserves a different reply shared at the same time',
+    (tester) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.view.physicalSize = const Size(390, 1800);
+      tester.view.devicePixelRatio = 1;
+
+      final composition = AppComposition.inMemoryDemo();
+      final controller = composition.strategyController;
+      addTearDown(controller.dispose);
+      await controller.openOfflineSession(agentId: 'manual-import-test');
+
+      final replyPort = _ReplyInboxPort();
+      final inbox = AgentReplyInboxController(
+        port: replyPort,
+        isVaultUnlocked: () => true,
+      );
+      addTearDown(inbox.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StrategyLoopScreen(
+              controller: controller,
+              mode: AppExperienceMode.syntheticDemo,
+              replyInbox: inbox,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('agent-reply-input')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      final manualProposal = jsonEncode(<String, Object?>{
+        'protocol_version': 'personal-os.mcp.v0',
+        'proposal_id': 'manual-import-proposal',
+        'session_id': controller.sessionId,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'strategy': <String, Object?>{
+          'title': 'Manual strategy',
+          'rationale': 'Keep the other shared reply available.',
+          'goal_refs': <Object?>[
+            <String, Object?>{
+              'type': 'goal',
+              'id': 'goal-browser-preview',
+              'revision': 1,
+            },
+          ],
+          'actions': <Object?>[
+            <String, Object?>{
+              'id': 'manual-action',
+              'instruction': 'Run the manual strategy.',
+            },
+          ],
+        },
+      });
+      await tester.enterText(
+        find.byKey(const Key('agent-reply-input')),
+        manualProposal,
+      );
+      await replyPort.share('reply from Android share');
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('agent-reply-input')))
+            .controller!
+            .text,
+        manualProposal,
+      );
+
+      await tester.ensureVisible(find.byKey(const Key('import-agent-reply')));
+      await tester.tap(find.byKey(const Key('import-agent-reply')));
+      await tester.pumpAndSettle();
+
+      expect(controller.hasPendingProposal, isTrue);
+      expect(inbox.pendingReply, 'reply from Android share');
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('agent-reply-input')))
+            .controller!
+            .text,
+        'reply from Android share',
+      );
+    },
+  );
+
+  testWidgets(
     'copying a handoff refreshes context with the latest recorded outcome',
     (tester) async {
       addTearDown(tester.view.resetPhysicalSize);
@@ -466,4 +559,28 @@ void main() {
       );
     },
   );
+}
+
+
+final class _ReplyInboxPort implements AgentReplyInboxPort {
+  String? _pending;
+  AgentReplyAvailableHandler? _handler;
+
+  @override
+  Future<String?> takePendingReply() async {
+    final reply = _pending;
+    _pending = null;
+    return reply;
+  }
+
+  @override
+  void setReplyAvailableHandler(AgentReplyAvailableHandler? handler) {
+    _handler = handler;
+  }
+
+  Future<void> share(String reply) async {
+    _pending = reply;
+    final handler = _handler;
+    if (handler != null) await handler();
+  }
 }
