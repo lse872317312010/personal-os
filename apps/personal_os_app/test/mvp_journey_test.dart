@@ -600,10 +600,12 @@ void main() {
       await replyPort.share(reply);
       await tester.pumpAndSettle();
 
-      // The inbox must not read reply text until the Vault is unlocked.
+      // The text stays in the native queue while the Vault remains locked.
+      expect(replyPort.hasPendingReply, isTrue);
       expect(find.text(reply), findsNothing);
       await tester.tap(find.byKey(const Key('unlock-vault')));
       await tester.pumpAndSettle();
+      expect(replyPort.hasPendingReply, isFalse);
 
       final banner = find.byKey(const Key('incoming-agent-reply-banner'));
       expect(banner, findsOneWidget);
@@ -630,6 +632,7 @@ void main() {
 
 final class _ReplyInboxPort implements AgentReplyInboxPort {
   String? _pending;
+  bool get hasPendingReply => _pending != null;
   AgentReplyAvailableHandler? _handler;
 
   @override
