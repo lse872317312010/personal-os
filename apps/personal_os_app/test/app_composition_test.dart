@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
@@ -108,6 +107,8 @@ void main() {
 
       await tester.pumpWidget(PersonalOsApp(composition: composition));
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      expect(composition.controller.vaultUnlocked, isFalse);
+      expect(composition.agentAccessController.active, isFalse);
       await tester.pump();
 
       expect(composition.controller.vaultUnlocked, isFalse);
