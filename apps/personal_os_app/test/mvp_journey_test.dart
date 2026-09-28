@@ -186,17 +186,22 @@ void main() {
     );
     expect(find.textContaining('手机保存资产、策略和真实反馈'), findsNothing);
 
-    await tester.enterText(find.byKey(const Key('agent-id-input')), '');
-    await tester.tap(find.byKey(const Key('open-agent-session')));
-    await tester.pumpAndSettle();
-    expect(find.text('Agent / Harness ID 必须为 1–100 个字符。'), findsOneWidget);
-    expect(find.textContaining('strategy.agent_id_invalid'), findsNothing);
-
     await tester.enterText(
-      find.byKey(const Key('agent-id-input')),
-      'browser-preview-agent',
+      find.byKey(const Key('assistant-name-input')),
+      'containerized-custom-harness',
     );
     await tester.tap(find.byKey(const Key('open-agent-session')));
+    await tester.pumpAndSettle();
+    expect(
+      composition.strategyController.agentId,
+      'containerized-custom-harness',
+    );
+    expect(composition.strategyController.contextBundle, isNotNull);
+    expect(find.byKey(const Key('copy-agent-handoff')), findsOneWidget);
+    expect(find.textContaining('Session ID:'), findsNothing);
+    expect(find.byKey(const Key('review-bundle-input')), findsNothing);
+
+    await tester.tap(find.byKey(const Key('advanced-agent-options')));
     await tester.pumpAndSettle();
     expect(find.textContaining('Session ID:'), findsOneWidget);
 
