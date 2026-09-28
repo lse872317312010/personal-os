@@ -218,9 +218,8 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                           const SizedBox(height: 12),
                           FilledButton.tonalIcon(
                             key: const Key('copy-agent-handoff'),
-                            onPressed: busy
-                                ? null
-                                : () => _copyHandoff(context),
+                            onPressed:
+                                busy ? null : () => _copyHandoff(context),
                             icon: const Icon(Icons.copy),
                             label: const Text('复制协作内容'),
                           ),
