@@ -6,6 +6,7 @@ import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
 
 import '../agent_interop/agent_handoff.dart';
+import '../agent_interop/agent_reply_inbox.dart';
 import '../agent_interop/agent_text_share.dart';
 import '../composition/app_composition.dart';
 import '../controller/strategy_loop_controller.dart';
@@ -14,11 +15,13 @@ final class StrategyLoopScreen extends StatefulWidget {
   const StrategyLoopScreen({
     required this.controller,
     required this.mode,
+    this.replyInbox,
     super.key,
   });
 
   final StrategyLoopController controller;
   final AppExperienceMode mode;
+  final AgentReplyInboxController? replyInbox;
 
   @override
   State<StrategyLoopScreen> createState() => _StrategyLoopScreenState();
@@ -36,11 +39,13 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   @override
   void initState() {
     super.initState();
+    widget.replyInbox?.addListener(_syncReplyFromInbox);
     unawaited(_prepareRestoredSession());
   }
 
   @override
   void dispose() {
+    widget.replyInbox?.removeListener(_syncReplyFromInbox);
     _assistantName.dispose();
     _agentReply.dispose();
     _review.dispose();
@@ -51,7 +56,9 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
 
   Future<void> _prepareRestoredSession() async {
     await widget.controller.bootstrap();
-    if (!mounted || !widget.controller.hasSession) return;
+    if (!mounted) return;
+    _syncReplyFromInbox();
+    if (!widget.controller.hasSession) return;
     if (widget.controller.contextBundle == null) {
       await widget.controller.exportContext();
     }
@@ -64,6 +71,22 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     await widget.controller.openOfflineSession(agentId: name);
     if (!mounted || !widget.controller.hasSession) return;
     await widget.controller.exportContext();
+  }
+
+  void _syncReplyFromInbox() {
+    final inbox = widget.replyInbox;
+    if (!mounted) return;
+    if (inbox != null && !inbox.vaultOpen) {
+      _agentReply.clear();
+      return;
+    }
+    if (!widget.controller.hasSession) return;
+    final reply = inbox?.pendingReply;
+    if (reply == null || _agentReply.text.isNotEmpty) return;
+    _agentReply.value = TextEditingValue(
+      text: reply,
+      selection: TextSelection.collapsed(offset: reply.length),
+    );
   }
 
   Future<void> _importAgentReply() async {
@@ -82,6 +105,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               : controller.hasPendingReview);
       if (!imported) return;
       _agentReply.clear();
+      widget.replyInbox?.clearPendingReply();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('建议已导入，请查看内容并决定是否接受。')),
       );
@@ -181,6 +205,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     await widget.controller.closeSession();
     if (!mounted || widget.controller.hasSession) return;
     _agentReply.clear();
+    widget.replyInbox?.clearPendingReply();
     _review.clear();
     _proposal.clear();
   }
@@ -209,6 +234,37 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               ),
               const SizedBox(height: 16),
               _StatusCard(controller: controller),
+              if (!controller.hasSession &&
+                  (widget.replyInbox?.hasPendingReply ?? false))
+                Card(
+                  key: const Key('orphaned-agent-reply'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          '收到了一条助手回复，但没有找到原协作会话。',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '为避免把回复放进错误会话，请先丢弃这条回复，再重新开始协作并发送最新上下文。',
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            key: const Key('discard-orphaned-agent-reply'),
+                            onPressed:
+                                widget.replyInbox!.clearPendingReply,
+                            icon: const Icon(Icons.delete_outline),
+                            label: const Text('丢弃回复'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               const SizedBox(height: 16),
               TextField(
                 key: const Key('assistant-name-input'),
@@ -223,8 +279,11 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               const SizedBox(height: 8),
               FilledButton.icon(
                 key: const Key('open-agent-session'),
-                onPressed:
-                    busy || controller.hasSession ? null : _startAgentSession,
+                onPressed: busy ||
+                        controller.hasSession ||
+                        (widget.replyInbox?.hasPendingReply ?? false)
+                    ? null
+                    : _startAgentSession,
                 icon: const Icon(Icons.link),
                 label: const Text('开始协作并准备上下文'),
               ),
@@ -265,15 +324,57 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                               label: const Text('选择 AI 助手发送'),
                             ),
                         ],
+                        if (widget.replyInbox?.hasPendingReply ?? false)
+                          Card(
+                            key: const Key('received-agent-reply-note'),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .secondaryContainer,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  const Text(
+                                    '已收到助手回复，并填入下方输入框。',
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    '内容仍在本机内存中。检查后手动导入；'
+                                    '导入的建议仍需你单独接受。',
+                                  ),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton.icon(
+                                      key: const Key(
+                                        'discard-received-agent-reply',
+                                      ),
+                                      onPressed: () {
+                                        widget.replyInbox
+                                            ?.clearPendingReply();
+                                        _agentReply.clear();
+                                      },
+                                      icon: const Icon(Icons.delete_outline),
+                                      label: const Text('丢弃回复'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         const SizedBox(height: 16),
                         TextField(
                           key: const Key('agent-reply-input'),
                           controller: _agentReply,
                           minLines: 4,
                           maxLines: 10,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: '粘贴 AI 助手的回复',
                             hintText: '可以直接粘贴完整回复，无需整理 JSON',
+                            helperText:
+                                widget.replyInbox?.hasPendingReply ?? false
+                                    ? '收到的内容已填入；检查后再手动导入。'
+                                    : null,
                             alignLabelWithHint: true,
                           ),
                         ),

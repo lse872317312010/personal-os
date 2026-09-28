@@ -15,6 +15,7 @@ import 'package:personal_os_security_api/security_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 import 'package:personal_os_source_api/source_api.dart';
 
+import '../agent_interop/agent_reply_inbox.dart';
 import '../controller/agent_access_controller.dart';
 import '../controller/app_controller.dart';
 import '../controller/encrypted_event_backup_controller.dart';
@@ -39,6 +40,7 @@ final class AppComposition {
     required this.agentAccessController,
     required this.eventStore,
     required this.mode,
+    required this.replyInbox,
   });
 
   final AppController controller;
@@ -47,12 +49,17 @@ final class AppComposition {
   final AgentAccessController agentAccessController;
   final EventStore eventStore;
   final AppExperienceMode mode;
+  final AgentReplyInboxController replyInbox;
 
-  factory AppComposition.inMemoryDemo({EventStore? eventStore}) {
+  factory AppComposition.inMemoryDemo({
+    EventStore? eventStore,
+    AgentReplyInboxPort? replyInboxPort,
+  }) {
     final policyClock = _SystemPolicyClock();
     return _build(
       eventStore: eventStore ?? InMemoryEventStore(),
       mode: AppExperienceMode.syntheticDemo,
+      replyInboxPort: replyInboxPort ?? const NoopAgentReplyInboxPort(),
       initialGrants: <ConsentGrant>[
         _demoAppearanceConsent(policyClock.now()),
       ],
@@ -87,6 +94,7 @@ final class AppComposition {
       vaultSession: DefaultVaultSession(const _UnavailableSecureUnlockPort()),
       secureVault: const _UnavailableSecureVaultPort(),
       modelGateway: const _UnavailableAppearanceAnalysisGateway(),
+      replyInboxPort: const NoopAgentReplyInboxPort(),
     );
   }
 
@@ -96,6 +104,7 @@ final class AppComposition {
     MethodChannel? channel,
     MethodChannel? modelChannel,
     MethodChannel? backupChannel,
+    AgentReplyInboxPort? replyInboxPort,
   }) {
     final bridge =
         securityBridge ?? AndroidPlatformSecurityBridge(channel: channel);
@@ -120,6 +129,8 @@ final class AppComposition {
       backupPort: MethodChannelEncryptedEventBackupPort(
         channel: backupChannel,
       ),
+      replyInboxPort:
+          replyInboxPort ?? const MethodChannelAgentReplyInboxPort(),
     );
   }
 
@@ -134,6 +145,7 @@ final class AppComposition {
     SourceBlobIngestionPort? sourceBlobIngestion,
     AppearanceAnalysisGateway? modelGateway,
     EncryptedEventBackupPort? backupPort,
+    AgentReplyInboxPort? replyInboxPort,
   }) {
     final clock = _SystemClock();
     final policyClock = _SystemPolicyClock();
@@ -188,6 +200,10 @@ final class AppComposition {
     );
     late final AppController controller;
     late final AgentAccessController agentAccessController;
+    final replyInbox = AgentReplyInboxController(
+      port: replyInboxPort ?? const NoopAgentReplyInboxPort(),
+      isVaultUnlocked: () => controller.vaultUnlocked,
+    );
     final agentEventStore = AgentAccessEventStore(
       inner: eventStore,
       isAuthorized: () =>
@@ -272,6 +288,7 @@ final class AppComposition {
         agentAccessController.stop();
         strategyController.reset();
         backupController.reset();
+        replyInbox.clearForVaultLock();
       },
       vaultSession: vaultSession,
       secureVault: secureVault,
@@ -291,6 +308,7 @@ final class AppComposition {
       backupController: backupController,
       agentAccessController: agentAccessController,
       controller: controller,
+      replyInbox: replyInbox,
     );
   }
 }

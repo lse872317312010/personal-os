@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import com.personalos.app.agent.AgentReplyReceiveChannel
 import com.personalos.app.agent.AgentTextShareChannel
 import com.personalos.app.backup.PortableEventBackupChannel
 import com.personalos.app.model.AndroidNativeModelCredentialPrompt
@@ -35,6 +36,8 @@ class MainActivity : FlutterFragmentActivity() {
     private var modelChannel: MethodChannel? = null
     private var modelHandler: NativeAppearanceModelChannel? = null
     private var agentTextShareChannel: MethodChannel? = null
+    private var agentReplyReceiveChannel: MethodChannel? = null
+    private var agentReplyReceiveHandler: AgentReplyReceiveChannel? = null
 
     private val cameraPermissionLauncher: ActivityResultLauncher<String> by lazy {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -106,6 +109,16 @@ class MainActivity : FlutterFragmentActivity() {
             channel.setMethodCallHandler(AgentTextShareChannel(this))
         }
 
+        val incomingReplies = AgentReplyReceiveChannel()
+        agentReplyReceiveHandler = incomingReplies
+        agentReplyReceiveChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            AgentReplyReceiveChannel.CHANNEL_NAME,
+        ).also { channel ->
+            channel.setMethodCallHandler(incomingReplies)
+        }
+        incomingReplies.capture(intent)
+
         val modelAdapter = if (BuildConfig.PERSONAL_OS_OPENAI_ENABLED) {
             StructuredExternalAppearanceModelTransport(
                 credentials = EphemeralNativeModelCredentialProvider(),
@@ -165,6 +178,12 @@ class MainActivity : FlutterFragmentActivity() {
         ).also { it.setMethodCallHandler(handler) }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        agentReplyReceiveHandler?.capture(intent)
+    }
+
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
         modelChannel?.setMethodCallHandler(null)
         modelChannel = null
@@ -172,6 +191,8 @@ class MainActivity : FlutterFragmentActivity() {
         modelHandler = null
         agentTextShareChannel?.setMethodCallHandler(null)
         agentTextShareChannel = null
+        agentReplyReceiveChannel?.setMethodCallHandler(null)
+        agentReplyReceiveChannel = null
         backupChannel?.setMethodCallHandler(null)
         backupChannel = null
         backupHandler?.dispose()
@@ -189,6 +210,8 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onDestroy() {
+        agentReplyReceiveHandler?.clear()
+        agentReplyReceiveHandler = null
         modelHandler?.dispose()
         modelHandler = null
         vaultHandler?.dispose()
