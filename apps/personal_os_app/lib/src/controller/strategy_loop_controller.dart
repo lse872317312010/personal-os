@@ -217,6 +217,18 @@ final class StrategyLoopController extends ChangeNotifier {
     });
   }
 
+  /// Refreshes the bundle immediately before it is shared with an assistant.
+  ///
+  /// Never return an older bundle when refreshing fails.
+  Future<String?> refreshContextForHandoff() async {
+    if (_disposed || _status == StrategyUiStatus.running || !hasSession) {
+      return null;
+    }
+    await exportContext();
+    if (_disposed || _status != StrategyUiStatus.ready) return null;
+    return _contextBundle;
+  }
+
   Future<void> exportContext() async {
     final sessionId = _sessionId;
     if (sessionId == null) {

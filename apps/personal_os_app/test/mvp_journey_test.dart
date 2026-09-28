@@ -1,10 +1,14 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:personal_os_application/application.dart';
+import 'package:personal_os_domain/domain.dart';
 
 import 'package:personal_os_app/src/app.dart';
 import 'package:personal_os_app/src/composition/app_composition.dart';
+import 'package:personal_os_app/src/screens/strategy_loop_screen.dart';
 
 void main() {
   testWidgets('offline Chinese MVP completes the guided appearance loop',
@@ -364,6 +368,101 @@ void main() {
       expect(
         find.text('建议已导入，请查看内容并决定是否接受。'),
         findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'copying a handoff refreshes context with the latest recorded outcome',
+    (tester) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.view.physicalSize = const Size(390, 1800);
+      tester.view.devicePixelRatio = 1;
+
+      String? clipboardText;
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            final arguments = call.arguments as Map<Object?, Object?>;
+            clipboardText = arguments['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => messenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+
+      final composition = AppComposition.inMemoryDemo();
+      final controller = composition.strategyController;
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StrategyLoopScreen(
+              controller: controller,
+              mode: AppExperienceMode.syntheticDemo,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('open-agent-session')));
+      await tester.pumpAndSettle();
+
+      final oldBundle = controller.contextBundle!;
+      final sessionId = controller.sessionId!;
+      await controller.importProposal(jsonEncode(<String, Object?>{
+        'protocol_version': 'personal-os.mcp.v0',
+        'proposal_id': 'fresh-context-proposal',
+        'session_id': sessionId,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'strategy': <String, Object?>{
+          'title': 'Measure the latest result',
+          'rationale': 'Compare the action with its real outcome.',
+          'goal_refs': <Object?>[
+            <String, Object?>{
+              'type': 'goal',
+              'id': 'goal-browser-preview',
+              'revision': 1,
+            },
+          ],
+          'actions': <Object?>[
+            <String, Object?>{
+              'id': 'fresh-context-action',
+              'instruction': 'Run one measurable experiment.',
+            },
+          ],
+        },
+      }));
+      await controller.decideProposal(ProposalDecision.accept);
+      await controller.activateStrategy();
+      await controller.recordExecution(
+        actionId: 'fresh-context-action',
+        executionStatus: ExecutionStatus.completed,
+      );
+      await controller.recordOutcome(
+        observation: 'Outcome only present after refreshing context.',
+        valence: OutcomeValence.positive,
+      );
+      expect(controller.contextBundle, oldBundle);
+
+      final copyButton = find.byKey(const Key('copy-agent-handoff'));
+      await tester.ensureVisible(copyButton);
+      await tester.tap(copyButton);
+      await tester.pumpAndSettle();
+
+      expect(controller.contextBundle, isNot(oldBundle));
+      expect(
+        clipboardText,
+        contains('Outcome only present after refreshing context.'),
       );
     },
   );

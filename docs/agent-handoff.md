@@ -17,7 +17,7 @@ The browser preview uses synthetic in-memory data and is not a production Vault 
 
 ## Handoff contract
 
-The copy prompt pins the current session ID and protocol version, asks the assistant to use only pinned references in the Context Bundle, and requests exactly one proposal or review. Personal OS accepts one raw or fenced Bundle reply at a time. A review must be accepted by the user before a revised strategy can be imported.
+Before each copy, Personal OS refreshes the Context Bundle so newly recorded strategies, executions, and outcomes are included without a manual refresh. The copy prompt pins the current session ID and protocol version, asks the assistant to use only pinned references in the Context Bundle, and requests exactly one proposal or review. Personal OS accepts one raw or fenced Bundle reply at a time. A review must be accepted by the user before a revised strategy can be imported.
 
 Execution uses the action IDs and instructions in the imported strategy or restored event history. The normal flow displays the actual step; when a strategy has multiple steps, the user selects the step they completed before recording it. The app rejects IDs that do not belong to the active strategy.
 

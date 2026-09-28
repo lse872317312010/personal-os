@@ -90,7 +90,19 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     }
   }
 
-  Future<void> _copyHandoff(BuildContext context, String bundle) async {
+  Future<void> _copyHandoff(BuildContext context) async {
+    final bundle = await widget.controller.refreshContextForHandoff();
+    if (!context.mounted) return;
+    if (bundle == null) {
+      final errorCode = widget.controller.errorCode;
+      final message = errorCode == null
+          ? '无法准备最新协作内容，请稍后重试。'
+          : _strategyErrorText(errorCode);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+      return;
+    }
     final prompt = buildAgentHandoffPrompt(bundle);
     if (widget.mode == AppExperienceMode.secureVault) {
       final confirmed = await showDialog<bool>(
@@ -200,18 +212,15 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                           const Text('正在准备协作内容…')
                         else ...<Widget>[
                           const Text(
-                            '上下文已准备。复制后粘贴到你选择的 AI 助手；'
-                            '再把它的完整回复粘贴到下方。',
+                            '每次复制都会自动准备最新上下文。粘贴到你选择的 AI '
+                            '助手后，再把完整回复粘贴到下方。',
                           ),
                           const SizedBox(height: 12),
                           FilledButton.tonalIcon(
                             key: const Key('copy-agent-handoff'),
                             onPressed: busy
                                 ? null
-                                : () => _copyHandoff(
-                                      context,
-                                      controller.contextBundle!,
-                                    ),
+                                : () => _copyHandoff(context),
                             icon: const Icon(Icons.copy),
                             label: const Text('复制协作内容'),
                           ),
