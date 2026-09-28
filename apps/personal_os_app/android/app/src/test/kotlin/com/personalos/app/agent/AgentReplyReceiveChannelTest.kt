@@ -14,9 +14,7 @@ class AgentReplyReceiveChannelTest {
     @Test
     fun capturesOnlyPlainTextSendAndConsumesItOnce() {
         val channel = AgentReplyReceiveChannel()
-        val intent = Intent(Intent.ACTION_SEND)
-            .setType("text/plain")
-            .putExtra(Intent.EXTRA_TEXT, "one assistant reply")
+        val intent = plainText("one assistant reply")
 
         assertTrue(channel.capture(intent))
         assertEquals("one assistant reply", channel.takeForTest())
@@ -24,7 +22,7 @@ class AgentReplyReceiveChannelTest {
     }
 
     @Test
-    fun notifiesOnlyAfterCapturingValidPlainText() {
+    fun notifiesAfterCaptureAndOnOverflowButNotForInvalidText() {
         val channel = AgentReplyReceiveChannel()
         var notifications = 0
 
@@ -39,11 +37,7 @@ class AgentReplyReceiveChannelTest {
         assertFalse(rejected)
         assertEquals(0, notifications)
 
-        val accepted = channel.captureAndNotify(
-            Intent(Intent.ACTION_SEND)
-                .setType("text/plain")
-                .putExtra(Intent.EXTRA_TEXT, "reply body"),
-        ) {
+        val accepted = channel.captureAndNotify(plainText("reply body")) {
             notifications++
         }
 
@@ -82,51 +76,105 @@ class AgentReplyReceiveChannelTest {
     fun rejectsBlankAndOversizedReplies() {
         val channel = AgentReplyReceiveChannel()
 
+        assertFalse(channel.capture(plainText("   ")))
         assertFalse(
             channel.capture(
-                Intent(Intent.ACTION_SEND)
-                    .setType("text/plain")
-                    .putExtra(Intent.EXTRA_TEXT, "   "),
+                plainText("x".repeat(AgentReplyReceiveChannel.MAX_TEXT_BYTES + 1)),
             ),
         )
-        assertFalse(
-            channel.capture(
-                Intent(Intent.ACTION_SEND)
-                    .setType("text/plain")
-                    .putExtra(
-                        Intent.EXTRA_TEXT,
-                        "x".repeat(AgentReplyReceiveChannel.MAX_TEXT_BYTES + 1),
-                    ),
-            ),
-        )
-        assertNull(channel.takeForTest())
+        assertEquals(0, channel.pendingReplyCountForTest())
     }
 
     @Test
-    fun clearDropsVolatileReply() {
+    fun capturesRepliesInFifoOrder() {
         val channel = AgentReplyReceiveChannel()
-        channel.capture(
-            Intent(Intent.ACTION_SEND)
-                .setType("text/plain")
-                .putExtra(Intent.EXTRA_TEXT, "discarded"),
+
+        assertTrue(channel.capture(plainText("first")))
+        assertTrue(channel.capture(plainText("second")))
+        assertTrue(channel.capture(plainText("third")))
+
+        assertEquals(3, channel.pendingReplyCountForTest())
+        assertEquals("first", channel.takeForTest())
+        assertEquals("second", channel.takeForTest())
+        assertEquals("third", channel.takeForTest())
+        assertEquals(0, channel.pendingReplyCountForTest())
+    }
+
+    @Test
+    fun boundedQueuePreservesExistingRepliesAndReportsOverflow() {
+        val channel = AgentReplyReceiveChannel()
+        repeat(AgentReplyReceiveChannel.MAX_PENDING_REPLIES) { index ->
+            assertTrue(channel.capture(plainText("reply-$index")))
+        }
+        var notifications = 0
+
+        val captured = channel.captureAndNotify(plainText("overflow reply")) {
+            notifications++
+        }
+
+        assertFalse(captured)
+        assertEquals(1, notifications)
+        assertEquals(
+            AgentReplyReceiveChannel.MAX_PENDING_REPLIES,
+            channel.pendingReplyCountForTest(),
         )
+        assertEquals(1, channel.takeDroppedReplyCountForTest())
+        assertEquals(0, channel.takeDroppedReplyCountForTest())
+        assertEquals("reply-0", channel.takeForTest())
+    }
+
+    @Test
+    fun boundedAggregateBytesCanAcceptRepliesAfterAnEarlierReplyIsTaken() {
+        val channel = AgentReplyReceiveChannel()
+        val largeReply = "x".repeat(AgentReplyReceiveChannel.MAX_TEXT_BYTES)
+
+        assertTrue(channel.capture(plainText(largeReply)))
+        assertTrue(channel.capture(plainText(largeReply)))
+        assertFalse(channel.capture(plainText("over byte limit")))
+        assertEquals(1, channel.takeDroppedReplyCountForTest())
+
+        assertEquals(largeReply, channel.takeForTest())
+        assertTrue(channel.capture(plainText("fits after one reply is read")))
+        assertEquals(2, channel.pendingReplyCountForTest())
+    }
+
+    @Test
+    fun clearDropsVolatileRepliesAndOverflowCount() {
+        val channel = AgentReplyReceiveChannel()
+        channel.capture(plainText("discarded"))
+        repeat(AgentReplyReceiveChannel.MAX_PENDING_REPLIES) {
+            channel.capture(plainText("reply-$it"))
+        }
+        channel.capture(plainText("overflow"))
 
         channel.clear()
 
-        assertNull(channel.takeForTest())
+        assertEquals(0, channel.pendingReplyCountForTest())
+        assertEquals(0, channel.takeDroppedReplyCountForTest())
     }
 }
 
-private fun AgentReplyReceiveChannel.takeForTest(): String? {
+private fun plainText(text: String): Intent =
+    Intent(Intent.ACTION_SEND)
+        .setType("text/plain")
+        .putExtra(Intent.EXTRA_TEXT, text)
+
+private fun AgentReplyReceiveChannel.takeForTest(): String? =
+    invokeForTest(AgentReplyReceiveChannel.TAKE_PENDING_REPLY_METHOD) as? String
+
+private fun AgentReplyReceiveChannel.pendingReplyCountForTest(): Int =
+    invokeForTest(AgentReplyReceiveChannel.PENDING_REPLY_COUNT_METHOD) as Int
+
+private fun AgentReplyReceiveChannel.takeDroppedReplyCountForTest(): Int =
+    invokeForTest(AgentReplyReceiveChannel.TAKE_DROPPED_REPLY_COUNT_METHOD) as Int
+
+private fun AgentReplyReceiveChannel.invokeForTest(method: String): Any? {
     val result = RecordingMethodResult()
     onMethodCall(
-        io.flutter.plugin.common.MethodCall(
-            AgentReplyReceiveChannel.TAKE_PENDING_REPLY_METHOD,
-            null,
-        ),
+        io.flutter.plugin.common.MethodCall(method, null),
         result,
     )
-    return result.successValue as? String
+    return result.successValue
 }
 
 private class RecordingMethodResult : io.flutter.plugin.common.MethodChannel.Result {

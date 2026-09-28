@@ -67,7 +67,10 @@ void main() {
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     messenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call);
-      return 'shared assistant reply';
+      if (call.method == 'takePendingReply') return 'shared assistant reply';
+      if (call.method == 'pendingReplyCount') return 0;
+      if (call.method == 'takeDroppedReplyCount') return 0;
+      return null;
     });
     addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
@@ -80,8 +83,18 @@ void main() {
     await inbox.receivePendingReply();
 
     expect(inbox.pendingReply, 'shared assistant reply');
-    expect(calls.map((call) => call.method), <String>['takePendingReply']);
-    expect(calls.single.arguments, isNull);
+    expect(
+      calls.map((call) => call.method),
+      <String>[
+        'takePendingReply',
+        'pendingReplyCount',
+        'takeDroppedReplyCount',
+      ],
+    );
+    expect(
+      calls.every((call) => call.arguments == null),
+      isTrue,
+    );
   });
 
   test(
@@ -98,18 +111,47 @@ void main() {
       expect(inbox.pendingReply, 'first reply');
       expect(port.calls, 1);
 
-      // A second Android share stays in the native slot while this one is shown.
+      // Later shares remain queued while this reply is being reviewed.
       port.reply = 'second reply';
       await port.signalReplyAvailable();
       expect(inbox.pendingReply, 'first reply');
+      expect(inbox.queuedReplyCount, 1);
       expect(port.calls, 1);
 
       await inbox.clearPendingReply();
 
       expect(inbox.pendingReply, 'second reply');
+      expect(inbox.queuedReplyCount, 0);
       expect(port.calls, 2);
     },
   );
+
+  test(
+    'reports queue size and dropped replies without replacing the active reply',
+    () async {
+    final port = _FakeReplyPort('first reply');
+    final inbox = AgentReplyInboxController(
+      port: port,
+      isVaultUnlocked: () => true,
+    );
+    addTearDown(inbox.dispose);
+
+    await inbox.receivePendingReply();
+    port.reply = 'second reply';
+    port.droppedReplyCount = 2;
+    await port.signalReplyAvailable();
+
+    expect(inbox.pendingReply, 'first reply');
+    expect(inbox.queuedReplyCount, 1);
+    expect(inbox.droppedReplyCount, 2);
+    expect(port.calls, 1);
+
+    await inbox.clearPendingReply();
+
+    expect(inbox.pendingReply, 'second reply');
+    expect(inbox.queuedReplyCount, 0);
+    expect(inbox.droppedReplyCount, 2);
+  });
 
   test('reply availability signal has no body and waits for Vault unlock',
       () async {
@@ -136,9 +178,16 @@ void main() {
     );
     expect(
       channel.outboundCalls.map((call) => call.method),
-      <String>['takePendingReply'],
+      <String>[
+        'takePendingReply',
+        'pendingReplyCount',
+        'takeDroppedReplyCount',
+      ],
     );
-    expect(channel.outboundCalls.single.arguments, isNull);
+    expect(
+      channel.outboundCalls.every((call) => call.arguments == null),
+      isTrue,
+    );
     expect(inbox.pendingReply, 'shared assistant reply');
 
     await expectLater(
@@ -150,7 +199,7 @@ void main() {
       ),
       throwsA(isA<PlatformException>()),
     );
-    expect(channel.outboundCalls, hasLength(1));
+    expect(channel.outboundCalls, hasLength(3));
   });
 
   testWidgets('received replies are shown after unlock and never auto-imported',
@@ -177,6 +226,18 @@ void main() {
     expect(port.calls, 1);
     expect(
         find.byKey(const Key('incoming-agent-reply-banner')), findsOneWidget);
+    port.reply = 'second assistant reply';
+    port.droppedReplyCount = 1;
+    await port.signalReplyAvailable();
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('另有 1 条回复等待处理。'),
+      findsOneWidget,
+    );
+    expect(
+      find.textContaining('1 条新回复未保留'),
+      findsOneWidget,
+    );
     expect(composition.strategyController.hasPendingProposal, isFalse);
     expect(composition.strategyController.hasPendingReview, isFalse);
 
@@ -334,6 +395,7 @@ final class _FakeReplyPort implements AgentReplyInboxPort {
 
   String? reply;
   int calls = 0;
+  int droppedReplyCount = 0;
   AgentReplyAvailableHandler? _replyAvailableHandler;
 
   @override
@@ -342,6 +404,16 @@ final class _FakeReplyPort implements AgentReplyInboxPort {
     final result = reply;
     reply = null;
     return result;
+  }
+
+  @override
+  Future<int> pendingReplyCount() async => reply == null ? 0 : 1;
+
+  @override
+  Future<int> takeDroppedReplyCount() async {
+    final count = droppedReplyCount;
+    droppedReplyCount = 0;
+    return count;
   }
 
   @override
@@ -381,6 +453,8 @@ final class _RecordingMethodChannel extends MethodChannel {
     if (method == 'takePendingReply') {
       return 'shared assistant reply' as T?;
     }
+    if (method == 'pendingReplyCount') return 0 as T?;
+    if (method == 'takeDroppedReplyCount') return 0 as T?;
     return null;
   }
 }

@@ -143,24 +143,30 @@ final class _UnlockedShellState extends State<_UnlockedShell> {
               ),
               body: Column(
                 children: <Widget>[
-                  if (replyInbox.hasPendingReply &&
+                  if ((replyInbox.hasPendingReply ||
+                          replyInbox.droppedReplyCount > 0) &&
                       controller.destination != AppDestination.strategy)
                     MaterialBanner(
                       key: const Key('incoming-agent-reply-banner'),
-                      content: const Text(
-                        '收到一条 AI 助手回复。内容暂存在内存中，查看后由你决定是否导入。',
-                      ),
+                      content: Text(_agentReplyInboxMessage(replyInbox)),
                       actions: <Widget>[
-                        TextButton(
-                          onPressed: () =>
-                              controller.navigate(AppDestination.strategy),
-                          child: const Text('查看回复'),
-                        ),
-                        TextButton(
-                          onPressed: () =>
-                              unawaited(replyInbox.clearPendingReply()),
-                          child: const Text('丢弃'),
-                        ),
+                        if (replyInbox.hasPendingReply) ...<Widget>[
+                          TextButton(
+                            onPressed: () =>
+                                controller.navigate(AppDestination.strategy),
+                            child: const Text('查看回复'),
+                          ),
+                          TextButton(
+                            onPressed: () =>
+                                unawaited(replyInbox.clearPendingReply()),
+                            child: const Text('丢弃'),
+                          ),
+                        ],
+                        if (replyInbox.droppedReplyCount > 0)
+                          TextButton(
+                            onPressed: replyInbox.clearDroppedReplyNotice,
+                            child: const Text('知道了'),
+                          ),
                       ],
                     ),
                   Expanded(
@@ -257,6 +263,19 @@ final class _SyntheticPreviewNotice extends StatelessWidget {
       ),
     );
   }
+}
+
+String _agentReplyInboxMessage(AgentReplyInboxController inbox) {
+  final messages = <String>[
+    if (inbox.hasPendingReply)
+      '收到一条 AI 助手回复。内容暂存在内存中，查看后由你决定是否导入。',
+    if (inbox.queuedReplyCount > 0)
+      '另有 ${inbox.queuedReplyCount} 条回复等待处理。',
+    if (inbox.droppedReplyCount > 0)
+      '内存暂存已满，${inbox.droppedReplyCount} 条新回复未保留，'
+      '请回到发送回复的助手重新分享。',
+  ];
+  return messages.join(' ');
 }
 
 const _primaryDestinations = <AppDestination>[

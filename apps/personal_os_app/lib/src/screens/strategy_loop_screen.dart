@@ -359,6 +359,31 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               ),
               const SizedBox(height: 16),
               _StatusCard(controller: controller),
+              if (!(widget.replyInbox?.hasPendingReply ?? false) &&
+                  (widget.replyInbox?.droppedReplyCount ?? 0) > 0)
+                Card(
+                  key: const Key('agent-reply-overflow-note'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          '内存暂存已满，${widget.replyInbox!.droppedReplyCount} 条新回复未保留，'
+                          '请回到发送回复的助手重新分享。',
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed:
+                                widget.replyInbox!.clearDroppedReplyNotice,
+                            child: const Text('知道了'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               if (!controller.hasSession &&
                   (widget.replyInbox?.hasPendingReply ?? false))
                 Card(
@@ -461,10 +486,31 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
-                                  const Text(
-                                    '收到的回复暂存在本机内存中，不会自动导入。'
-                                    '检查后再手动导入；导入的建议仍需你单独接受。',
+                                  Text(
+                                    <String>[
+                                      '收到的回复暂存在本机内存中，不会自动导入。'
+                                          '检查后再手动导入；导入的建议仍需你单独接受。',
+                                      if ((widget.replyInbox?.queuedReplyCount ??
+                                              0) >
+                                          0)
+                                        '另有 ${widget.replyInbox!.queuedReplyCount} 条回复等待处理。',
+                                      if ((widget.replyInbox?.droppedReplyCount ??
+                                              0) >
+                                          0)
+                                        '内存暂存已满，${widget.replyInbox!.droppedReplyCount} 条新回复未保留，请回到发送回复的助手重新分享。',
+                                    ].join(' '),
                                   ),
+                                  if ((widget.replyInbox?.droppedReplyCount ??
+                                          0) >
+                                      0)
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton(
+                                        onPressed: widget
+                                            .replyInbox!.clearDroppedReplyNotice,
+                                        child: const Text('知道了'),
+                                      ),
+                                    ),
                                   ValueListenableBuilder<TextEditingValue>(
                                     valueListenable: _agentReply,
                                     builder: (context, value, _) {
