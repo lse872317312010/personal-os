@@ -74,6 +74,7 @@ final class StrategyLoopController extends ChangeNotifier {
     }
     return null;
   }
+
   String? get executionId => _executionId?.value;
   String? get outcomeId => _outcomeId?.value;
   String? get contextBundle => _contextBundle;
