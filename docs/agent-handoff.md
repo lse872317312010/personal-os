@@ -19,4 +19,6 @@ The browser preview uses synthetic in-memory data and is not a production Vault 
 
 The copy prompt pins the current session ID and protocol version, asks the assistant to use only pinned references in the Context Bundle, and requests exactly one proposal or review. Personal OS accepts one raw or fenced Bundle reply at a time. A review must be accepted by the user before a revised strategy can be imported.
 
-Tests for provider-neutral prompt generation, reply recognition, single-Bundle handling, and action selection live in `apps/personal_os_app/test/agent_handoff_test.dart`. Keep vendor names out of the protocol and core domain.
+Execution uses the action IDs and instructions in the imported strategy or restored event history. The normal flow displays the actual step; when a strategy has multiple steps, the user selects the step they completed before recording it. The app rejects IDs that do not belong to the active strategy.
+
+Tests for provider-neutral prompt generation, reply recognition, and single-Bundle handling live in `apps/personal_os_app/test/agent_handoff_test.dart`. Action validation and cold-start restoration are covered by `strategy_loop_controller_test.dart` and `strategy_cold_start_restore_test.dart`. Keep vendor names out of the protocol and core domain.
