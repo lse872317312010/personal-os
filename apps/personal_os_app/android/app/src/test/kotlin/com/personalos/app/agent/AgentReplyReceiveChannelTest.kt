@@ -24,6 +24,35 @@ class AgentReplyReceiveChannelTest {
     }
 
     @Test
+    fun notifiesOnlyAfterCapturingValidPlainText() {
+        val channel = AgentReplyReceiveChannel()
+        var notifications = 0
+
+        val rejected = channel.captureAndNotify(
+            Intent(Intent.ACTION_SEND)
+                .setType("text/html")
+                .putExtra(Intent.EXTRA_TEXT, "ignored"),
+        ) {
+            notifications++
+        }
+
+        assertFalse(rejected)
+        assertEquals(0, notifications)
+
+        val accepted = channel.captureAndNotify(
+            Intent(Intent.ACTION_SEND)
+                .setType("text/plain")
+                .putExtra(Intent.EXTRA_TEXT, "reply body"),
+        ) {
+            notifications++
+        }
+
+        assertTrue(accepted)
+        assertEquals(1, notifications)
+        assertEquals("reply body", channel.takeForTest())
+    }
+
+    @Test
     fun rejectsOtherActionsTypesAndMissingText() {
         val channel = AgentReplyReceiveChannel()
 

@@ -26,6 +26,15 @@ class AgentReplyReceiveChannel : MethodChannel.MethodCallHandler {
         return true
     }
 
+    fun captureAndNotify(
+        intent: Intent?,
+        onReplyAvailable: () -> Unit,
+    ): Boolean {
+        if (!capture(intent)) return false
+        onReplyAvailable()
+        return true
+    }
+
     @Synchronized
     fun clear() {
         pendingText = null
