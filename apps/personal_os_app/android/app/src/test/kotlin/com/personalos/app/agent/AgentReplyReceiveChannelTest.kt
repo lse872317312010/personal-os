@@ -90,7 +90,13 @@ class AgentReplyReceiveChannelTest {
 
 private fun AgentReplyReceiveChannel.takeForTest(): String? {
     val result = RecordingMethodResult()
-    onMethodCall(io.flutter.plugin.common.MethodCall("takePendingReply", null), result)
+    onMethodCall(
+        io.flutter.plugin.common.MethodCall(
+            AgentReplyReceiveChannel.TAKE_PENDING_REPLY_METHOD,
+            null,
+        ),
+        result,
+    )
     return result.successValue as? String
 }
 

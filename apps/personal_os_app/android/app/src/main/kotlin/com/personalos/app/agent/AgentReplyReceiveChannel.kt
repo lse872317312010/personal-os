@@ -42,7 +42,7 @@ class AgentReplyReceiveChannel : MethodChannel.MethodCallHandler {
         call: MethodCall,
         result: MethodChannel.Result,
     ) {
-        if (call.method != "takePendingReply") {
+        if (call.method != TAKE_PENDING_REPLY_METHOD) {
             result.notImplemented()
             return
         }
@@ -51,6 +51,8 @@ class AgentReplyReceiveChannel : MethodChannel.MethodCallHandler {
 
     companion object {
         const val CHANNEL_NAME = "personal_os/agent_text_receive"
+        const val TAKE_PENDING_REPLY_METHOD = "takePendingReply"
+        const val REPLY_AVAILABLE_METHOD = "replyAvailable"
         const val MAX_TEXT_BYTES = 512 * 1024
     }
 }

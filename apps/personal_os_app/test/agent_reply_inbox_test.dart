@@ -17,12 +17,12 @@ void main() {
     );
     addTearDown(inbox.dispose);
 
-    await inbox.receivePendingReply();
+    await port.signalReplyAvailable();
     expect(port.calls, 0);
     expect(inbox.pendingReply, isNull);
 
     unlocked = true;
-    await inbox.receivePendingReply();
+    await port.signalReplyAvailable();
     expect(port.calls, 1);
     expect(inbox.pendingReply, 'assistant reply');
     expect(inbox.vaultOpen, isTrue);
@@ -81,6 +81,48 @@ void main() {
     expect(inbox.pendingReply, 'shared assistant reply');
     expect(calls.map((call) => call.method), <String>['takePendingReply']);
     expect(calls.single.arguments, isNull);
+  });
+
+  test('reply availability signal has no body and waits for Vault unlock',
+      () async {
+    final channel = _RecordingMethodChannel();
+    final inbox = AgentReplyInboxController(
+      port: MethodChannelAgentReplyInboxPort(channel: channel),
+      isVaultUnlocked: () => channel.vaultUnlocked,
+    );
+    addTearDown(inbox.dispose);
+
+    await channel.sendFromHost(
+      const MethodCall(
+        MethodChannelAgentReplyInboxPort.replyAvailableMethodName,
+      ),
+    );
+    expect(channel.outboundCalls, isEmpty);
+    expect(inbox.pendingReply, isNull);
+
+    channel.vaultUnlocked = true;
+    await channel.sendFromHost(
+      const MethodCall(
+        MethodChannelAgentReplyInboxPort.replyAvailableMethodName,
+      ),
+    );
+    expect(
+      channel.outboundCalls.map((call) => call.method),
+      <String>['takePendingReply'],
+    );
+    expect(channel.outboundCalls.single.arguments, isNull);
+    expect(inbox.pendingReply, 'shared assistant reply');
+
+    await expectLater(
+      channel.sendFromHost(
+        const MethodCall(
+          MethodChannelAgentReplyInboxPort.replyAvailableMethodName,
+          'reply text must not be in the marker',
+        ),
+      ),
+      throwsA(isA<PlatformException>()),
+    );
+    expect(channel.outboundCalls, hasLength(1));
   });
 
   testWidgets('received replies are shown after unlock and never auto-imported',
@@ -185,6 +227,7 @@ final class _FakeReplyPort implements AgentReplyInboxPort {
 
   String? reply;
   int calls = 0;
+  AgentReplyAvailableHandler? _replyAvailableHandler;
 
   @override
   Future<String?> takePendingReply() async {
@@ -192,5 +235,45 @@ final class _FakeReplyPort implements AgentReplyInboxPort {
     final result = reply;
     reply = null;
     return result;
+  }
+
+  @override
+  void setReplyAvailableHandler(AgentReplyAvailableHandler? handler) {
+    _replyAvailableHandler = handler;
+  }
+
+  Future<void> signalReplyAvailable() async {
+    final handler = _replyAvailableHandler;
+    if (handler != null) await handler();
+  }
+}
+
+final class _RecordingMethodChannel extends MethodChannel {
+  _RecordingMethodChannel() : super('reply_channel_test');
+
+  Future<dynamic> Function(MethodCall call)? _methodCallHandler;
+  final List<MethodCall> outboundCalls = <MethodCall>[];
+  bool vaultUnlocked = false;
+
+  Future<void> sendFromHost(MethodCall call) async {
+    final handler = _methodCallHandler;
+    if (handler == null) throw StateError('No Dart method handler registered.');
+    await handler(call);
+  }
+
+  @override
+  void setMethodCallHandler(
+    Future<dynamic> Function(MethodCall call)? handler,
+  ) {
+    _methodCallHandler = handler;
+  }
+
+  @override
+  Future<T?> invokeMethod<T>(String method, [dynamic arguments]) async {
+    outboundCalls.add(MethodCall(method, arguments));
+    if (method == 'takePendingReply') {
+      return 'shared assistant reply' as T?;
+    }
+    return null;
   }
 }

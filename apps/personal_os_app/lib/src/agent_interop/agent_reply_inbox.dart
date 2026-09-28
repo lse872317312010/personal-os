@@ -3,8 +3,12 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+typedef AgentReplyAvailableHandler = Future<void> Function();
+
 abstract interface class AgentReplyInboxPort {
   Future<String?> takePendingReply();
+
+  void setReplyAvailableHandler(AgentReplyAvailableHandler? handler);
 }
 
 /// Reads one text reply supplied to Android's generic ACTION_SEND target.
@@ -14,12 +18,37 @@ final class MethodChannelAgentReplyInboxPort implements AgentReplyInboxPort {
   }) : _channel = channel;
 
   static const String channelName = 'personal_os/agent_text_receive';
+  static const String takePendingReplyMethodName = 'takePendingReply';
+  static const String replyAvailableMethodName = 'replyAvailable';
 
   final MethodChannel _channel;
 
   @override
   Future<String?> takePendingReply() =>
-      _channel.invokeMethod<String>('takePendingReply');
+      _channel.invokeMethod<String>(takePendingReplyMethodName);
+
+  @override
+  void setReplyAvailableHandler(AgentReplyAvailableHandler? handler) {
+    if (handler == null) {
+      _channel.setMethodCallHandler(null);
+      return;
+    }
+    _channel.setMethodCallHandler((call) async {
+      if (call.method != replyAvailableMethodName) {
+        throw MissingPluginException(
+          'No handler for ${call.method} on $channelName',
+        );
+      }
+      if (call.arguments != null) {
+        throw PlatformException(
+          code: 'unexpected_reply_payload',
+          message: 'Reply availability notifications must not include text.',
+        );
+      }
+      await handler();
+      return null;
+    });
+  }
 }
 
 /// Explicit no-op used by synthetic previews and unsupported platforms.
@@ -28,6 +57,9 @@ final class NoopAgentReplyInboxPort implements AgentReplyInboxPort {
 
   @override
   Future<String?> takePendingReply() async => null;
+
+  @override
+  void setReplyAvailableHandler(AgentReplyAvailableHandler? handler) {}
 }
 
 /// Holds an incoming reply in memory only while the Vault is unlocked.
@@ -36,7 +68,9 @@ final class AgentReplyInboxController extends ChangeNotifier {
     required AgentReplyInboxPort port,
     required bool Function() isVaultUnlocked,
   })  : _port = port,
-        _isVaultUnlocked = isVaultUnlocked;
+        _isVaultUnlocked = isVaultUnlocked {
+    _port.setReplyAvailableHandler(receivePendingReply);
+  }
 
   static const int maxReplyBytes = 512 * 1024;
 
@@ -94,6 +128,7 @@ final class AgentReplyInboxController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _pendingReply = null;
+    _port.setReplyAvailableHandler(null);
     super.dispose();
   }
 }

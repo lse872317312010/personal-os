@@ -181,7 +181,13 @@ class MainActivity : FlutterFragmentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        agentReplyReceiveHandler?.capture(intent)
+        if (agentReplyReceiveHandler?.capture(intent) == true) {
+            // Availability is only a signal; Dart reads the reply after unlock.
+            agentReplyReceiveChannel?.invokeMethod(
+                AgentReplyReceiveChannel.REPLY_AVAILABLE_METHOD,
+                null,
+            )
+        }
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {

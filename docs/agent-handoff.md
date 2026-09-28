@@ -15,7 +15,7 @@ The assistant name is a free-form session label. Adding a provider-specific name
 
 The Android Vault remains the authoritative store. External assistants can suggest strategies and reviews; the user accepts or rejects those suggestions in Personal OS. Only the user records real execution outcomes. On secure Vault devices, sending context through the system share chooser or copying it to the clipboard requires explicit confirmation because it can contain goals, assets, strategies, and history. The selected app may send that content to its service.
 
-Incoming Android shares accept only bounded plain text. A reply stays in volatile memory until the Vault is unlocked; it is cleared when the Vault locks or the user discards it. Importing creates a pending suggestion, and accepting it remains a separate user action.
+Incoming Android shares accept only bounded plain text. A reply stays in volatile memory until the Vault is unlocked; it is cleared when the Vault locks or the user discards it. If Personal OS is already running, Android sends only a body-free availability signal, and Dart pulls the reply only after its Vault-unlocked check. Importing creates a pending suggestion, and accepting it remains a separate user action.
 
 The browser preview uses synthetic in-memory data and is not a production Vault or an MCP listener.
 

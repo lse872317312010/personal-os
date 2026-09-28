@@ -200,10 +200,7 @@ final class AppComposition {
     );
     late final AppController controller;
     late final AgentAccessController agentAccessController;
-    final replyInbox = AgentReplyInboxController(
-      port: replyInboxPort ?? const NoopAgentReplyInboxPort(),
-      isVaultUnlocked: () => controller.vaultUnlocked,
-    );
+    late final AgentReplyInboxController replyInbox;
     final agentEventStore = AgentAccessEventStore(
       inner: eventStore,
       isAuthorized: () =>
@@ -292,6 +289,10 @@ final class AppComposition {
       vaultSession: vaultSession,
       secureVault: secureVault,
       sessionCoordinator: sessionCoordinator,
+    );
+    replyInbox = AgentReplyInboxController(
+      port: replyInboxPort ?? const NoopAgentReplyInboxPort(),
+      isVaultUnlocked: () => controller.vaultUnlocked,
     );
     backupController = EncryptedEventBackupController(
       eventStore: eventStore,
