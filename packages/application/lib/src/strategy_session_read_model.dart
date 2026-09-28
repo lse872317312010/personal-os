@@ -17,6 +17,16 @@ final class StrategySessionRestoreFailure implements Exception {
   String toString() => 'StrategySessionRestoreFailure($code)';
 }
 
+final class StrategySessionAction {
+  const StrategySessionAction({
+    required this.id,
+    required this.instruction,
+  });
+
+  final String id;
+  final String instruction;
+}
+
 /// Durable state needed to resume the Android strategy workflow.
 final class StrategySessionView {
   const StrategySessionView({
@@ -26,6 +36,7 @@ final class StrategySessionView {
     this.strategyId,
     this.strategyRevision = 0,
     this.strategyState,
+    this.actions = const <StrategySessionAction>[],
     this.proposalTitle,
     this.proposalRationale,
     this.parentStrategyRef,
@@ -45,6 +56,7 @@ final class StrategySessionView {
   final EntityId? strategyId;
   final int strategyRevision;
   final String? strategyState;
+  final List<StrategySessionAction> actions;
   final String? proposalTitle;
   final String? proposalRationale;
   final String? parentStrategyRef;
@@ -147,6 +159,7 @@ final class StrategySessionQueryHandler {
       strategyId: strategy?.id,
       strategyRevision: strategy?.revision.value ?? 0,
       strategyState: strategy?.state,
+      actions: _strategyActions(strategy?.attributes['actions']),
       proposalTitle: _string(strategy?.attributes['title']),
       proposalRationale: _string(strategy?.attributes['rationale']),
       parentStrategyRef: _formatRef(strategy?.attributes['parent_strategy']),
@@ -185,6 +198,30 @@ ObjectProjection? _latest(
     }
   }
   return latest;
+}
+
+List<StrategySessionAction> _strategyActions(Object? value) {
+  if (value is! List) return const <StrategySessionAction>[];
+  final actions = <StrategySessionAction>[];
+  final ids = <String>{};
+  for (final item in value) {
+    if (item is! Map) continue;
+    final id = item['id'];
+    final instruction = item['instruction'];
+    if (id is! String ||
+        id.isEmpty ||
+        id.trim() != id ||
+        instruction is! String ||
+        instruction.trim().isEmpty) {
+      continue;
+    }
+    if (!ids.add(id)) return const <StrategySessionAction>[];
+    actions.add(StrategySessionAction(
+      id: id,
+      instruction: instruction.trim(),
+    ));
+  }
+  return List<StrategySessionAction>.unmodifiable(actions);
 }
 
 List<Object?> _list(Object? value) =>
