@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_os_app/src/agent_interop/agent_text_share.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   test('shares text through the vendor-neutral native channel', () async {
     const channel = MethodChannel(MethodChannelAgentTextShare.channelName);
     final calls = <MethodCall>[];
