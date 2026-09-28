@@ -106,6 +106,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
       if (!imported) return;
       _agentReply.clear();
       await widget.replyInbox?.clearPendingReply();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('建议已导入，请查看内容并决定是否接受。')),
       );
