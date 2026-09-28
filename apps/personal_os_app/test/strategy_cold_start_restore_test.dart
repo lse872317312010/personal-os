@@ -21,7 +21,7 @@ void main() {
     await firstController.decideProposal(ProposalDecision.accept);
     await firstController.activateStrategy();
     await firstController.recordExecution(
-      actionId: 'action-1',
+      actionId: 'action-from-proposal',
       executionStatus: ExecutionStatus.completed,
     );
     await firstController.recordOutcome(
@@ -42,6 +42,11 @@ void main() {
     expect(restored.agentId, 'harness-a');
     expect(restored.strategyId, strategyId);
     expect(restored.strategyState, 'active');
+    expect(
+      restored.strategyActions.map((action) => action.id),
+      <String>['action-from-proposal'],
+    );
+    expect(restored.selectedActionId, 'action-from-proposal');
     expect(restored.executionId, executionId);
     expect(restored.outcomeId, outcomeId);
     expect(restored.canCloseSession, isTrue);
@@ -85,7 +90,7 @@ String _proposal(
         ],
         'actions': <Object?>[
           <String, Object?>{
-            'id': 'action-1',
+            'id': 'action-from-proposal',
             'instruction': 'Execute experiment',
           },
         ],
