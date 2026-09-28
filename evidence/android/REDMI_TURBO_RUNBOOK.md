@@ -150,6 +150,29 @@ Failure codes: `backup_authentication_failed`,
 `backup_tamper_accepted`, `backup_failed`, `recovery_failed`,
 `state_not_restored`.
 
+## Optional M3 agent/Harness compatibility smoke test (not part of G3)
+
+Run this separately from the nine G3 scenarios with a dedicated synthetic profile.
+It does not change the G3 evidence record or contribute to `DEVICE_VERIFIED`.
+If the selected assistant needs network access, do this after the offline scenario.
+Do not retain the prompt, reply body, or screenshots in evidence.
+
+1. Start a strategy session with a generic assistant/Harness label and share the
+   synthetic Context Bundle through Android's system chooser to any text-capable
+   assistant or Harness.
+2. Share a plain-text test reply back to Personal OS. Confirm the Vault is
+   locked when the app returns, the reply body is not shown before unlock, and
+   unlocking the original session displays the reply for review.
+3. Confirm the reply is not imported or accepted automatically. Use the normal
+   review/import controls and verify the user remains responsible for accepting
+   any proposed strategy or review.
+4. If another compatible assistant or Harness is installed, repeat the same
+   flow. Provider-specific setup or SDKs should not be required.
+
+The reply is held only in volatile memory. Once Dart reads it, locking or
+discarding clears the visible copy; do not expect it to survive a later lock or
+Activity destruction.
+
 ## Finalization
 
 Validate the completed record:
