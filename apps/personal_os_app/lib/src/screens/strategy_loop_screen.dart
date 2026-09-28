@@ -206,7 +206,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     await widget.controller.closeSession();
     if (!mounted || widget.controller.hasSession) return;
     _agentReply.clear();
-    widget.replyInbox?.clearPendingReply();
+    await widget.replyInbox?.clearPendingReply();
     _review.clear();
     _proposal.clear();
   }
@@ -256,7 +256,9 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                           alignment: Alignment.centerRight,
                           child: TextButton.icon(
                             key: const Key('discard-orphaned-agent-reply'),
-                            onPressed: widget.replyInbox!.clearPendingReply,
+                            onPressed: () => unawaited(
+                              widget.replyInbox!.clearPendingReply(),
+                            ),
                             icon: const Icon(Icons.delete_outline),
                             label: const Text('丢弃回复'),
                           ),
@@ -349,9 +351,10 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                       key: const Key(
                                         'discard-received-agent-reply',
                                       ),
-                                      onPressed: () {
-                                        widget.replyInbox?.clearPendingReply();
+                                      onPressed: () async {
                                         _agentReply.clear();
+                                        await widget.replyInbox
+                                            ?.clearPendingReply();
                                       },
                                       icon: const Icon(Icons.delete_outline),
                                       label: const Text('丢弃回复'),
