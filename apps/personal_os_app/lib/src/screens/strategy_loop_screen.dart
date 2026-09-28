@@ -582,7 +582,7 @@ String _strategyErrorText(String code) => switch (code) {
       'strategy.agent_id_invalid' => '助手名称需为 1–100 个字符，请缩短后重试。',
       'strategy.session_required' => '请先开始与 AI 助手协作。',
       'strategy.loop_must_finish_before_handoff' =>
-        '请先记录本次行动的实际结果，再切换到其他 Harness。',
+        '先完成当前策略并记录实际结果，或拒绝待确认的建议，之后才能切换助手。',
       'strategy.session_or_review_bundle_required' =>
         '请先开始协作，再粘贴 AI 助手的回复。',
       'strategy.pending_review_required' => '当前没有等待确认的复盘。',
@@ -592,7 +592,7 @@ String _strategyErrorText(String code) => switch (code) {
       'strategy.pending_proposal_required' => '当前没有等待确认的策略。',
       'strategy.accepted_strategy_required' => '请先确认策略，再激活执行。',
       'strategy.active_strategy_required' => '请先激活策略，再记录执行。',
-      'strategy.action_required' => '请输入有效的 Action ID。',
+      'strategy.action_required' => '当前没有可记录的行动，请检查策略后重试。',
       'strategy.execution_or_observation_required' =>
         '请先记录执行，并填写实际结果或观察。',
       'strategy.restore_ambiguous_open_sessions' =>
@@ -600,15 +600,15 @@ String _strategyErrorText(String code) => switch (code) {
       'strategy.restore_malformed_state' => '策略历史无法恢复，请检查本地记录。',
       'strategy.unexpected_failure' => '策略操作暂时无法完成，请稍后重试。',
       'invalid_request' || 'validation_failed' =>
-        'Bundle 内容无效，请检查 JSON 格式和必填字段。',
+        '这份建议暂时无法导入。请重新复制完整回复，让助手再生成一次。',
       'unsupported_version' =>
-        'Bundle 版本不受支持，请使用 personal-os.mcp.v0 格式。',
+        '这份建议与当前版本不兼容。请重新复制协作内容，再让助手生成。',
       'unpinned_reference' || 'strategy_loop.pinned_reference_required' =>
-        'Bundle 引用缺少固定版本信息，请重新导出 Context Bundle。',
-      'session_closed' => '会话已结束，请新建会话后再继续。',
-      'access_denied' => '当前会话权限不足，请重新创建会话后重试。',
-      'not_found' => 'Bundle 引用的数据不存在，请重新导出 Context Bundle。',
-      'stale_reference' => 'Bundle 引用的状态已过期，请重新导出后再试。',
+        '建议引用的资料版本不完整。请重新准备协作内容，再试一次。',
+      'session_closed' => '这轮协作已结束，请开始新一轮。',
+      'access_denied' => '助手回复与当前协作不匹配。请复制最新协作内容，再让助手生成。',
+      'not_found' => '建议引用了当前资料中不存在的内容。请让助手只使用提供的上下文。',
+      'stale_reference' => '资料刚刚有更新。请重新准备协作内容，再让助手生成。',
       'internal_error' => '策略服务暂时不可用，请稍后重试。',
       'strategy_loop.invalid_command' => '当前策略状态不允许此操作，请检查步骤顺序。',
       'strategy_loop.user_authority_required' => '此操作需要用户本人确认。',
