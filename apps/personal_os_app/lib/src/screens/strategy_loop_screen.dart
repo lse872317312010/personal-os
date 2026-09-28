@@ -30,6 +30,7 @@ final class StrategyLoopScreen extends StatefulWidget {
 final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   final _assistantName = TextEditingController(text: '通用 AI 助手');
   final _agentReply = TextEditingController();
+  bool _showFormatRepairActions = false;
   final _review = TextEditingController();
   final _proposal = TextEditingController();
   final _outcome = TextEditingController();
@@ -140,7 +141,23 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
           (reply.kind == AgentReplyKind.proposal
               ? controller.hasPendingProposal
               : controller.hasPendingReview);
-      if (!imported) return;
+      if (!imported) {
+        const repairableErrors = <String>{
+          'invalid_request',
+          'validation_failed',
+          'unsupported_version',
+          'unpinned_reference',
+          'access_denied',
+          'not_found',
+          'stale_reference',
+        };
+        if (controller.status == StrategyUiStatus.failed &&
+            repairableErrors.contains(controller.errorCode)) {
+          setState(() => _showFormatRepairActions = true);
+        }
+        return;
+      }
+      setState(() => _showFormatRepairActions = false);
       _agentReply.clear();
       if (importedInboxReply) {
         await widget.replyInbox?.clearPendingReply();
@@ -153,6 +170,9 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
       );
     } on AgentHandoffFormatException catch (error) {
       if (!mounted) return;
+      if (error.issue != AgentHandoffFormatIssue.empty) {
+        setState(() => _showFormatRepairActions = true);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(error.userMessage)),
       );
@@ -162,7 +182,14 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   Future<String?> _prepareHandoff(
     BuildContext context, {
     required bool useSystemShare,
+    String? rejectedReply,
   }) async {
+    if (rejectedReply != null && rejectedReply.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先保留 AI 助手的原回复，再生成修正请求。')),
+      );
+      return null;
+    }
     final bundle = await widget.controller.refreshContextForHandoff();
     if (!context.mounted) return null;
     if (bundle == null) {
@@ -175,18 +202,26 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
       );
       return null;
     }
-    final prompt = buildAgentHandoffPrompt(bundle);
+    final prompt = rejectedReply == null
+        ? buildAgentHandoffPrompt(bundle)
+        : buildAgentHandoffRepairPrompt(
+            contextBundle: bundle,
+            rejectedReply: rejectedReply,
+          );
     if (widget.mode != AppExperienceMode.secureVault) return prompt;
 
+    final sharedData = rejectedReply == null
+        ? '当前导出的目标、资产、策略和历史记录'
+        : '当前导出的目标、资产、策略和历史记录，以及上一条未能识别的回复文本';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(useSystemShare ? '确认发送个人上下文' : '确认复制个人上下文'),
         content: Text(
           useSystemShare
-              ? '这会把当前导出的目标、资产、策略和历史记录交给系统分享菜单中你选择的应用。'
+              ? '这会把$sharedData交给系统分享菜单中你选择的应用。'
                   '对应应用和服务可能保存或处理这些信息。请确认你愿意分享。'
-              : '这会把当前导出的目标、资产、策略和历史记录放入系统剪贴板。'
+              : '这会把$sharedData放入系统剪贴板。'
                   '设备或输入法可能同步或暂存剪贴板内容；粘贴到外部 AI 助手后，'
                   '对应服务也会收到这些信息。请确认你愿意分享。',
         ),
@@ -243,10 +278,56 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     }
   }
 
+  Future<void> _copyFormatRepairRequest(BuildContext context) async {
+    final prompt = await _prepareHandoff(
+      context,
+      useSystemShare: false,
+      rejectedReply: _agentReply.text,
+    );
+    if (prompt == null || !context.mounted) return;
+
+    try {
+      await Clipboard.setData(ClipboardData(text: prompt));
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('复制失败，请检查设备剪贴板权限后重试。')),
+      );
+      return;
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('修正请求已复制。粘贴回原助手会话，再把新回复分享或粘贴回来。'),
+      ),
+    );
+  }
+
+  Future<void> _shareFormatRepairRequest(BuildContext context) async {
+    final prompt = await _prepareHandoff(
+      context,
+      useSystemShare: true,
+      rejectedReply: _agentReply.text,
+    );
+    if (prompt == null || !context.mounted) return;
+
+    try {
+      await _agentTextShare.share(prompt);
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('无法打开系统分享菜单，请改用“复制格式修正请求”。'),
+        ),
+      );
+    }
+  }
+
   Future<void> _closeAgentSession() async {
     await widget.controller.closeSession();
     if (!mounted || widget.controller.hasSession) return;
     _agentReply.clear();
+    setState(() => _showFormatRepairActions = false);
     await widget.replyInbox?.clearPendingReply();
     _review.clear();
     _proposal.clear();
@@ -448,6 +529,68 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                             alignLabelWithHint: true,
                           ),
                         ),
+                        if (_showFormatRepairActions) ...<Widget>[
+                          const SizedBox(height: 12),
+                          Card(
+                            key: const Key('agent-reply-format-repair'),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .tertiaryContainer,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    '不用手动修改 JSON',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    '让原助手基于最新上下文重新生成，'
+                                    '应用会保留这条回复并说明需要修正的格式。',
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: <Widget>[
+                                      FilledButton.tonalIcon(
+                                        key: const Key(
+                                          'copy-agent-repair-request',
+                                        ),
+                                        onPressed: busy
+                                            ? null
+                                            : () => _copyFormatRepairRequest(
+                                                  context,
+                                                ),
+                                        icon: const Icon(Icons.copy),
+                                        label: const Text('复制格式修正请求'),
+                                      ),
+                                      if (widget.mode ==
+                                          AppExperienceMode.secureVault)
+                                        OutlinedButton.icon(
+                                          key: const Key(
+                                            'share-agent-repair-request',
+                                          ),
+                                          onPressed: busy
+                                              ? null
+                                              : () =>
+                                                  _shareFormatRepairRequest(
+                                                    context,
+                                                  ),
+                                          icon: const Icon(Icons.ios_share),
+                                          label: const Text('发送给助手修正'),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 8),
                         FilledButton.icon(
                           key: const Key('import-agent-reply'),
