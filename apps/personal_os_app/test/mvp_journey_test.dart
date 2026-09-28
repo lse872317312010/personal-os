@@ -573,6 +573,12 @@ final class _ReplyInboxPort implements AgentReplyInboxPort {
   }
 
   @override
+  Future<int> pendingReplyCount() async => _pending == null ? 0 : 1;
+
+  @override
+  Future<int> takeDroppedReplyCount() async => 0;
+
+  @override
   void setReplyAvailableHandler(AgentReplyAvailableHandler? handler) {
     _handler = handler;
   }

@@ -127,8 +127,8 @@ void main() {
   );
 
   test(
-    'reports queue size and dropped replies without replacing the active reply',
-    () async {
+      'reports queue size and dropped replies without replacing the active reply',
+      () async {
     final port = _FakeReplyPort('first reply');
     final inbox = AgentReplyInboxController(
       port: port,

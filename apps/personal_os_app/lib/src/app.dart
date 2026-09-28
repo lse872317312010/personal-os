@@ -267,13 +267,11 @@ final class _SyntheticPreviewNotice extends StatelessWidget {
 
 String _agentReplyInboxMessage(AgentReplyInboxController inbox) {
   final messages = <String>[
-    if (inbox.hasPendingReply)
-      '收到一条 AI 助手回复。内容暂存在内存中，查看后由你决定是否导入。',
-    if (inbox.queuedReplyCount > 0)
-      '另有 ${inbox.queuedReplyCount} 条回复等待处理。',
+    if (inbox.hasPendingReply) '收到一条 AI 助手回复。内容暂存在内存中，查看后由你决定是否导入。',
+    if (inbox.queuedReplyCount > 0) '另有 ${inbox.queuedReplyCount} 条回复等待处理。',
     if (inbox.droppedReplyCount > 0)
       '内存暂存已满，${inbox.droppedReplyCount} 条新回复未保留，'
-      '请回到发送回复的助手重新分享。',
+          '请回到发送回复的助手重新分享。',
   ];
   return messages.join(' ');
 }
