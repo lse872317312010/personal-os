@@ -109,11 +109,13 @@ These are deliberately not Agent-authoritative MCP tools in v0.
 ## Offline compatibility
 
 A Context Bundle can be exported as JSON and given to an Agent without a live
-MCP connection. The Agent returns the same Proposal Bundle accepted by
-`personal_os.submit_proposal`, and may return a Review Bundle accepted by
-`personal_os.submit_review`. Both offline imports apply the same session,
-identity and pinned-reference validation as live MCP. This is the compatibility path for Agents and
-Harnesses that cannot connect to the Android MCP endpoint.
+MCP connection. On Android, the user can send the prepared text through the
+system share chooser or copy it as a fallback. The Agent returns the same
+Proposal Bundle accepted by `personal_os.submit_proposal`, and may return a
+Review Bundle accepted by `personal_os.submit_review`. Offline imports apply
+the same session, identity and pinned-reference validation as live MCP. This
+remains the compatibility path for Agents and Harnesses that cannot connect to
+the Android MCP endpoint.
 
 ## Error model
 

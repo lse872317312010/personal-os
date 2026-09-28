@@ -48,7 +48,7 @@ Personal OS 是 Android-first、Agent-agnostic 的个人策略资产与反馈闭
 - [x] read/write Session、Harness 身份绑定与关闭失效；
 - [x] Application Command 权限边界；
 - [x] 第二 Harness 接续同一历史的契约测试；
-- [x] Android 离线复制/导入兼容路径；
+- [x] Android 离线系统分享/复制/导入兼容路径；
 - [x] MCP 2025-06-18 JSON-RPC握手、工具发现、调用适配和稳定错误；
 - [x] 每次调用重验Session生命周期、Harness身份和授予的capability。
 
