@@ -179,9 +179,8 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               const SizedBox(height: 8),
               FilledButton.icon(
                 key: const Key('open-agent-session'),
-                onPressed: busy || controller.hasSession
-                    ? null
-                    : _startAgentSession,
+                onPressed:
+                    busy || controller.hasSession ? null : _startAgentSession,
                 icon: const Icon(Icons.link),
                 label: const Text('开始协作并准备上下文'),
               ),
@@ -263,7 +262,8 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                   title: const Text('高级 / 兼容模式'),
                   subtitle: const Text('手动导入 Bundle、查看原始上下文或技术信息'),
                   children: <Widget>[
-                    if (controller.contextBundle case final bundle?) ...<Widget>[
+                    if (controller.contextBundle
+                        case final bundle?) ...<Widget>[
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -583,27 +583,25 @@ String _strategyErrorText(String code) => switch (code) {
       'strategy.session_required' => '请先开始与 AI 助手协作。',
       'strategy.loop_must_finish_before_handoff' =>
         '先完成当前策略并记录实际结果，或拒绝待确认的建议，之后才能切换助手。',
-      'strategy.session_or_review_bundle_required' =>
-        '请先开始协作，再粘贴 AI 助手的回复。',
+      'strategy.session_or_review_bundle_required' => '请先开始协作，再粘贴 AI 助手的回复。',
       'strategy.pending_review_required' => '当前没有等待确认的复盘。',
       'strategy.accepted_review_required' => '修订策略前请先导入并接受一份复盘。',
-      'strategy.session_or_bundle_required' =>
-        '请先开始协作，再粘贴 AI 助手的回复。',
+      'strategy.session_or_bundle_required' => '请先开始协作，再粘贴 AI 助手的回复。',
       'strategy.pending_proposal_required' => '当前没有等待确认的策略。',
       'strategy.accepted_strategy_required' => '请先确认策略，再激活执行。',
       'strategy.active_strategy_required' => '请先激活策略，再记录执行。',
       'strategy.action_required' => '当前没有可记录的行动，请检查策略后重试。',
       'strategy.execution_or_observation_required' =>
         '请先记录执行，并填写实际结果或观察。',
-      'strategy.restore_ambiguous_open_sessions' =>
-        '发现多个未完成的策略会话，无法安全恢复。',
+      'strategy.restore_ambiguous_open_sessions' => '发现多个未完成的策略会话，无法安全恢复。',
       'strategy.restore_malformed_state' => '策略历史无法恢复，请检查本地记录。',
       'strategy.unexpected_failure' => '策略操作暂时无法完成，请稍后重试。',
-      'invalid_request' || 'validation_failed' =>
+      'invalid_request' ||
+      'validation_failed' =>
         '这份建议暂时无法导入。请重新复制完整回复，让助手再生成一次。',
-      'unsupported_version' =>
-        '这份建议与当前版本不兼容。请重新复制协作内容，再让助手生成。',
-      'unpinned_reference' || 'strategy_loop.pinned_reference_required' =>
+      'unsupported_version' => '这份建议与当前版本不兼容。请重新复制协作内容，再让助手生成。',
+      'unpinned_reference' ||
+      'strategy_loop.pinned_reference_required' =>
         '建议引用的资料版本不完整。请重新准备协作内容，再试一次。',
       'session_closed' => '这轮协作已结束，请开始新一轮。',
       'access_denied' => '助手回复与当前协作不匹配。请复制最新协作内容，再让助手生成。',
@@ -612,10 +610,10 @@ String _strategyErrorText(String code) => switch (code) {
       'internal_error' => '策略服务暂时不可用，请稍后重试。',
       'strategy_loop.invalid_command' => '当前策略状态不允许此操作，请检查步骤顺序。',
       'strategy_loop.user_authority_required' => '此操作需要用户本人确认。',
-      'strategy_loop.agent_authority_required' =>
-        '请使用当前 AI 助手协作会话提交建议。',
+      'strategy_loop.agent_authority_required' => '请使用当前 AI 助手协作会话提交建议。',
       'strategy_loop.outcome_authority_denied' => '实际结果只能由用户本人记录。',
-      'strategy_loop.d4_forbidden' || 'feedback.d4_forbidden' =>
+      'strategy_loop.d4_forbidden' ||
+      'feedback.d4_forbidden' =>
         '当前闭环不支持 D4 级敏感资料。',
       _ => '操作未完成，请检查当前步骤后重试。',
     };
