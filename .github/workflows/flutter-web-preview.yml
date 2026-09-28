@@ -52,7 +52,8 @@ jobs:
         working-directory: apps/personal_os_app
         run: |
           set -Eeuo pipefail
-          dart format --output=show lib/src/screens/strategy_loop_screen.dart
+          dart format lib/src/screens/strategy_loop_screen.dart
+          cat lib/src/screens/strategy_loop_screen.dart
           flutter analyze
           flutter test
 
