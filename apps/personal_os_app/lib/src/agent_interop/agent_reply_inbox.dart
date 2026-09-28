@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -110,10 +111,11 @@ final class AgentReplyInboxController extends ChangeNotifier {
     }
   }
 
-  void clearPendingReply() {
+  Future<void> clearPendingReply() async {
     if (_pendingReply == null) return;
     _pendingReply = null;
     notifyListeners();
+    if (_vaultOpen) await receivePendingReply();
   }
 
   /// Called synchronously with the Vault lock so reply text does not outlive
