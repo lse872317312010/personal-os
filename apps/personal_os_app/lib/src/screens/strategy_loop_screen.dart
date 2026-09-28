@@ -387,7 +387,8 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                     builder: (context, value, _) {
                                       final reply =
                                           widget.replyInbox?.pendingReply;
-                                      if (reply == null || value.text == reply) {
+                                      if (reply == null ||
+                                          value.text == reply) {
                                         return const SizedBox.shrink();
                                       }
                                       return Align(
