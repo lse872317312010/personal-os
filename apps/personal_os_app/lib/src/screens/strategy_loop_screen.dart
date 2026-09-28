@@ -255,8 +255,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                           alignment: Alignment.centerRight,
                           child: TextButton.icon(
                             key: const Key('discard-orphaned-agent-reply'),
-                            onPressed:
-                                widget.replyInbox!.clearPendingReply,
+                            onPressed: widget.replyInbox!.clearPendingReply,
                             icon: const Icon(Icons.delete_outline),
                             label: const Text('丢弃回复'),
                           ),
@@ -350,8 +349,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                         'discard-received-agent-reply',
                                       ),
                                       onPressed: () {
-                                        widget.replyInbox
-                                            ?.clearPendingReply();
+                                        widget.replyInbox?.clearPendingReply();
                                         _agentReply.clear();
                                       },
                                       icon: const Icon(Icons.delete_outline),

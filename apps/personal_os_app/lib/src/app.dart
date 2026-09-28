@@ -179,8 +179,7 @@ final class _UnlockedShellState extends State<_UnlockedShell> {
                           child: Center(
                             child: ConstrainedBox(
                               key: const Key('responsive-content-frame'),
-                              constraints:
-                                  const BoxConstraints(maxWidth: 960),
+                              constraints: const BoxConstraints(maxWidth: 960),
                               child: _buildPageBody(),
                             ),
                           ),

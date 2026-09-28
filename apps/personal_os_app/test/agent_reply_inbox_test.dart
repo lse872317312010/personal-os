@@ -34,7 +34,7 @@ void main() {
   });
 
   test('rejects empty and oversized replies before exposing them', () async {
-    var unlocked = true;
+    const unlocked = true;
     final empty = AgentReplyInboxController(
       port: _FakeReplyPort('  '),
       isVaultUnlocked: () => unlocked,
@@ -105,7 +105,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(port.calls, 1);
-    expect(find.byKey(const Key('incoming-agent-reply-banner')), findsOneWidget);
+    expect(
+        find.byKey(const Key('incoming-agent-reply-banner')), findsOneWidget);
     expect(composition.strategyController.hasPendingProposal, isFalse);
     expect(composition.strategyController.hasPendingReview, isFalse);
 
@@ -127,8 +128,10 @@ void main() {
     await tester.tap(find.byKey(const Key('import-agent-reply')));
     await tester.pumpAndSettle();
     expect(
-      tester.widget<TextField>(find.byKey(const Key('agent-reply-input')))
-          .controller!.text,
+      tester
+          .widget<TextField>(find.byKey(const Key('agent-reply-input')))
+          .controller!
+          .text,
       'plain assistant reply',
     );
     expect(composition.strategyController.hasPendingProposal, isFalse);
@@ -158,7 +161,8 @@ void main() {
     expect(find.byKey(const Key('orphaned-agent-reply')), findsOneWidget);
     expect(find.byKey(const Key('agent-reply-input')), findsNothing);
     expect(
-      tester.widget<FilledButton>(find.byKey(const Key('open-agent-session')))
+      tester
+          .widget<FilledButton>(find.byKey(const Key('open-agent-session')))
           .onPressed,
       isNull,
     );

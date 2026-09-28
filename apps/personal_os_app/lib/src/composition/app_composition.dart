@@ -279,10 +279,9 @@ final class AppComposition {
           resolvedModelGateway is AppearanceModelCapabilityGateway
               ? resolvedModelGateway as AppearanceModelCapabilityGateway
               : null,
-      modelCredentials:
-          resolvedModelGateway is AppearanceModelCredentialGateway
-              ? resolvedModelGateway as AppearanceModelCredentialGateway
-              : null,
+      modelCredentials: resolvedModelGateway is AppearanceModelCredentialGateway
+          ? resolvedModelGateway as AppearanceModelCredentialGateway
+          : null,
       actor: userActor,
       onVaultLocked: () {
         agentAccessController.stop();
@@ -363,7 +362,8 @@ final class _UnavailableAppearanceAnalysisGateway
   const _UnavailableAppearanceAnalysisGateway();
 
   @override
-  Future<AppearanceAnalysisResult> analyze(AppearanceAnalysisInput input) async {
+  Future<AppearanceAnalysisResult> analyze(
+      AppearanceAnalysisInput input) async {
     throw AppearanceModelGatewayFailure(
       AppearanceModelGatewayFailureCode.adapterUnavailable,
     );
@@ -403,7 +403,8 @@ ConsentGrant _demoAppearanceConsent(DateTime now) => ConsentGrant(
     );
 
 final class _RuntimeIds implements IdGenerator {
-  _RuntimeIds() : _bootNonce = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
+  _RuntimeIds()
+      : _bootNonce = DateTime.now().microsecondsSinceEpoch.toRadixString(36);
 
   final String _bootNonce;
   int _next = 0;
