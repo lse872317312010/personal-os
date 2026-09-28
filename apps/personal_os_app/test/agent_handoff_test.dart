@@ -14,7 +14,7 @@ void main() {
     final prompt = buildAgentHandoffPrompt(contextBundle);
 
     expect(prompt, contains('任何能处理文本的 AI 助手或 Harness'));
-    expect(prompt, contains('"session_id" 必须严格使用 "session-from-vault"'));
+    expect(prompt, contains('session_id 必须严格使用 "session-from-vault"'));
     expect(prompt, contains('personal-os.mcp.v0'));
     expect(prompt, contains(contextBundle));
     expect(prompt, contains('不要编造个人事实'));
