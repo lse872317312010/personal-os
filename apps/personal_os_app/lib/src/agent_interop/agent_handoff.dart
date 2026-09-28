@@ -74,7 +74,9 @@ AgentHandoffReply parseAgentHandoffReply(String response) {
     );
   }
 
-  final kind = proposal is Map ? AgentReplyKind.proposal : AgentReplyKind.review;
+  final kind = proposal is Map
+      ? AgentReplyKind.proposal
+      : AgentReplyKind.review;
   return AgentHandoffReply(
     kind: kind,
     bundleJson: candidate.source,
