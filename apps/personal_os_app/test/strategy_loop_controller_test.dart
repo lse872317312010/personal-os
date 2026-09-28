@@ -7,7 +7,6 @@ import 'package:personal_os_app/src/composition/app_composition.dart';
 import 'package:personal_os_app/src/controller/strategy_loop_controller.dart';
 
 void main() {
-
   test('reset during session open discards the old completion', () async {
     final app = AppComposition.inMemoryDemo();
     final controller = app.strategyController;
@@ -69,7 +68,8 @@ void main() {
     expect(controller.hasSession, isFalse);
   });
 
-  test('opening another session preserves the current Harness identity', () async {
+  test('opening another session preserves the current Harness identity',
+      () async {
     final app = AppComposition.inMemoryDemo();
     final controller = app.strategyController;
     addTearDown(controller.dispose);
