@@ -305,7 +305,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                         else ...<Widget>[
                           const Text(
                             '每次发送或复制都会自动准备最新上下文。可选择系统分享，'
-                            '或复制后粘贴到常用助手；完成后把完整回复粘贴到下方。',
+                            '或复制后粘贴到常用助手；助手回复可以直接分享回来，也可以粘贴到下方。',
                           ),
                           const SizedBox(height: 12),
                           FilledButton.tonalIcon(
@@ -369,8 +369,8 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                           minLines: 4,
                           maxLines: 10,
                           decoration: InputDecoration(
-                            labelText: '粘贴 AI 助手的回复',
-                            hintText: '可以直接粘贴完整回复，无需整理 JSON',
+                            labelText: 'AI 助手的回复',
+                            hintText: '可从助手分享回来，也可粘贴完整回复',
                             helperText:
                                 widget.replyInbox?.hasPendingReply ?? false
                                     ? '收到的内容已填入；检查后再手动导入。'
