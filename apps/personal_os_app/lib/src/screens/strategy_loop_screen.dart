@@ -37,6 +37,9 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   final AgentTextSharePort _agentTextShare =
       const MethodChannelAgentTextShare();
 
+  bool get _canUseSystemShare =>
+      widget.mode == AppExperienceMode.secureVault;
+
   @override
   void initState() {
     super.initState();
@@ -563,14 +566,14 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                         ),
                                         onPressed: busy
                                             ? null
-                                            : () => _copyFormatRepairRequest(
+                                            : () =>
+                                                _copyFormatRepairRequest(
                                                   context,
                                                 ),
                                         icon: const Icon(Icons.copy),
                                         label: const Text('复制格式修正请求'),
                                       ),
-                                      if (widget.mode ==
-                                          AppExperienceMode.secureVault)
+                                      if (_canUseSystemShare)
                                         OutlinedButton.icon(
                                           key: const Key(
                                             'share-agent-repair-request',
