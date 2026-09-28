@@ -157,7 +157,8 @@ final class _UnlockedShellState extends State<_UnlockedShell> {
                           child: const Text('查看回复'),
                         ),
                         TextButton(
-                          onPressed: replyInbox.clearPendingReply,
+                          onPressed: () =>
+                              unawaited(replyInbox.clearPendingReply()),
                           child: const Text('丢弃'),
                         ),
                       ],
