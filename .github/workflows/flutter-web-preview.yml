@@ -52,8 +52,7 @@ jobs:
         working-directory: apps/personal_os_app
         run: |
           set -Eeuo pipefail
-          dart format lib/src/screens/strategy_loop_screen.dart
-          cat lib/src/screens/strategy_loop_screen.dart
+          dart format --output=none --set-exit-if-changed lib/main_web_preview.dart lib/src/app.dart lib/src/agent_interop/agent_handoff.dart lib/src/agent_interop/agent_reply_inbox.dart lib/src/agent_interop/agent_text_share.dart lib/src/composition/app_composition.dart lib/src/controller/strategy_loop_controller.dart lib/src/screens/strategy_loop_screen.dart test/agent_handoff_test.dart test/agent_reply_inbox_test.dart test/agent_text_share_test.dart test/mvp_journey_test.dart test/strategy_cold_start_restore_test.dart test/strategy_loop_controller_test.dart test/app_composition_test.dart ../../packages/application/lib/src/strategy_session_read_model.dart
           flutter analyze
           flutter test
 
