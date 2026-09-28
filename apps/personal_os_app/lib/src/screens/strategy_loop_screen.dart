@@ -89,6 +89,39 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     );
   }
 
+  Future<void> _loadReceivedAgentReply(BuildContext context) async {
+    final reply = widget.replyInbox?.pendingReply;
+    if (reply == null) return;
+
+    final hasDifferentDraft =
+        _agentReply.text.isNotEmpty && _agentReply.text != reply;
+    if (hasDifferentDraft) {
+      final shouldReplace = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('替换当前输入？'),
+          content: const Text('当前输入内容将被收到的 AI 助手回复替换。'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('保留当前输入'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('替换输入'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || shouldReplace != true) return;
+    }
+
+    _agentReply.value = TextEditingValue(
+      text: reply,
+      selection: TextSelection.collapsed(offset: reply.length),
+    );
+  }
+
   Future<void> _importAgentReply() async {
     try {
       final replyText = _agentReply.text;
@@ -346,12 +379,34 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: <Widget>[
                                   const Text(
-                                    '已收到助手回复，并填入下方输入框。',
+                                    '收到的回复暂存在本机内存中，不会自动导入。'
+                                    '检查后再手动导入；导入的建议仍需你单独接受。',
                                   ),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                    '内容仍在本机内存中。检查后手动导入；'
-                                    '导入的建议仍需你单独接受。',
+                                  ValueListenableBuilder<TextEditingValue>(
+                                    valueListenable: _agentReply,
+                                    builder: (context, value, _) {
+                                      final reply =
+                                          widget.replyInbox?.pendingReply;
+                                      if (reply == null || value.text == reply) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: TextButton.icon(
+                                          key: const Key(
+                                            'load-received-agent-reply',
+                                          ),
+                                          onPressed: () =>
+                                              _loadReceivedAgentReply(context),
+                                          icon: const Icon(Icons.content_paste),
+                                          label: Text(
+                                            value.text.isEmpty
+                                                ? '放入输入框'
+                                                : '用收到的回复替换当前输入',
+                                          ),
+                                        ),
+                                      );
+                                    },
                                   ),
                                   Align(
                                     alignment: Alignment.centerRight,
@@ -360,7 +415,11 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                         'discard-received-agent-reply',
                                       ),
                                       onPressed: () async {
-                                        _agentReply.clear();
+                                        final reply =
+                                            widget.replyInbox?.pendingReply;
+                                        if (_agentReply.text == reply) {
+                                          _agentReply.clear();
+                                        }
                                         await widget.replyInbox
                                             ?.clearPendingReply();
                                       },
@@ -383,7 +442,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                             hintText: '可从助手分享回来，也可粘贴完整回复',
                             helperText:
                                 widget.replyInbox?.hasPendingReply ?? false
-                                    ? '收到的内容已填入；检查后再手动导入。'
+                                    ? '收到了一条回复；检查后再手动导入。'
                                     : null,
                             alignLabelWithHint: true,
                           ),
