@@ -95,28 +95,29 @@ void main() {
     expect(composition.mode, AppExperienceMode.syntheticDemo);
     expect(composition.controller.vaultUnlocked, isFalse);
   });
-  testWidgets('backgrounding locks Vault and revokes Agent access', (
-    tester,
-  ) async {
-    final composition = AppComposition.inMemoryDemo();
-    composition.controller.unlockVault();
 
-    expect(composition.controller.vaultUnlocked, isTrue);
-    expect(composition.agentAccessController.start(), isTrue);
-    expect(composition.agentAccessController.active, isTrue);
+  testWidgets(
+    'backgrounding locks Vault and revokes Agent access',
+    (tester) async {
+      final composition = AppComposition.inMemoryDemo();
+      composition.controller.unlockVault();
 
-    await tester.pumpWidget(PersonalOsApp(composition: composition));
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    await tester.pump();
+      expect(composition.controller.vaultUnlocked, isTrue);
+      expect(composition.agentAccessController.start(), isTrue);
+      expect(composition.agentAccessController.active, isTrue);
 
-    expect(composition.controller.vaultUnlocked, isFalse);
-    expect(composition.agentAccessController.active, isFalse);
+      await tester.pumpWidget(PersonalOsApp(composition: composition));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pump();
 
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pump();
+      expect(composition.controller.vaultUnlocked, isFalse);
+      expect(composition.agentAccessController.active, isFalse);
 
-    expect(composition.controller.vaultUnlocked, isFalse);
-    expect(composition.agentAccessController.active, isFalse);
-  });
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
 
+      expect(composition.controller.vaultUnlocked, isFalse);
+      expect(composition.agentAccessController.active, isFalse);
+    },
+  );
 }
