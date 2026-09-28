@@ -561,7 +561,6 @@ void main() {
   );
 }
 
-
 final class _ReplyInboxPort implements AgentReplyInboxPort {
   String? _pending;
   AgentReplyAvailableHandler? _handler;
