@@ -260,4 +260,111 @@ void main() {
     expect(bundle, contains('"session_id"'));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'a rejected replacement reply keeps the prior proposal and stays visible',
+    (tester) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.view.physicalSize = const Size(390, 1800);
+      tester.view.devicePixelRatio = 1;
+
+      final composition = AppComposition.inMemoryDemo();
+      final controller = composition.strategyController;
+      addTearDown(controller.dispose);
+      await controller.openOfflineSession(agentId: 'replacement-test-harness');
+      final sessionId = controller.sessionId!;
+      await controller.importProposal(jsonEncode(<String, Object?>{
+        'protocol_version': 'personal-os.mcp.v0',
+        'proposal_id': 'original-proposal',
+        'session_id': sessionId,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'strategy': <String, Object?>{
+          'title': 'Original proposal',
+          'rationale': 'This is the proposal that remains pending.',
+          'goal_refs': <Object?>[
+            <String, Object?>{
+              'type': 'goal',
+              'id': 'goal-browser-preview',
+              'revision': 1,
+            },
+          ],
+          'actions': <Object?>[
+            <String, Object?>{
+              'id': 'original-action',
+              'instruction': 'Complete the original action.',
+            },
+          ],
+        },
+      }));
+      final originalStrategyId = controller.strategyId;
+
+      await tester.pumpWidget(PersonalOsApp(composition: composition));
+      await tester.tap(find.byKey(const Key('unlock-vault')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('策略'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('agent-reply-input')),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+
+      final replacement = jsonEncode(<String, Object?>{
+        'protocol_version': 'personal-os.mcp.v0',
+        'proposal_id': 'rejected-replacement',
+        'session_id': sessionId,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'strategy': <String, Object?>{
+          'title': 'Rejected replacement',
+          'rationale': 'This revision has no accepted review.',
+          'goal_refs': <Object?>[
+            <String, Object?>{
+              'type': 'goal',
+              'id': 'goal-browser-preview',
+              'revision': 1,
+            },
+          ],
+          'parent_strategy': <String, Object?>{
+            'type': 'strategy',
+            'id': 'previous-strategy',
+            'revision': 1,
+          },
+          'actions': <Object?>[
+            <String, Object?>{
+              'id': 'replacement-action',
+              'instruction': 'Run the rejected replacement.',
+            },
+          ],
+        },
+      });
+      await tester.enterText(
+        find.byKey(const Key('agent-reply-input')),
+        replacement,
+      );
+      await tester.tap(find.byKey(const Key('import-agent-reply')));
+      await tester.pumpAndSettle();
+
+      expect(controller.errorCode, 'strategy.accepted_review_required');
+      expect(controller.strategyId, originalStrategyId);
+      expect(controller.proposalTitle, 'Original proposal');
+      expect(controller.hasPendingProposal, isTrue);
+      expect(
+        controller.strategyActions.map((action) => action.id),
+        <String>['original-action'],
+      );
+      expect(controller.selectedActionId, 'original-action');
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('agent-reply-input')))
+            .controller!
+            .text,
+        replacement,
+      );
+      expect(
+        find.text('建议已导入，请查看内容并决定是否接受。'),
+        findsNothing,
+      );
+    },
+  );
 }
