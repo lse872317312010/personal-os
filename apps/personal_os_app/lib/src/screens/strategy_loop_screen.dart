@@ -591,8 +591,7 @@ String _strategyErrorText(String code) => switch (code) {
       'strategy.accepted_strategy_required' => '请先确认策略，再激活执行。',
       'strategy.active_strategy_required' => '请先激活策略，再记录执行。',
       'strategy.action_required' => '当前没有可记录的行动，请检查策略后重试。',
-      'strategy.execution_or_observation_required' =>
-        '请先记录执行，并填写实际结果或观察。',
+      'strategy.execution_or_observation_required' => '请先记录执行，并填写实际结果或观察。',
       'strategy.restore_ambiguous_open_sessions' => '发现多个未完成的策略会话，无法安全恢复。',
       'strategy.restore_malformed_state' => '策略历史无法恢复，请检查本地记录。',
       'strategy.unexpected_failure' => '策略操作暂时无法完成，请稍后重试。',
