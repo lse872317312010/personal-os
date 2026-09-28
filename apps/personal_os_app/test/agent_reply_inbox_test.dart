@@ -172,7 +172,8 @@ void main() {
     expect(composition.replyInbox.pendingReply, isNull);
     expect(find.byKey(const Key('orphaned-agent-reply')), findsNothing);
     expect(
-      tester.widget<FilledButton>(find.byKey(const Key('open-agent-session')))
+      tester
+          .widget<FilledButton>(find.byKey(const Key('open-agent-session')))
           .onPressed,
       isNotNull,
     );
