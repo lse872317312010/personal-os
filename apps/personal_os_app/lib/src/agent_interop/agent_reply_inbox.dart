@@ -201,10 +201,7 @@ final class AgentReplyInboxController extends ChangeNotifier {
       // Synthetic and non-Android shells do not expose the Android receiver.
     } finally {
       _loading = false;
-      if (_refreshRequested &&
-          !_disposed &&
-          generation == _vaultGeneration &&
-          _isVaultUnlocked()) {
+      if (_refreshRequested && !_disposed && _isVaultUnlocked()) {
         _refreshRequested = false;
         unawaited(receivePendingReply());
       }
