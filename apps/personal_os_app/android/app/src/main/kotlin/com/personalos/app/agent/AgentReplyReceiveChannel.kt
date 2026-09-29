@@ -65,11 +65,13 @@ class AgentReplyReceiveChannel : MethodChannel.MethodCallHandler {
     }
 
     @Synchronized
-    private fun takePendingText(): String? {
-        if (pendingReplies.isEmpty()) return null
+    private fun peekPendingText(): String? = pendingReplies.peekFirst()
+
+    @Synchronized
+    private fun acknowledgePendingText() {
+        if (pendingReplies.isEmpty()) return
         val text = pendingReplies.removeFirst()
         pendingBytes -= text.toByteArray(Charsets.UTF_8).size
-        return text
     }
 
     @Synchronized
@@ -95,7 +97,11 @@ class AgentReplyReceiveChannel : MethodChannel.MethodCallHandler {
             return
         }
         when (call.method) {
-            TAKE_PENDING_REPLY_METHOD -> result.success(takePendingText())
+            PEEK_PENDING_REPLY_METHOD -> result.success(peekPendingText())
+            ACKNOWLEDGE_PENDING_REPLY_METHOD -> {
+                acknowledgePendingText()
+                result.success(null)
+            }
             PENDING_REPLY_COUNT_METHOD -> result.success(pendingReplyCount())
             TAKE_DROPPED_REPLY_COUNT_METHOD -> result.success(takeDroppedReplyCount())
             else -> result.notImplemented()
@@ -110,7 +116,8 @@ class AgentReplyReceiveChannel : MethodChannel.MethodCallHandler {
 
     companion object {
         const val CHANNEL_NAME = "personal_os/agent_text_receive"
-        const val TAKE_PENDING_REPLY_METHOD = "takePendingReply"
+        const val PEEK_PENDING_REPLY_METHOD = "peekPendingReply"
+        const val ACKNOWLEDGE_PENDING_REPLY_METHOD = "acknowledgePendingReply"
         const val PENDING_REPLY_COUNT_METHOD = "pendingReplyCount"
         const val TAKE_DROPPED_REPLY_COUNT_METHOD = "takeDroppedReplyCount"
         const val REPLY_AVAILABLE_METHOD = "replyAvailable"
