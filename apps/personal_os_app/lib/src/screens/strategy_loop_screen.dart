@@ -30,6 +30,7 @@ final class StrategyLoopScreen extends StatefulWidget {
 final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   final _assistantName = TextEditingController(text: '通用 AI 助手');
   final _agentReply = TextEditingController();
+  String? _loadedInboxReply;
   bool _showFormatRepairActions = false;
   final _review = TextEditingController();
   final _proposal = TextEditingController();
@@ -80,12 +81,18 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     final inbox = widget.replyInbox;
     if (!mounted) return;
     if (inbox != null && !inbox.vaultOpen) {
+      _loadedInboxReply = null;
       _agentReply.clear();
       return;
     }
     if (!widget.controller.hasSession) return;
     final reply = inbox?.pendingReply;
-    if (reply == null || _agentReply.text.isNotEmpty) return;
+    if (reply == null) {
+      _loadedInboxReply = null;
+      return;
+    }
+    if (_agentReply.text.isNotEmpty) return;
+    _loadedInboxReply = reply;
     _agentReply.value = TextEditingValue(
       text: reply,
       selection: TextSelection.collapsed(offset: reply.length),
@@ -119,6 +126,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
       if (!mounted || shouldReplace != true) return;
     }
 
+    _loadedInboxReply = reply;
     _agentReply.value = TextEditingValue(
       text: reply,
       selection: TextSelection.collapsed(offset: reply.length),
@@ -130,7 +138,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
       final replyText = _agentReply.text;
       final pendingInboxReply = widget.replyInbox?.pendingReply;
       final importedInboxReply =
-          pendingInboxReply != null && pendingInboxReply == replyText;
+          pendingInboxReply != null && _loadedInboxReply == pendingInboxReply;
       final reply = parseAgentHandoffReply(replyText);
       final controller = widget.controller;
       if (reply.kind == AgentReplyKind.review) {
@@ -162,6 +170,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
       setState(() => _showFormatRepairActions = false);
       _agentReply.clear();
       if (importedInboxReply) {
+        _loadedInboxReply = null;
         await widget.replyInbox?.clearPendingReply();
       } else {
         _syncReplyFromInbox();
@@ -549,6 +558,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                       onPressed: () async {
                                         final reply =
                                             widget.replyInbox?.pendingReply;
+                                        _loadedInboxReply = null;
                                         if (_agentReply.text == reply) {
                                           _agentReply.clear();
                                         }
