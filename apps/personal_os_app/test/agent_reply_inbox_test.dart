@@ -118,6 +118,8 @@ void main() {
       if (call.method == 'peekPendingReply') return 'shared assistant reply';
       if (call.method == 'pendingReplyCount') return 1;
       if (call.method == 'takeDroppedReplyCount') return 0;
+      if (call.method == 'replyQueueStorageReady') return true;
+      if (call.method == 'acknowledgePendingReply') return true;
       return null;
     });
     addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
@@ -137,6 +139,7 @@ void main() {
         'peekPendingReply',
         'pendingReplyCount',
         'takeDroppedReplyCount',
+        'replyQueueStorageReady',
       ],
     );
     await const MethodChannelAgentReplyInboxPort().acknowledgePendingReply();
@@ -146,6 +149,7 @@ void main() {
         'peekPendingReply',
         'pendingReplyCount',
         'takeDroppedReplyCount',
+        'replyQueueStorageReady',
         'acknowledgePendingReply',
       ],
     );
@@ -240,6 +244,7 @@ void main() {
         'peekPendingReply',
         'pendingReplyCount',
         'takeDroppedReplyCount',
+        'replyQueueStorageReady',
       ],
     );
     expect(
@@ -257,7 +262,7 @@ void main() {
       ),
       throwsA(isA<PlatformException>()),
     );
-    expect(channel.outboundCalls, hasLength(3));
+    expect(channel.outboundCalls, hasLength(4));
   });
 
   testWidgets('received replies are shown after unlock and never auto-imported',
@@ -502,6 +507,51 @@ void main() {
       isNotNull,
     );
   });
+
+  test('keeps a reply queued when durable acknowledgement fails', () async {
+    final port = _FakeReplyPort('still queued');
+    final inbox = AgentReplyInboxController(
+      port: port,
+      isVaultUnlocked: () => true,
+    );
+    addTearDown(inbox.dispose);
+
+    await inbox.receivePendingReply();
+    port.acknowledgeSucceeds = false;
+
+    expect(await inbox.clearPendingReply(), isFalse);
+    expect(inbox.pendingReply, 'still queued');
+    expect(inbox.replyQueueStorageUnavailable, isTrue);
+  });
+
+  test('exposes unavailable encrypted queue state after unlock', () async {
+    final port = _FakeReplyPort(null)..storageReady = false;
+    final inbox = AgentReplyInboxController(
+      port: port,
+      isVaultUnlocked: () => true,
+    );
+    addTearDown(inbox.dispose);
+
+    await inbox.receivePendingReply();
+
+    expect(inbox.replyQueueStorageUnavailable, isTrue);
+  });
+
+  testWidgets('shows a warning when the encrypted reply queue is unavailable',
+      (tester) async {
+    final port = _FakeReplyPort(null)..storageReady = false;
+    final composition = AppComposition.inMemoryDemo(replyInboxPort: port);
+    addTearDown(composition.strategyController.dispose);
+
+    await tester.pumpWidget(PersonalOsApp(composition: composition));
+    await tester.tap(find.byKey(const Key('unlock-vault')));
+    await tester.pumpAndSettle();
+    await composition.replyInbox.receivePendingReply();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('incoming-agent-reply-banner')), findsOneWidget);
+    expect(find.textContaining('加密收件箱暂不可用'), findsOneWidget);
+  });
 }
 
 final class _FakeReplyPort implements AgentReplyInboxPort {
@@ -512,6 +562,8 @@ final class _FakeReplyPort implements AgentReplyInboxPort {
   final List<String> _replies = <String>[];
   int calls = 0;
   int droppedReplyCount = 0;
+  bool storageReady = true;
+  bool acknowledgeSucceeds = true;
   AgentReplyAvailableHandler? _replyAvailableHandler;
 
   String? get reply => _replies.isEmpty ? null : _replies.first;
@@ -525,8 +577,10 @@ final class _FakeReplyPort implements AgentReplyInboxPort {
   }
 
   @override
-  Future<void> acknowledgePendingReply() async {
+  Future<bool> acknowledgePendingReply() async {
+    if (!acknowledgeSucceeds) return false;
     if (_replies.isNotEmpty) _replies.removeAt(0);
+    return true;
   }
 
   @override
@@ -538,6 +592,9 @@ final class _FakeReplyPort implements AgentReplyInboxPort {
     droppedReplyCount = 0;
     return count;
   }
+
+  @override
+  Future<bool> replyQueueStorageReady() async => storageReady;
 
   @override
   void setReplyAvailableHandler(AgentReplyAvailableHandler? handler) {
@@ -565,13 +622,16 @@ final class _DelayedReplyPort implements AgentReplyInboxPort {
   }
 
   @override
-  Future<void> acknowledgePendingReply() async {}
+  Future<bool> acknowledgePendingReply() async => true;
 
   @override
   Future<int> pendingReplyCount() async => 1;
 
   @override
   Future<int> takeDroppedReplyCount() async => 0;
+
+  @override
+  Future<bool> replyQueueStorageReady() async => true;
 
   @override
   void setReplyAvailableHandler(AgentReplyAvailableHandler? handler) {}
@@ -603,9 +663,10 @@ final class _RecordingMethodChannel extends MethodChannel {
     if (method == 'peekPendingReply') {
       return 'shared assistant reply' as T?;
     }
-    if (method == 'acknowledgePendingReply') return null;
+    if (method == 'acknowledgePendingReply') return true as T?;
     if (method == 'pendingReplyCount') return 0 as T?;
     if (method == 'takeDroppedReplyCount') return 0 as T?;
+    if (method == 'replyQueueStorageReady') return true as T?;
     return null;
   }
 }

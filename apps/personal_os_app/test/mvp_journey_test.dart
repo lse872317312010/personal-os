@@ -679,8 +679,9 @@ final class _ReplyInboxPort implements AgentReplyInboxPort {
       _pending.isEmpty ? null : _pending.first;
 
   @override
-  Future<void> acknowledgePendingReply() async {
+  Future<bool> acknowledgePendingReply() async {
     if (_pending.isNotEmpty) _pending.removeAt(0);
+    return true;
   }
 
   @override
@@ -688,6 +689,9 @@ final class _ReplyInboxPort implements AgentReplyInboxPort {
 
   @override
   Future<int> takeDroppedReplyCount() async => 0;
+
+  @override
+  Future<bool> replyQueueStorageReady() async => true;
 
   @override
   void setReplyAvailableHandler(AgentReplyAvailableHandler? handler) {

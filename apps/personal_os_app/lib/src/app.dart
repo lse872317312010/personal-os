@@ -144,7 +144,8 @@ final class _UnlockedShellState extends State<_UnlockedShell> {
               body: Column(
                 children: <Widget>[
                   if ((replyInbox.hasPendingReply ||
-                          replyInbox.droppedReplyCount > 0) &&
+                          replyInbox.droppedReplyCount > 0 ||
+                          replyInbox.replyQueueStorageUnavailable) &&
                       controller.destination != AppDestination.strategy)
                     MaterialBanner(
                       key: const Key('incoming-agent-reply-banner'),
@@ -157,11 +158,19 @@ final class _UnlockedShellState extends State<_UnlockedShell> {
                             child: const Text('查看回复'),
                           ),
                           TextButton(
-                            onPressed: () =>
-                                unawaited(replyInbox.clearPendingReply()),
+                            onPressed: () => unawaited(
+                              replyInbox.clearPendingReply().then<void>((_) {}),
+                            ),
                             child: const Text('丢弃'),
                           ),
                         ],
+                        if (!replyInbox.hasPendingReply &&
+                            replyInbox.replyQueueStorageUnavailable)
+                          TextButton(
+                            onPressed: () =>
+                                controller.navigate(AppDestination.strategy),
+                            child: const Text('查看收件箱状态'),
+                          ),
                         if (replyInbox.droppedReplyCount > 0)
                           TextButton(
                             onPressed: replyInbox.clearDroppedReplyNotice,
@@ -267,11 +276,15 @@ final class _SyntheticPreviewNotice extends StatelessWidget {
 
 String _agentReplyInboxMessage(AgentReplyInboxController inbox) {
   final messages = <String>[
-    if (inbox.hasPendingReply) '收到一条 AI 助手回复。内容暂存在内存中，查看后由你决定是否导入。',
+    if (inbox.hasPendingReply)
+      '收到一条 AI 助手回复。内容暂存在本机加密收件箱中，查看后由你决定是否导入。',
     if (inbox.queuedReplyCount > 0) '另有 ${inbox.queuedReplyCount} 条回复等待处理。',
     if (inbox.droppedReplyCount > 0)
-      '内存暂存已满，${inbox.droppedReplyCount} 条新回复未保留，'
+      '收件箱容量不足或保存失败，${inbox.droppedReplyCount} 条新回复未保留，'
           '请回到发送回复的助手重新分享。',
+    if (inbox.replyQueueStorageUnavailable)
+      '本机加密收件箱暂不可用。已有回复不会被自动删除；新回复可能无法保存，'
+          '请先处理当前可见回复，必要时回到助手重新分享。',
   ];
   return messages.join(' ');
 }

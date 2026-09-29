@@ -151,18 +151,58 @@ class AgentReplyReceiveChannelTest {
     }
 
     @Test
-    fun clearDropsVolatileRepliesAndOverflowCount() {
-        val channel = AgentReplyReceiveChannel()
-        channel.capture(plainText("discarded"))
-        repeat(AgentReplyReceiveChannel.MAX_PENDING_REPLIES) {
-            channel.capture(plainText("reply-$it"))
-        }
-        channel.capture(plainText("overflow"))
+    fun restoredRepliesAreOnlyRemovedAfterAStoredAcknowledge() {
+        val store = TestAgentReplyQueueStore(
+            AgentReplyQueueSnapshot(listOf("first", "second"), droppedReplyCount = 2),
+        )
+        val channel = AgentReplyReceiveChannel(store)
 
-        channel.clear()
+        assertEquals("first", channel.peekForTest())
+        assertEquals(2, channel.pendingReplyCountForTest())
+        assertEquals(2, channel.takeDroppedReplyCountForTest())
+        assertEquals(0, store.snapshot.droppedReplyCount)
 
+        assertTrue(channel.acknowledgeForTest())
+        assertEquals(listOf("second"), store.snapshot.replies)
+    }
+
+    @Test
+    fun failedAcknowledgeRetainsReplyAndReportsStorageFailure() {
+        val store = TestAgentReplyQueueStore()
+        val channel = AgentReplyReceiveChannel(store)
+        assertTrue(channel.capture(plainText("keep until storage recovers")))
+
+        store.failWrites = true
+
+        assertFalse(channel.acknowledgeForTest())
+        assertEquals("keep until storage recovers", channel.peekForTest())
+        assertEquals(1, channel.pendingReplyCountForTest())
+        assertFalse(channel.isStorageReadyForTest())
+    }
+
+    @Test
+    fun failedCaptureReportsTheReplyWasNotRetained() {
+        val store = TestAgentReplyQueueStore().apply { failWrites = true }
+        val channel = AgentReplyReceiveChannel(store)
+        var notifications = 0
+
+        assertFalse(channel.captureAndNotify(plainText("not persisted")) { notifications++ })
+
+        assertEquals(1, notifications)
+        assertEquals(1, channel.takeDroppedReplyCountForTest())
         assertEquals(0, channel.pendingReplyCountForTest())
-        assertEquals(0, channel.takeDroppedReplyCountForTest())
+        assertFalse(channel.isStorageReadyForTest())
+    }
+
+    @Test
+    fun unreadableEncryptedQueueFailsClosedWithoutReplacingItsContents() {
+        val store = TestAgentReplyQueueStore().apply { failReads = true }
+        val channel = AgentReplyReceiveChannel(store)
+
+        assertFalse(channel.capture(plainText("do not replace the unreadable queue")))
+        assertNull(channel.peekForTest())
+        assertEquals(0, store.snapshot.replies.size)
+        assertFalse(channel.isStorageReadyForTest())
     }
 }
 
@@ -174,9 +214,8 @@ private fun plainText(text: String): Intent =
 private fun AgentReplyReceiveChannel.peekForTest(): String? =
     invokeForTest(AgentReplyReceiveChannel.PEEK_PENDING_REPLY_METHOD) as? String
 
-private fun AgentReplyReceiveChannel.acknowledgeForTest() {
-    invokeForTest(AgentReplyReceiveChannel.ACKNOWLEDGE_PENDING_REPLY_METHOD)
-}
+private fun AgentReplyReceiveChannel.acknowledgeForTest(): Boolean =
+    invokeForTest(AgentReplyReceiveChannel.ACKNOWLEDGE_PENDING_REPLY_METHOD) as Boolean
 
 private fun AgentReplyReceiveChannel.takeForTest(): String? {
     val text = peekForTest()
@@ -189,6 +228,9 @@ private fun AgentReplyReceiveChannel.pendingReplyCountForTest(): Int =
 
 private fun AgentReplyReceiveChannel.takeDroppedReplyCountForTest(): Int =
     invokeForTest(AgentReplyReceiveChannel.TAKE_DROPPED_REPLY_COUNT_METHOD) as Int
+
+private fun AgentReplyReceiveChannel.isStorageReadyForTest(): Boolean =
+    invokeForTest(AgentReplyReceiveChannel.REPLY_QUEUE_STORAGE_READY_METHOD) as Boolean
 
 private fun AgentReplyReceiveChannel.invokeForTest(method: String): Any? {
     val result = RecordingMethodResult()
@@ -212,5 +254,22 @@ private class RecordingMethodResult : io.flutter.plugin.common.MethodChannel.Res
 
     override fun notImplemented() {
         throw AssertionError("Method was not implemented")
+    }
+}
+
+private class TestAgentReplyQueueStore(
+    var snapshot: AgentReplyQueueSnapshot = AgentReplyQueueSnapshot(),
+) : AgentReplyQueueStore {
+    var failReads = false
+    var failWrites = false
+
+    override fun read(): AgentReplyQueueSnapshot {
+        check(!failReads) { "read failure" }
+        return snapshot
+    }
+
+    override fun write(snapshot: AgentReplyQueueSnapshot) {
+        check(!failWrites) { "write failure" }
+        this.snapshot = snapshot
     }
 }

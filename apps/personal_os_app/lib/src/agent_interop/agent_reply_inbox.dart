@@ -9,11 +9,13 @@ typedef AgentReplyAvailableHandler = Future<void> Function();
 abstract interface class AgentReplyInboxPort {
   Future<String?> peekPendingReply();
 
-  Future<void> acknowledgePendingReply();
+  Future<bool> acknowledgePendingReply();
 
   Future<int> pendingReplyCount();
 
   Future<int> takeDroppedReplyCount();
+
+  Future<bool> replyQueueStorageReady();
 
   void setReplyAvailableHandler(AgentReplyAvailableHandler? handler);
 }
@@ -30,6 +32,8 @@ final class MethodChannelAgentReplyInboxPort implements AgentReplyInboxPort {
       'acknowledgePendingReply';
   static const String pendingReplyCountMethodName = 'pendingReplyCount';
   static const String takeDroppedReplyCountMethodName = 'takeDroppedReplyCount';
+  static const String replyQueueStorageReadyMethodName =
+      'replyQueueStorageReady';
   static const String replyAvailableMethodName = 'replyAvailable';
 
   final MethodChannel _channel;
@@ -39,9 +43,9 @@ final class MethodChannelAgentReplyInboxPort implements AgentReplyInboxPort {
       _channel.invokeMethod<String>(peekPendingReplyMethodName);
 
   @override
-  Future<void> acknowledgePendingReply() async {
-    await _channel.invokeMethod<void>(acknowledgePendingReplyMethodName);
-  }
+  Future<bool> acknowledgePendingReply() async =>
+      await _channel.invokeMethod<bool>(acknowledgePendingReplyMethodName) ??
+      false;
 
   @override
   Future<int> pendingReplyCount() async =>
@@ -50,6 +54,11 @@ final class MethodChannelAgentReplyInboxPort implements AgentReplyInboxPort {
   @override
   Future<int> takeDroppedReplyCount() async =>
       await _channel.invokeMethod<int>(takeDroppedReplyCountMethodName) ?? 0;
+
+  @override
+  Future<bool> replyQueueStorageReady() async =>
+      await _channel.invokeMethod<bool>(replyQueueStorageReadyMethodName) ??
+      false;
 
   @override
   void setReplyAvailableHandler(AgentReplyAvailableHandler? handler) {
@@ -83,13 +92,16 @@ final class NoopAgentReplyInboxPort implements AgentReplyInboxPort {
   Future<String?> peekPendingReply() async => null;
 
   @override
-  Future<void> acknowledgePendingReply() async {}
+  Future<bool> acknowledgePendingReply() async => true;
 
   @override
   Future<int> pendingReplyCount() async => 0;
 
   @override
   Future<int> takeDroppedReplyCount() async => 0;
+
+  @override
+  Future<bool> replyQueueStorageReady() async => true;
 
   @override
   void setReplyAvailableHandler(AgentReplyAvailableHandler? handler) {}
@@ -112,6 +124,7 @@ final class AgentReplyInboxController extends ChangeNotifier {
   String? _pendingReply;
   int _queuedReplyCount = 0;
   int _droppedReplyCount = 0;
+  bool _replyQueueStorageUnavailable = false;
   int _vaultGeneration = 0;
   bool _loading = false;
   bool _refreshRequested = false;
@@ -122,6 +135,7 @@ final class AgentReplyInboxController extends ChangeNotifier {
   bool get hasPendingReply => _pendingReply != null;
   int get queuedReplyCount => _queuedReplyCount;
   int get droppedReplyCount => _droppedReplyCount;
+  bool get replyQueueStorageUnavailable => _replyQueueStorageUnavailable;
   bool get vaultOpen => _vaultOpen;
 
   Future<void> receivePendingReply() async {
@@ -157,7 +171,11 @@ final class AgentReplyInboxController extends ChangeNotifier {
                 !_isVaultUnlocked()) {
               return;
             }
-            await _port.acknowledgePendingReply();
+            final acknowledged = await _port.acknowledgePendingReply();
+            if (!acknowledged) {
+              _setReplyQueueStorageUnavailable();
+              return;
+            }
             _refreshRequested = true;
           }
         }
@@ -169,6 +187,7 @@ final class AgentReplyInboxController extends ChangeNotifier {
         }
         final queuedCount = await _port.pendingReplyCount();
         final droppedCount = await _port.takeDroppedReplyCount();
+        final storageReady = await _port.replyQueueStorageReady();
         if (_disposed ||
             generation != _vaultGeneration ||
             !_isVaultUnlocked()) {
@@ -182,10 +201,13 @@ final class AgentReplyInboxController extends ChangeNotifier {
             : 0;
         final safeDroppedCount = droppedCount < 0 ? 0 : droppedCount;
         final totalDroppedCount = _droppedReplyCount + safeDroppedCount;
+        final storageUnavailable = !storageReady;
         if (_queuedReplyCount != waitingReplyCount ||
-            _droppedReplyCount != totalDroppedCount) {
+            _droppedReplyCount != totalDroppedCount ||
+            _replyQueueStorageUnavailable != storageUnavailable) {
           _queuedReplyCount = waitingReplyCount;
           _droppedReplyCount = totalDroppedCount;
+          _replyQueueStorageUnavailable = storageUnavailable;
           notifyListeners();
         }
         if (_pendingReply == null && safeQueuedCount > 0) {
@@ -197,8 +219,10 @@ final class AgentReplyInboxController extends ChangeNotifier {
           _isVaultUnlocked());
     } on PlatformException {
       // The native buffer remains available until a later successful read.
+      _setReplyQueueStorageUnavailable();
     } on MissingPluginException {
       // Synthetic and non-Android shells do not expose the Android receiver.
+      _setReplyQueueStorageUnavailable();
     } finally {
       _loading = false;
       if (_refreshRequested && !_disposed && _isVaultUnlocked()) {
@@ -208,31 +232,45 @@ final class AgentReplyInboxController extends ChangeNotifier {
     }
   }
 
-  Future<void> clearPendingReply() async {
+  Future<bool> clearPendingReply() async {
     final pendingReply = _pendingReply;
-    if (pendingReply == null) return;
+    if (pendingReply == null) return true;
     final generation = _vaultGeneration;
+    late final bool acknowledged;
     try {
-      await _port.acknowledgePendingReply();
+      acknowledged = await _port.acknowledgePendingReply();
     } on PlatformException {
-      return;
+      _setReplyQueueStorageUnavailable();
+      return false;
     } on MissingPluginException {
-      return;
+      _setReplyQueueStorageUnavailable();
+      return false;
+    }
+    if (!acknowledged) {
+      _setReplyQueueStorageUnavailable();
+      return false;
     }
     if (_disposed ||
         generation != _vaultGeneration ||
         _pendingReply != pendingReply) {
-      return;
+      return false;
     }
     _pendingReply = null;
     notifyListeners();
     if (_vaultOpen) await receivePendingReply();
+    return true;
   }
 
   void clearDroppedReplyNotice() {
     if (_droppedReplyCount == 0) return;
     _droppedReplyCount = 0;
     notifyListeners();
+  }
+
+  void _setReplyQueueStorageUnavailable() {
+    if (_replyQueueStorageUnavailable) return;
+    _replyQueueStorageUnavailable = true;
+    if (!_disposed) notifyListeners();
   }
 
   /// Called synchronously with the Vault lock so reply text does not outlive
@@ -242,6 +280,7 @@ final class AgentReplyInboxController extends ChangeNotifier {
     _vaultOpen = false;
     _pendingReply = null;
     _queuedReplyCount = 0;
+    _replyQueueStorageUnavailable = false;
     _refreshRequested = false;
     if (!_disposed) notifyListeners();
   }

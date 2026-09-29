@@ -1,3 +1,6 @@
+Warning: truncated output (original token count: 12301)
+Total output lines: 1096
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -169,15 +172,24 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
       }
       setState(() => _showFormatRepairActions = false);
       _agentReply.clear();
+      var inboxAcknowledged = true;
       if (importedInboxReply) {
         _loadedInboxReply = null;
-        await widget.replyInbox?.clearPendingReply();
+        inboxAcknowledged =
+            await widget.replyInbox?.clearPendingReply() ?? false;
       } else {
         _syncReplyFromInbox();
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('建议已导入，请查看内容并决定是否接受。')),
+        SnackBar(
+          content: Text(
+            inboxAcknowledged
+                ? '建议已导入，请查看内容并决定是否接受。'
+                : '建议已导入，但收件箱未能确认移除原回复；请勿重复导入，'
+                    '待加密收件箱恢复后再明确丢弃原回复。',
+          ),
+        ),
       );
     } on AgentHandoffFormatException catch (error) {
       if (!mounted) return;
@@ -369,6 +381,17 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               ),
               const SizedBox(height: 16),
               _StatusCard(controller: controller),
+              if (widget.replyInbox?.replyQueueStorageUnavailable ?? false)
+                const Card(
+                  key: Key('agent-reply-storage-warning'),
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      '本机加密收件箱暂不可用。已有回复不会被自动删除；'
+                      '新回复可能无法保存，请先处理当前可见回复，必要时回到助手重新分享。',
+                    ),
+                  ),
+                ),
               if (!(widget.replyInbox?.hasPendingReply ?? false) &&
                   (widget.replyInbox?.droppedReplyCount ?? 0) > 0)
                 Card(
@@ -379,7 +402,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
                         Text(
-                          '内存暂存已满，${widget.replyInbox!.droppedReplyCount} 条新回复未保留，'
+                          '收件箱容量不足或保存失败，${widget.replyInbox!.droppedReplyCount} 条新回复未保留，'
                           '请回到发送回复的助手重新分享。',
                         ),
                         Align(
@@ -498,7 +521,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                 children: <Widget>[
                                   Text(
                                     <String>[
-                                      '收到的回复暂存在本机内存中，不会自动导入。'
+                                      '收到的回复暂存在本机加密收件箱中，不会自动导入。'
                                           '检查后再手动导入；导入的建议仍需你单独接受。',
                                       if ((widget.replyInbox
                                                   ?.queuedReplyCount ??
@@ -509,7 +532,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                                   ?.droppedReplyCount ??
                                               0) >
                                           0)
-                                        '内存暂存已满，${widget.replyInbox!.droppedReplyCount} 条新回复未保留，请回到发送回复的助手重新分享。',
+                                        '收件箱容量不足或保存失败，${widget.replyInbox!.droppedReplyCount} 条新回复未保留，请回到发送回复的助手重新分享。',
                                     ].join(' '),
                                   ),
                                   if ((widget.replyInbox?.droppedReplyCount ??
@@ -554,30 +577,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                     alignment: Alignment.centerRight,
                                     child: TextButton.icon(
                                       key: const Key(
-                                        'discard-received-agent-reply',
-                                      ),
-                                      onPressed: () async {
-                                        final reply =
-                                            widget.replyInbox?.pendingReply;
-                                        _loadedInboxReply = null;
-                                        if (_agentReply.text == reply) {
-                                          _agentReply.clear();
-                                        }
-                                        await widget.replyInbox
-                                            ?.clearPendingReply();
-                                      },
-                                      icon: const Icon(Icons.delete_outline),
-                                      label: const Text('丢弃回复'),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 16),
-                        TextField(
-                          key: const Key('agent-reply-input'),
-                          controller: _agentReply,
+                                        'discard-received-ag…301 tokens truncated…: _agentReply,
                           minLines: 4,
                           maxLines: 10,
                           decoration: InputDecoration(

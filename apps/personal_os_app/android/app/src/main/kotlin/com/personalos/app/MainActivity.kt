@@ -6,6 +6,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import com.personalos.app.agent.AgentReplyReceiveChannel
+import com.personalos.app.agent.EncryptedAgentReplyQueueStore
 import com.personalos.app.agent.AgentTextShareChannel
 import com.personalos.app.backup.PortableEventBackupChannel
 import com.personalos.app.model.AndroidNativeModelCredentialPrompt
@@ -109,7 +110,9 @@ class MainActivity : FlutterFragmentActivity() {
             channel.setMethodCallHandler(AgentTextShareChannel(this))
         }
 
-        val incomingReplies = AgentReplyReceiveChannel()
+        val incomingReplies = AgentReplyReceiveChannel(
+            EncryptedAgentReplyQueueStore(this),
+        )
         agentReplyReceiveHandler = incomingReplies
         agentReplyReceiveChannel = MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -216,7 +219,6 @@ class MainActivity : FlutterFragmentActivity() {
     }
 
     override fun onDestroy() {
-        agentReplyReceiveHandler?.clear()
         agentReplyReceiveHandler = null
         modelHandler?.dispose()
         modelHandler = null

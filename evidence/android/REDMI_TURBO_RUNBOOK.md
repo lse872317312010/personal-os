@@ -160,20 +160,27 @@ Do not retain the prompt, reply body, or screenshots in evidence.
 1. Start a strategy session with a generic assistant/Harness label and share the
    synthetic Context Bundle through Android's system chooser to any text-capable
    assistant or Harness.
-2. Share a plain-text test reply back to Personal OS. Confirm the Vault is
-   locked when the app returns, the reply body is not shown before unlock, and
-   unlocking the original session displays the reply for review.
-3. Confirm the reply is not imported or accepted automatically. Use the normal
-   review/import controls and verify the user remains responsible for accepting
-   any proposed strategy or review.
-4. If another compatible assistant or Harness is installed, repeat the same
-   flow. Provider-specific setup or SDKs should not be required.
+2. Share two distinct plain-text test replies back to Personal OS in sequence.
+   Confirm the Vault is locked when the app returns, neither reply body is shown
+   before unlock, and unlocking the original session displays the first reply
+   for review.
+3. Confirm neither reply is imported or accepted automatically. Leave both in
+   the inbox for the restart check; the user remains responsible for importing
+   suggestions and separately accepting them.
+4. Before importing or discarding, force-stop and relaunch Personal OS. Unlock
+   the Vault and confirm the first reply is restored. Explicitly discard it and
+   confirm the second reply appears next. Discard the second reply, relaunch
+   once more, and confirm that neither reply reappears.
+5. If another compatible assistant or Harness is installed, repeat this flow
+   with a fresh synthetic session. Provider-specific setup or SDKs should not be
+   required.
 
-The native reply queue remains in Activity memory until the user imports or
-explicitly discards each reply. Locking the Vault clears only the Flutter-visible
+Replies remain in the app-private encrypted FIFO until a successful manual
+import or explicit discard. Locking the Vault clears only the Flutter-visible
 copy; after unlocking, Personal OS can read and display the queued reply again.
-The queue is not persisted, so destroying the Activity or process before import
-or discard can lose queued replies.
+The queue is stored outside Android backup and encrypted with an Android
+Keystore key. This smoke test is separate from the G3 evidence record and must
+not retain the prompt, reply body, or screenshots.
 
 ## Finalization
 

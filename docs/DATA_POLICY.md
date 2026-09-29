@@ -81,6 +81,7 @@ Android Vault保存以下权威资产及其事件历史：
 - Context Bundle只包含某次Agent任务需要的结构化快照；
 - Proposal Bundle保存Agent返回的资产修订、策略、计划或复盘；
 - 图片和文件由Encrypted Blob Vault独立保存并通过不透明引用关联；
+- 尚未导入的Android助手回复属于临时收件数据：只保存于应用私有、Android Keystore AES-GCM加密且不参与系统备份的队列；成功手动导入或明确丢弃后删除；它们不会成为Vault事实，除非用户执行导入；
 - 导出必须携带schema版本和引用完整性信息。
 
 ## 7. 当前待定
