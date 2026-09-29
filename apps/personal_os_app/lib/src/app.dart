@@ -158,9 +158,9 @@ final class _UnlockedShellState extends State<_UnlockedShell> {
                             child: const Text('查看回复'),
                           ),
                           TextButton(
-                            onPressed: () => unawaited(
-                              replyInbox.clearPendingReply().then<void>((_) {}),
-                            ),
+                            onPressed: () async {
+                              await replyInbox.clearPendingReply();
+                            },
                             child: const Text('丢弃'),
                           ),
                         ],
@@ -281,7 +281,8 @@ String _agentReplyInboxMessage(AgentReplyInboxController inbox) {
     if (inbox.droppedReplyCount > 0)
       '收件箱容量不足或保存失败，${inbox.droppedReplyCount} 条新回复未保留，'
           '请回到发送回复的助手重新分享。',
-    if (inbox.replyQueueStorageUnavailable) '本机加密收件箱暂不可用。已有回复不会被自动删除；新回复可能无法保存，'
+    if (inbox.replyQueueStorageUnavailable)
+      '本机加密收件箱暂不可用。已有回复不会被自动删除；新回复可能无法保存，'
           '请先处理当前可见回复，必要时回到助手重新分享。',
   ];
   return messages.join(' ');
