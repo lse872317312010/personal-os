@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,7 +10,7 @@ import 'package:personal_os_app/src/agent_interop/agent_reply_inbox.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('does not take a reply until the Vault is unlocked', () async {
+  test('keeps a reply until acknowledged and does not read while locked', () async {
     final port = _FakeReplyPort('assistant reply');
     var unlocked = false;
     final inbox = AgentReplyInboxController(
@@ -32,6 +33,13 @@ void main() {
     inbox.clearForVaultLock();
     expect(inbox.pendingReply, isNull);
     expect(inbox.vaultOpen, isFalse);
+    expect(port.reply, 'assistant reply');
+
+    unlocked = true;
+    await inbox.receivePendingReply();
+    expect(inbox.pendingReply, 'assistant reply');
+    await inbox.clearPendingReply();
+    expect(port.reply, isNull);
   });
 
   test('rejects empty and oversized replies before exposing them', () async {
@@ -58,6 +66,31 @@ void main() {
     expect(oversized.pendingReply, isNull);
   });
 
+  test('keeps a reply queued when Vault locks during a native read', () async {
+    final port = _DelayedReplyPort('reply interrupted by lock');
+    var unlocked = true;
+    final inbox = AgentReplyInboxController(
+      port: port,
+      isVaultUnlocked: () => unlocked,
+    );
+    addTearDown(inbox.dispose);
+
+    final loading = inbox.receivePendingReply();
+    await port.readStarted.future;
+    unlocked = false;
+    inbox.clearForVaultLock();
+    port.releaseRead.complete();
+    await loading;
+
+    expect(inbox.pendingReply, isNull);
+    expect(port.reply, 'reply interrupted by lock');
+
+    unlocked = true;
+    await inbox.receivePendingReply();
+    expect(inbox.pendingReply, 'reply interrupted by lock');
+    expect(port.reply, 'reply interrupted by lock');
+  });
+
   test('reads through a named vendor-neutral method channel', () async {
     const channel = MethodChannel(
       MethodChannelAgentReplyInboxPort.channelName,
@@ -67,8 +100,8 @@ void main() {
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     messenger.setMockMethodCallHandler(channel, (call) async {
       calls.add(call);
-      if (call.method == 'takePendingReply') return 'shared assistant reply';
-      if (call.method == 'pendingReplyCount') return 0;
+      if (call.method == 'peekPendingReply') return 'shared assistant reply';
+      if (call.method == 'pendingReplyCount') return 1;
       if (call.method == 'takeDroppedReplyCount') return 0;
       return null;
     });
@@ -86,7 +119,7 @@ void main() {
     expect(
       calls.map((call) => call.method),
       <String>[
-        'takePendingReply',
+        'peekPendingReply',
         'pendingReplyCount',
         'takeDroppedReplyCount',
       ],
@@ -112,7 +145,7 @@ void main() {
       expect(port.calls, 1);
 
       // Later shares remain queued while this reply is being reviewed.
-      port.reply = 'second reply';
+      port.enqueue('second reply');
       await port.signalReplyAvailable();
       expect(inbox.pendingReply, 'first reply');
       expect(inbox.queuedReplyCount, 1);
@@ -137,7 +170,7 @@ void main() {
     addTearDown(inbox.dispose);
 
     await inbox.receivePendingReply();
-    port.reply = 'second reply';
+    port.enqueue('second reply');
     port.droppedReplyCount = 2;
     await port.signalReplyAvailable();
 
@@ -179,7 +212,7 @@ void main() {
     expect(
       channel.outboundCalls.map((call) => call.method),
       <String>[
-        'takePendingReply',
+        'peekPendingReply',
         'pendingReplyCount',
         'takeDroppedReplyCount',
       ],
@@ -226,7 +259,7 @@ void main() {
     expect(port.calls, 1);
     expect(
         find.byKey(const Key('incoming-agent-reply-banner')), findsOneWidget);
-    port.reply = 'second assistant reply';
+    port.enqueue('second assistant reply');
     port.droppedReplyCount = 1;
     await port.signalReplyAvailable();
     await tester.pumpAndSettle();
@@ -301,7 +334,7 @@ void main() {
       );
       await tester.enterText(replyInput, 'my unsent draft');
 
-      port.reply = 'shared assistant reply';
+      port.enqueue('shared assistant reply');
       await port.signalReplyAvailable();
       await tester.pumpAndSettle();
 
@@ -391,23 +424,32 @@ void main() {
 }
 
 final class _FakeReplyPort implements AgentReplyInboxPort {
-  _FakeReplyPort(this.reply);
+  _FakeReplyPort(String? reply) {
+    if (reply != null) _replies.add(reply);
+  }
 
-  String? reply;
+  final List<String> _replies = <String>[];
   int calls = 0;
   int droppedReplyCount = 0;
   AgentReplyAvailableHandler? _replyAvailableHandler;
 
+  String? get reply => _replies.isEmpty ? null : _replies.first;
+
+  void enqueue(String reply) => _replies.add(reply);
+
   @override
-  Future<String?> takePendingReply() async {
+  Future<String?> peekPendingReply() async {
     calls++;
-    final result = reply;
-    reply = null;
-    return result;
+    return reply;
   }
 
   @override
-  Future<int> pendingReplyCount() async => reply == null ? 0 : 1;
+  Future<void> acknowledgePendingReply() async {
+    if (_replies.isNotEmpty) _replies.removeAt(0);
+  }
+
+  @override
+  Future<int> pendingReplyCount() async => _replies.length;
 
   @override
   Future<int> takeDroppedReplyCount() async {
@@ -425,6 +467,33 @@ final class _FakeReplyPort implements AgentReplyInboxPort {
     final handler = _replyAvailableHandler;
     if (handler != null) await handler();
   }
+}
+
+final class _DelayedReplyPort implements AgentReplyInboxPort {
+  _DelayedReplyPort(this.reply);
+
+  final String reply;
+  final Completer<void> readStarted = Completer<void>();
+  final Completer<void> releaseRead = Completer<void>();
+
+  @override
+  Future<String?> peekPendingReply() async {
+    if (!readStarted.isCompleted) readStarted.complete();
+    await releaseRead.future;
+    return reply;
+  }
+
+  @override
+  Future<void> acknowledgePendingReply() async {}
+
+  @override
+  Future<int> pendingReplyCount() async => 1;
+
+  @override
+  Future<int> takeDroppedReplyCount() async => 0;
+
+  @override
+  void setReplyAvailableHandler(AgentReplyAvailableHandler? handler) {}
 }
 
 final class _RecordingMethodChannel extends MethodChannel {
@@ -450,9 +519,10 @@ final class _RecordingMethodChannel extends MethodChannel {
   @override
   Future<T?> invokeMethod<T>(String method, [dynamic arguments]) async {
     outboundCalls.add(MethodCall(method, arguments));
-    if (method == 'takePendingReply') {
+    if (method == 'peekPendingReply') {
       return 'shared assistant reply' as T?;
     }
+    if (method == 'acknowledgePendingReply') return null;
     if (method == 'pendingReplyCount') return 0 as T?;
     if (method == 'takeDroppedReplyCount') return 0 as T?;
     return null;
