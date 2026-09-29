@@ -14,36 +14,37 @@ void main() {
   test(
     'keeps a reply until acknowledged and does not read while locked',
     () async {
-    final port = _FakeReplyPort('assistant reply');
-    var unlocked = false;
-    final inbox = AgentReplyInboxController(
-      port: port,
-      isVaultUnlocked: () => unlocked,
-    );
-    addTearDown(inbox.dispose);
+      final port = _FakeReplyPort('assistant reply');
+      var unlocked = false;
+      final inbox = AgentReplyInboxController(
+        port: port,
+        isVaultUnlocked: () => unlocked,
+      );
+      addTearDown(inbox.dispose);
 
-    await port.signalReplyAvailable();
-    expect(port.calls, 0);
-    expect(inbox.pendingReply, isNull);
+      await port.signalReplyAvailable();
+      expect(port.calls, 0);
+      expect(inbox.pendingReply, isNull);
 
-    unlocked = true;
-    await port.signalReplyAvailable();
-    expect(port.calls, 1);
-    expect(inbox.pendingReply, 'assistant reply');
-    expect(inbox.vaultOpen, isTrue);
+      unlocked = true;
+      await port.signalReplyAvailable();
+      expect(port.calls, 1);
+      expect(inbox.pendingReply, 'assistant reply');
+      expect(inbox.vaultOpen, isTrue);
 
-    unlocked = false;
-    inbox.clearForVaultLock();
-    expect(inbox.pendingReply, isNull);
-    expect(inbox.vaultOpen, isFalse);
-    expect(port.reply, 'assistant reply');
+      unlocked = false;
+      inbox.clearForVaultLock();
+      expect(inbox.pendingReply, isNull);
+      expect(inbox.vaultOpen, isFalse);
+      expect(port.reply, 'assistant reply');
 
-    unlocked = true;
-    await inbox.receivePendingReply();
-    expect(inbox.pendingReply, 'assistant reply');
-    await inbox.clearPendingReply();
-    expect(port.reply, isNull);
-  });
+      unlocked = true;
+      await inbox.receivePendingReply();
+      expect(inbox.pendingReply, 'assistant reply');
+      await inbox.clearPendingReply();
+      expect(port.reply, isNull);
+    },
+  );
 
   test('rejects empty and oversized replies before exposing them', () async {
     const unlocked = true;
@@ -72,37 +73,38 @@ void main() {
   test(
     'keeps a reply queued when Vault locks during a native read',
     () async {
-    final port = _DelayedReplyPort('reply interrupted by lock');
-    var unlocked = true;
-    final inbox = AgentReplyInboxController(
-      port: port,
-      isVaultUnlocked: () => unlocked,
-    );
-    addTearDown(inbox.dispose);
+      final port = _DelayedReplyPort('reply interrupted by lock');
+      var unlocked = true;
+      final inbox = AgentReplyInboxController(
+        port: port,
+        isVaultUnlocked: () => unlocked,
+      );
+      addTearDown(inbox.dispose);
 
-    final received = Completer<void>();
-    inbox.addListener(() {
-      if (inbox.pendingReply != null && !received.isCompleted) {
-        received.complete();
-      }
-    });
+      final received = Completer<void>();
+      inbox.addListener(() {
+        if (inbox.pendingReply != null && !received.isCompleted) {
+          received.complete();
+        }
+      });
 
-    final loading = inbox.receivePendingReply();
-    await port.readStarted.future;
-    unlocked = false;
-    inbox.clearForVaultLock();
+      final loading = inbox.receivePendingReply();
+      await port.readStarted.future;
+      unlocked = false;
+      inbox.clearForVaultLock();
 
-    // Unlock again before the old read returns. Its stale generation must
-    // trigger a fresh read instead of leaving the inbox waiting forever.
-    unlocked = true;
-    await inbox.receivePendingReply();
-    port.releaseRead.complete();
-    await loading;
-    await received.future;
+      // Unlock again before the old read returns. Its stale generation must
+      // trigger a fresh read instead of leaving the inbox waiting forever.
+      unlocked = true;
+      await inbox.receivePendingReply();
+      port.releaseRead.complete();
+      await loading;
+      await received.future;
 
-    expect(inbox.pendingReply, 'reply interrupted by lock');
-    expect(port.reply, 'reply interrupted by lock');
-  });
+      expect(inbox.pendingReply, 'reply interrupted by lock');
+      expect(port.reply, 'reply interrupted by lock');
+    },
+  );
 
   test('reads through a named vendor-neutral method channel', () async {
     const channel = MethodChannel(
