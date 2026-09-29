@@ -11,7 +11,9 @@ import 'package:personal_os_app/src/agent_interop/agent_reply_inbox.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('keeps a reply until acknowledged and does not read while locked', () async {
+  test(
+    'keeps a reply until acknowledged and does not read while locked',
+    () async {
     final port = _FakeReplyPort('assistant reply');
     var unlocked = false;
     final inbox = AgentReplyInboxController(
@@ -67,7 +69,9 @@ void main() {
     expect(oversized.pendingReply, isNull);
   });
 
-  test('keeps a reply queued when Vault locks during a native read', () async {
+  test(
+    'keeps a reply queued when Vault locks during a native read',
+    () async {
     final port = _DelayedReplyPort('reply interrupted by lock');
     var unlocked = true;
     final inbox = AgentReplyInboxController(
@@ -131,6 +135,16 @@ void main() {
         'peekPendingReply',
         'pendingReplyCount',
         'takeDroppedReplyCount',
+      ],
+    );
+    await const MethodChannelAgentReplyInboxPort().acknowledgePendingReply();
+    expect(
+      calls.map((call) => call.method),
+      <String>[
+        'peekPendingReply',
+        'pendingReplyCount',
+        'takeDroppedReplyCount',
+        'acknowledgePendingReply',
       ],
     );
     expect(
