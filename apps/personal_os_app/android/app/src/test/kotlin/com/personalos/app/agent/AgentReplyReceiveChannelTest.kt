@@ -86,6 +86,18 @@ class AgentReplyReceiveChannelTest {
     }
 
     @Test
+    fun peekingRetainsReplyUntilExplicitlyAcknowledged() {
+        val channel = AgentReplyReceiveChannel()
+
+        assertTrue(channel.capture(plainText("review this later")))
+        assertEquals("review this later", channel.peekForTest())
+        assertEquals(1, channel.pendingReplyCountForTest())
+        channel.acknowledgeForTest()
+        assertNull(channel.peekForTest())
+        assertEquals(0, channel.pendingReplyCountForTest())
+    }
+
+    @Test
     fun capturesRepliesInFifoOrder() {
         val channel = AgentReplyReceiveChannel()
 
@@ -159,8 +171,18 @@ private fun plainText(text: String): Intent =
         .setType("text/plain")
         .putExtra(Intent.EXTRA_TEXT, text)
 
-private fun AgentReplyReceiveChannel.takeForTest(): String? =
-    invokeForTest(AgentReplyReceiveChannel.TAKE_PENDING_REPLY_METHOD) as? String
+private fun AgentReplyReceiveChannel.peekForTest(): String? =
+    invokeForTest(AgentReplyReceiveChannel.PEEK_PENDING_REPLY_METHOD) as? String
+
+private fun AgentReplyReceiveChannel.acknowledgeForTest() {
+    invokeForTest(AgentReplyReceiveChannel.ACKNOWLEDGE_PENDING_REPLY_METHOD)
+}
+
+private fun AgentReplyReceiveChannel.takeForTest(): String? {
+    val text = peekForTest()
+    acknowledgeForTest()
+    return text
+}
 
 private fun AgentReplyReceiveChannel.pendingReplyCountForTest(): Int =
     invokeForTest(AgentReplyReceiveChannel.PENDING_REPLY_COUNT_METHOD) as Int
