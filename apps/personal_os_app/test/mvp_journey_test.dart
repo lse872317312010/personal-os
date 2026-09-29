@@ -596,7 +596,30 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('unlock-vault')), findsOneWidget);
 
-      const reply = 'A reply from a provider-neutral assistant.';
+      final sessionId = composition.strategyController.sessionId!;
+      final reply = jsonEncode(<String, Object?>{
+        'protocol_version': 'personal-os.mcp.v0',
+        'proposal_id': 'shared-proposal',
+        'session_id': sessionId,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'strategy': <String, Object?>{
+          'title': 'One shared experiment',
+          'rationale': 'Measure the result.',
+          'goal_refs': <Object?>[
+            ObjectRef(
+              type: 'goal',
+              id: EntityId('goal-1'),
+              revision: Revision(1),
+            ).toJson(),
+          ],
+          'actions': <Object?>[
+            <String, Object?>{
+              'id': 'shared-action',
+              'instruction': 'Try one small step',
+            },
+          ],
+        },
+      });
       await replyPort.share(reply);
       await tester.pumpAndSettle();
 
@@ -625,6 +648,22 @@ void main() {
         tester.widget<TextField>(replyField).controller!.text,
         reply,
       );
+      expect(composition.strategyController.hasPendingProposal, isFalse);
+      expect(replyPort.hasPendingReply, isTrue);
+
+      final editedReply = reply.replaceAll(
+        'Measure the result.',
+        'Measure the result carefully.',
+      );
+      await tester.enterText(replyField, editedReply);
+      final importReply = find.byKey(const Key('import-agent-reply'));
+      await tester.ensureVisible(importReply);
+      await tester.tap(importReply);
+      await tester.pumpAndSettle();
+
+      expect(composition.strategyController.hasPendingProposal, isTrue);
+      expect(composition.strategyController.strategyState, 'proposed');
+      expect(replyPort.hasPendingReply, isFalse);
       expect(composition.strategyController.hasSession, isTrue);
     },
   );
