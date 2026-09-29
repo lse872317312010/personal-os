@@ -587,6 +587,7 @@ void main() {
       await tester.tap(find.byKey(const Key('open-agent-session')));
       await tester.pumpAndSettle();
       expect(composition.strategyController.hasSession, isTrue);
+      final sessionId = composition.strategyController.sessionId!;
 
       await tester.tap(
         find.descendant(of: navigation, matching: find.text('首页')),
@@ -596,7 +597,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('unlock-vault')), findsOneWidget);
 
-      final sessionId = composition.strategyController.sessionId!;
       final reply = jsonEncode(<String, Object?>{
         'protocol_version': 'personal-os.mcp.v0',
         'proposal_id': 'shared-proposal',
