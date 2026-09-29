@@ -2,7 +2,6 @@ package com.personalos.app.security
 
 import android.content.Context
 import java.io.File
-import net.zetetic.database.sqlcipher.SQLiteDatabase
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
