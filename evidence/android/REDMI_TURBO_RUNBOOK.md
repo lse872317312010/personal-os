@@ -169,9 +169,11 @@ Do not retain the prompt, reply body, or screenshots in evidence.
 4. If another compatible assistant or Harness is installed, repeat the same
    flow. Provider-specific setup or SDKs should not be required.
 
-The reply is held only in volatile memory. Once Dart reads it, locking or
-discarding clears the visible copy; do not expect it to survive a later lock or
-Activity destruction.
+The native reply queue remains in Activity memory until the user imports or
+explicitly discards each reply. Locking the Vault clears only the Flutter-visible
+copy; after unlocking, Personal OS can read and display the queued reply again.
+The queue is not persisted, so destroying the Activity or process before import
+or discard can lose queued replies.
 
 ## Finalization
 
