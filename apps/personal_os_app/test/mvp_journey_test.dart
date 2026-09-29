@@ -605,7 +605,7 @@ void main() {
       expect(find.text(reply), findsNothing);
       await tester.tap(find.byKey(const Key('unlock-vault')));
       await tester.pumpAndSettle();
-      expect(replyPort.hasPendingReply, isFalse);
+      expect(replyPort.hasPendingReply, isTrue);
 
       final banner = find.byKey(const Key('incoming-agent-reply-banner'));
       expect(banner, findsOneWidget);
@@ -631,19 +631,21 @@ void main() {
 }
 
 final class _ReplyInboxPort implements AgentReplyInboxPort {
-  String? _pending;
-  bool get hasPendingReply => _pending != null;
+  final List<String> _pending = <String>[];
+  bool get hasPendingReply => _pending.isNotEmpty;
   AgentReplyAvailableHandler? _handler;
 
   @override
-  Future<String?> takePendingReply() async {
-    final reply = _pending;
-    _pending = null;
-    return reply;
+  Future<String?> peekPendingReply() async =>
+      _pending.isEmpty ? null : _pending.first;
+
+  @override
+  Future<void> acknowledgePendingReply() async {
+    if (_pending.isNotEmpty) _pending.removeAt(0);
   }
 
   @override
-  Future<int> pendingReplyCount() async => _pending == null ? 0 : 1;
+  Future<int> pendingReplyCount() async => _pending.length;
 
   @override
   Future<int> takeDroppedReplyCount() async => 0;
@@ -654,7 +656,7 @@ final class _ReplyInboxPort implements AgentReplyInboxPort {
   }
 
   Future<void> share(String reply) async {
-    _pending = reply;
+    _pending.add(reply);
     final handler = _handler;
     if (handler != null) await handler();
   }
