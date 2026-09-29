@@ -7,7 +7,9 @@ import 'package:flutter/services.dart';
 typedef AgentReplyAvailableHandler = Future<void> Function();
 
 abstract interface class AgentReplyInboxPort {
-  Future<String?> takePendingReply();
+  Future<String?> peekPendingReply();
+
+  Future<void> acknowledgePendingReply();
 
   Future<int> pendingReplyCount();
 
@@ -23,7 +25,9 @@ final class MethodChannelAgentReplyInboxPort implements AgentReplyInboxPort {
   }) : _channel = channel;
 
   static const String channelName = 'personal_os/agent_text_receive';
-  static const String takePendingReplyMethodName = 'takePendingReply';
+  static const String peekPendingReplyMethodName = 'peekPendingReply';
+  static const String acknowledgePendingReplyMethodName =
+      'acknowledgePendingReply';
   static const String pendingReplyCountMethodName = 'pendingReplyCount';
   static const String takeDroppedReplyCountMethodName = 'takeDroppedReplyCount';
   static const String replyAvailableMethodName = 'replyAvailable';
@@ -31,8 +35,13 @@ final class MethodChannelAgentReplyInboxPort implements AgentReplyInboxPort {
   final MethodChannel _channel;
 
   @override
-  Future<String?> takePendingReply() =>
-      _channel.invokeMethod<String>(takePendingReplyMethodName);
+  Future<String?> peekPendingReply() =>
+      _channel.invokeMethod<String>(peekPendingReplyMethodName);
+
+  @override
+  Future<void> acknowledgePendingReply() async {
+    await _channel.invokeMethod<void>(acknowledgePendingReplyMethodName);
+  }
 
   @override
   Future<int> pendingReplyCount() async =>
@@ -71,7 +80,10 @@ final class NoopAgentReplyInboxPort implements AgentReplyInboxPort {
   const NoopAgentReplyInboxPort();
 
   @override
-  Future<String?> takePendingReply() async => null;
+  Future<String?> peekPendingReply() async => null;
+
+  @override
+  Future<void> acknowledgePendingReply() async {}
 
   @override
   Future<int> pendingReplyCount() async => 0;
@@ -126,7 +138,7 @@ final class AgentReplyInboxController extends ChangeNotifier {
       do {
         _refreshRequested = false;
         if (_pendingReply == null) {
-          final text = await _port.takePendingReply();
+          final text = await _port.peekPendingReply();
           if (_disposed ||
               generation != _vaultGeneration ||
               !_isVaultUnlocked()) {
@@ -138,7 +150,14 @@ final class AgentReplyInboxController extends ChangeNotifier {
             _pendingReply = text;
             notifyListeners();
           } else if (text != null) {
-            // Skip invalid entries without blocking later replies in the FIFO.
+            // Native capture validates too. Acknowledge corrupt/invalid heads
+            // so they cannot block later replies in the FIFO.
+            if (_disposed ||
+                generation != _vaultGeneration ||
+                !_isVaultUnlocked()) {
+              return;
+            }
+            await _port.acknowledgePendingReply();
             _refreshRequested = true;
           }
         }
@@ -157,11 +176,15 @@ final class AgentReplyInboxController extends ChangeNotifier {
         }
 
         final safeQueuedCount = queuedCount < 0 ? 0 : queuedCount;
+        final activeReplyCount = _pendingReply == null ? 0 : 1;
+        final waitingReplyCount = safeQueuedCount > activeReplyCount
+            ? safeQueuedCount - activeReplyCount
+            : 0;
         final safeDroppedCount = droppedCount < 0 ? 0 : droppedCount;
         final totalDroppedCount = _droppedReplyCount + safeDroppedCount;
-        if (_queuedReplyCount != safeQueuedCount ||
+        if (_queuedReplyCount != waitingReplyCount ||
             _droppedReplyCount != totalDroppedCount) {
-          _queuedReplyCount = safeQueuedCount;
+          _queuedReplyCount = waitingReplyCount;
           _droppedReplyCount = totalDroppedCount;
           notifyListeners();
         }
@@ -189,7 +212,21 @@ final class AgentReplyInboxController extends ChangeNotifier {
   }
 
   Future<void> clearPendingReply() async {
-    if (_pendingReply == null) return;
+    final pendingReply = _pendingReply;
+    if (pendingReply == null) return;
+    final generation = _vaultGeneration;
+    try {
+      await _port.acknowledgePendingReply();
+    } on PlatformException {
+      return;
+    } on MissingPluginException {
+      return;
+    }
+    if (_disposed ||
+        generation != _vaultGeneration ||
+        _pendingReply != pendingReply) {
+      return;
+    }
     _pendingReply = null;
     notifyListeners();
     if (_vaultOpen) await receivePendingReply();
