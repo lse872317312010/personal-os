@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -75,18 +76,26 @@ void main() {
     );
     addTearDown(inbox.dispose);
 
+    final received = Completer<void>();
+    inbox.addListener(() {
+      if (inbox.pendingReply != null && !received.isCompleted) {
+        received.complete();
+      }
+    });
+
     final loading = inbox.receivePendingReply();
     await port.readStarted.future;
     unlocked = false;
     inbox.clearForVaultLock();
-    port.releaseRead.complete();
-    await loading;
 
-    expect(inbox.pendingReply, isNull);
-    expect(port.reply, 'reply interrupted by lock');
-
+    // Unlock again before the old read returns. Its stale generation must
+    // trigger a fresh read instead of leaving the inbox waiting forever.
     unlocked = true;
     await inbox.receivePendingReply();
+    port.releaseRead.complete();
+    await loading;
+    await received.future;
+
     expect(inbox.pendingReply, 'reply interrupted by lock');
     expect(port.reply, 'reply interrupted by lock');
   });
