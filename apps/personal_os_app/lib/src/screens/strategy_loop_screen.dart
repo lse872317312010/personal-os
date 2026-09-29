@@ -337,9 +337,10 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   Future<void> _closeAgentSession() async {
     await widget.controller.closeSession();
     if (!mounted || widget.controller.hasSession) return;
+    _loadedInboxReply = null;
     _agentReply.clear();
     setState(() => _showFormatRepairActions = false);
-    await widget.replyInbox?.clearPendingReply();
+    // Switching sessions is not an explicit decision to discard a reply.
     _review.clear();
     _proposal.clear();
   }

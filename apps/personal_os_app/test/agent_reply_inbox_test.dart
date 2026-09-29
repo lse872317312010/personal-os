@@ -409,6 +409,62 @@ void main() {
     },
   );
 
+  testWidgets(
+    'keeps a received reply until it is explicitly discarded when a session closes',
+    (tester) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.view.physicalSize = const Size(390, 1800);
+      tester.view.devicePixelRatio = 1;
+
+      final port = _FakeReplyPort(null);
+      final composition = AppComposition.inMemoryDemo(replyInboxPort: port);
+      addTearDown(composition.strategyController.dispose);
+      await composition.strategyController.openOfflineSession(
+        agentId: 'generic-close-test',
+      );
+
+      await tester.pumpWidget(PersonalOsApp(composition: composition));
+      await tester.tap(find.byKey(const Key('unlock-vault')));
+      await tester.pumpAndSettle();
+      composition.controller.navigate(AppDestination.strategy);
+      await tester.pumpAndSettle();
+
+      port.enqueue('reply waiting for review');
+      await port.signalReplyAvailable();
+      await tester.pumpAndSettle();
+      expect(composition.replyInbox.pendingReply, 'reply waiting for review');
+
+      final closeSession = find.byKey(const Key('close-agent-session'));
+      await tester.ensureVisible(closeSession);
+      await tester.tap(closeSession);
+      await tester.pumpAndSettle();
+
+      expect(composition.strategyController.hasSession, isFalse);
+      expect(port.reply, 'reply waiting for review');
+      expect(composition.replyInbox.pendingReply, 'reply waiting for review');
+      expect(find.byKey(const Key('orphaned-agent-reply')), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('open-agent-session')))
+            .onPressed,
+        isNull,
+      );
+
+      await tester.tap(find.byKey(const Key('discard-orphaned-agent-reply')));
+      await tester.pumpAndSettle();
+
+      expect(port.reply, isNull);
+      expect(composition.replyInbox.pendingReply, isNull);
+      expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('open-agent-session')))
+            .onPressed,
+        isNotNull,
+      );
+    },
+  );
+
   testWidgets('does not attach a reply when its session was not restored',
       (tester) async {
     addTearDown(tester.view.resetPhysicalSize);
