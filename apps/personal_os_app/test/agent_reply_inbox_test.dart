@@ -549,7 +549,10 @@ void main() {
     await composition.replyInbox.receivePendingReply();
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('incoming-agent-reply-banner')), findsOneWidget);
+    expect(
+      find.byKey(const Key('incoming-agent-reply-banner')),
+      findsOneWidget,
+    );
     expect(find.textContaining('加密收件箱暂不可用'), findsOneWidget);
   });
 }

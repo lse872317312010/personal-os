@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 12301)
-Total output lines: 1096
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -577,7 +574,30 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                     alignment: Alignment.centerRight,
                                     child: TextButton.icon(
                                       key: const Key(
-                                        'discard-received-ag…301 tokens truncated…: _agentReply,
+                                        'discard-received-agent-reply',
+                                      ),
+                                      onPressed: () async {
+                                        final reply =
+                                            widget.replyInbox?.pendingReply;
+                                        _loadedInboxReply = null;
+                                        if (_agentReply.text == reply) {
+                                          _agentReply.clear();
+                                        }
+                                        await widget.replyInbox
+                                            ?.clearPendingReply();
+                                      },
+                                      icon: const Icon(Icons.delete_outline),
+                                      label: const Text('丢弃回复'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          key: const Key('agent-reply-input'),
+                          controller: _agentReply,
                           minLines: 4,
                           maxLines: 10,
                           decoration: InputDecoration(
