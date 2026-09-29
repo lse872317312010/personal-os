@@ -260,6 +260,7 @@ internal class EncryptedAgentReplyQueueStore(context: Context) : AgentReplyQueue
         private const val TAG_BYTES = TAG_BITS / 8
         private const val NONCE_BYTES = 12
         private const val VERSION_BYTES = 1
+        private const val MAGIC_SIZE = 4
         private const val SNAPSHOT_HEADER_BYTES = 8
         private const val REPLY_LENGTH_BYTES = 4
         private const val MAX_PLAINTEXT_BYTES =
@@ -269,7 +270,6 @@ internal class EncryptedAgentReplyQueueStore(context: Context) : AgentReplyQueue
             MAGIC_SIZE + VERSION_BYTES + NONCE_BYTES + TAG_BYTES + SNAPSHOT_HEADER_BYTES
         private const val MAX_FILE_BYTES =
             MAGIC_SIZE + VERSION_BYTES + NONCE_BYTES + TAG_BYTES + MAX_PLAINTEXT_BYTES
-        private const val MAGIC_SIZE = 4
         private val MAGIC = byteArrayOf(0x50, 0x4f, 0x41, 0x52)
         private val FORMAT_VERSION = 1.toByte()
         private val AAD = MAGIC + FORMAT_VERSION
