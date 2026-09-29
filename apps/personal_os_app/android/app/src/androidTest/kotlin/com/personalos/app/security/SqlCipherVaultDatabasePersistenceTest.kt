@@ -1,6 +1,8 @@
 package com.personalos.app.security
 
 import android.content.Context
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -9,18 +11,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
-import org.robolectric.annotation.Config
 
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [35])
+@RunWith(AndroidJUnit4::class)
 class SqlCipherVaultDatabasePersistenceTest {
-    private lateinit var context: Context
+    private val context: Context
+        get() = InstrumentationRegistry.getInstrumentation().targetContext
 
     @Before
     fun clearExistingVault() {
-        context = RuntimeEnvironment.getApplication()
         context.deleteDatabase(DATABASE_FILE_NAME)
     }
 
@@ -30,7 +28,7 @@ class SqlCipherVaultDatabasePersistenceTest {
     }
 
     @Test
-    fun `committed events survive closing and reopening the encrypted database`() {
+    fun committedEventsSurviveClosingAndReopeningTheEncryptedDatabase() {
         val event = eventRecord()
         val firstKey = databaseKey()
         val firstDatabase = SqlCipherVaultDatabase.open(context, firstKey)
