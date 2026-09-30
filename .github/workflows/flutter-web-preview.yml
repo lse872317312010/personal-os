@@ -89,6 +89,17 @@ jobs:
         working-directory: apps/personal_os_app
         run: flutter build web --release --base-href / --target lib/main_web_agent.dart
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify actual app startup without external CDNs
+        run: node services/agent_gateway/test/built-web-smoke.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: personal-os-agent-startup
+          path: build/automatic-agent-start.png
+          if-no-files-found: error
+
       - uses: actions/upload-artifact@v4
         with:
           name: personal-os-agent-web
