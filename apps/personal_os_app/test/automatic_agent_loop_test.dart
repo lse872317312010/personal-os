@@ -15,7 +15,9 @@ import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
 
 void main() {
-  test('automatic HTTP transport carries context and CSRF without model credentials', () async {
+  test(
+      'automatic HTTP transport carries context and CSRF without model credentials',
+      () async {
     final requests = <http.Request>[];
     final client = MockClient((request) async {
       requests.add(request);
@@ -29,18 +31,28 @@ void main() {
       expect(body['stage'], 'proposal');
       return http.Response('{"reply":"completed bundle"}', 200);
     });
-    final gateway = LocalAutomaticAgentGateway(origin: Uri.parse('http://127.0.0.1:8787/'), client: client);
-    expect(await gateway.request(model: 'test', prompt: 'use personal context', context: '{"session_id":"one"}', stage: 'proposal'), 'completed bundle');
-    expect(requests.map((e) => e.url.path), <String>['/api/agent/status', '/api/agent/request']);
+    final gateway = LocalAutomaticAgentGateway(
+        origin: Uri.parse('http://127.0.0.1:8787/'), client: client);
+    expect(
+        await gateway.request(
+            model: 'test',
+            prompt: 'use personal context',
+            context: '{"session_id":"one"}',
+            stage: 'proposal'),
+        'completed bundle');
+    expect(requests.map((e) => e.url.path),
+        <String>['/api/agent/status', '/api/agent/request']);
     gateway.cancel();
   });
 
-  testWidgets('automatic next action and confirmation fit a phone viewport', (tester) async {
+  testWidgets('automatic next action and confirmation fit a phone viewport',
+      (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final app = AppComposition.localAgent(gateway: _TestGateway(), eventStore: InMemoryEventStore());
+    final app = AppComposition.localAgent(
+        gateway: _TestGateway(), eventStore: InMemoryEventStore());
     addTearDown(app.strategyController.dispose);
     addTearDown(app.automaticAgent!.dispose);
     await app.strategyController.savePersonalContext(goal: '学习');

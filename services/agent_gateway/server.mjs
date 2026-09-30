@@ -106,6 +106,11 @@ export function createGateway({ auth, providers, store, webRoot = join(root, 'we
       response.writeHead(200, { 'Content-Type': types[extname(target)] || 'application/octet-stream', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "frame-ancestors 'none'" });
       response.end(request.method === 'HEAD' ? undefined : content);
     } catch (error) {
+      if (request.url?.startsWith('/auth/callback') && request.headers.accept?.includes('text/html') && !response.headersSent && !response.destroyed) {
+        const message = error.code === 'authorization_denied' ? '你取消了授权。可以返回应用重新连接。' : error.code === 'plan_permission_missing' ? '本次授权没有启用 ChatGPT 订阅使用权限，请返回应用重新连接并确认权限。' : '本次登录未完成，请返回应用重新连接。';
+        response.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "frame-ancestors 'none'" });
+        response.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>连接未完成</title><style>body{font:18px system-ui;max-width:480px;margin:15vh auto;padding:24px;color:#123c32}a{color:#315c4c}</style><h1>ChatGPT 连接未完成</h1><p>${message}</p><a href="/">返回应用 →</a>`); return;
+      }
       if (!response.headersSent && !response.destroyed) send(response, error instanceof AgentError ? error.status : 503, { error: error instanceof AgentError ? error.code : controller.signal.aborted ? 'provider_request_cancelled' : 'service_unavailable' });
     }
   });

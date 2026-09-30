@@ -76,7 +76,8 @@ final class AutomaticAgentController extends ChangeNotifier {
     busy = true;
     notifyListeners();
     try {
-      await gateway.post('/api/auth/select', <String, Object?>{'account_id': id});
+      await gateway
+          .post('/api/auth/select', <String, Object?>{'account_id': id});
       if (!_current(epoch)) return;
       busy = false;
       await connect();
@@ -96,7 +97,8 @@ final class AutomaticAgentController extends ChangeNotifier {
     busy = true;
     notifyListeners();
     try {
-      final result = await gateway.post('/api/auth/logout', <String, Object?>{});
+      final result =
+          await gateway.post('/api/auth/logout', <String, Object?>{});
       if (!_current(epoch)) return;
       busy = false;
       await connect();
