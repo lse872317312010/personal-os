@@ -85,7 +85,8 @@ Future<void> _prepare(AppComposition app) async {
   await controller.savePersonalContext(goal: '建立学习习惯');
   await controller.openOfflineSession(agentId: 'text-agent');
   await controller.exportContext();
-  final reply = jsonDecode(buildDemoAgentReply(controller.contextBundle!)) as Map;
+  final reply =
+      jsonDecode(buildDemoAgentReply(controller.contextBundle!)) as Map;
   final strategy = reply['strategy'] as Map;
   strategy['title'] = '一周学习计划';
   strategy['actions'] = <Object?>[

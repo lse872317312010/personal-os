@@ -35,8 +35,8 @@ final class StrategyActionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final busy = controller.status == StrategyUiStatus.running;
     final actions = controller.strategyActions;
-    final action = controller.selectedAction ??
-        (actions.isEmpty ? null : actions.first);
+    final action =
+        controller.selectedAction ?? (actions.isEmpty ? null : actions.first);
     final compact = onOpen != null;
     final reviewing = controller.hasPendingReview && !compact;
     final hasResult = controller.outcomeId != null;
@@ -167,26 +167,22 @@ final class StrategyActionCard extends StatelessWidget {
               if (compact)
                 _button(
                   key: const Key('open-current-agent-action'),
-                  label: controller.hasPendingProposal
-                      ? '查看并开始这个计划'
-                      : '继续我的行动',
+                  label: controller.hasPendingProposal ? '查看并开始这个计划' : '继续我的行动',
                   onPressed: busy ? null : onOpen,
                 )
               else if (reviewing) ...<Widget>[
                 _button(
                   key: const Key('accept-review'),
                   label: '确认复盘，准备下一轮',
-                  onPressed: busy
-                      ? null
-                      : () => onReview?.call(ReviewDecision.accept),
+                  onPressed:
+                      busy ? null : () => onReview?.call(ReviewDecision.accept),
                 ),
                 TextButton(
                   key: const Key('reject-review'),
-                  onPressed: busy
-                      ? null
-                      : () => onReview?.call(ReviewDecision.reject),
-                  child: const Text('这份复盘不合适',
-                      style: TextStyle(color: _accent)),
+                  onPressed:
+                      busy ? null : () => onReview?.call(ReviewDecision.reject),
+                  child:
+                      const Text('这份复盘不合适', style: TextStyle(color: _accent)),
                 ),
               ] else if (controller.hasPendingProposal) ...<Widget>[
                 _button(
