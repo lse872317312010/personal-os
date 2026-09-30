@@ -529,9 +529,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                       controller.strategyId == null &&
                       !controller.hasSession,
                   title: Text(
-                    controller.personalGoal == null
-                        ? '目标和个人条件'
-                        : '个人资料与历史',
+                    controller.personalGoal == null ? '目标和个人条件' : '个人资料与历史',
                   ),
                   subtitle: controller.personalGoal == null
                       ? null
