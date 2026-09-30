@@ -133,7 +133,11 @@ void main() {
     expect(controller.errorCode, 'strategy.accepted_review_required');
     expect(controller.reviewState, 'accepted');
     await controller.importProposal(valid);
-    expect(controller.status, StrategyUiStatus.ready);
+    expect(
+      controller.status,
+      StrategyUiStatus.ready,
+      reason: controller.errorCode,
+    );
     expect(controller.executionId, isNull);
     expect(controller.outcomeId, isNull);
     expect(controller.reviewId, isNull);
@@ -167,7 +171,9 @@ Future<void> _tap(WidgetTester tester, String key) async {
       scrollable: find.byType(Scrollable).first,
     );
   }
-  await tester.ensureVisible(finder);
+  await Scrollable.ensureVisible(tester.element(finder), alignment: 0.5);
+  await tester.pump(const Duration(seconds: 5));
+  await tester.pumpAndSettle();
   await tester.tap(finder);
   await tester.pumpAndSettle();
 }

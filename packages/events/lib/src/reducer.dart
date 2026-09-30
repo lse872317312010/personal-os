@@ -267,7 +267,8 @@ String? _transition(EventEnvelope event, String? from) =>
           when from == 'proposed' || from == 'accepted' || from == 'active' =>
         'abandoned',
       EventTypes.agentSessionOpened when from == null => 'opened',
-      EventTypes.agentSessionProposalSubmitted when from == 'opened' =>
+      EventTypes.agentSessionProposalSubmitted
+          when from == 'opened' || from == 'proposalSubmitted' =>
         'proposalSubmitted',
       EventTypes.agentSessionClosed
           when from == 'opened' || from == 'proposalSubmitted' =>

@@ -147,7 +147,7 @@ void main() {
     expect(activated.reasonCode, ReductionReason.illegalStateTransition);
   });
 
-  test('agent session closes after a proposal is submitted', () {
+  test('agent session accepts multiple proposals and then closes', () {
     final opened = reduceCore(
       projections: const <String, ObjectProjection>{},
       seenEventIds: const <String>{},
@@ -176,16 +176,30 @@ void main() {
         expectedRevision: 1,
       ),
     );
-    final closed = reduceCore(
+    final revised = reduceCore(
       projections: submitted.projections,
       seenEventIds: submitted.seenEventIds,
       event: event(
         id: 'event-3',
-        type: EventTypes.agentSessionClosed,
+        type: EventTypes.agentSessionProposalSubmitted,
         subjectType: 'agent_session',
         subjectId: 'session-1',
         actor: agent,
         expectedRevision: 2,
+      ),
+    );
+    expect(revised.disposition, ReductionDisposition.applied);
+    expect(revised.projections['agent_session:session-1']!.revision, Revision(3));
+    final closed = reduceCore(
+      projections: revised.projections,
+      seenEventIds: revised.seenEventIds,
+      event: event(
+        id: 'event-4',
+        type: EventTypes.agentSessionClosed,
+        subjectType: 'agent_session',
+        subjectId: 'session-1',
+        actor: agent,
+        expectedRevision: 3,
       ),
     );
 
