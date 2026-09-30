@@ -15,6 +15,7 @@ abstract final class StrategyLoopFailureCode {
   static const pinnedReferenceRequired =
       'strategy_loop.pinned_reference_required';
   static const d4Forbidden = 'strategy_loop.d4_forbidden';
+  static const acceptedReviewRequired = 'strategy.accepted_review_required';
 }
 
 final class StrategyLoopFailure implements Exception {
@@ -49,6 +50,93 @@ final class StrategyLoopUseCase {
   final IdGenerator _ids;
   final Clock _clock;
 
+  /// Records only user-supplied context, without invoking a model.
+  Future<StrategyLoopResult> recordPersonalContext(
+    RecordPersonalContextCommand command,
+  ) async {
+    _validateUser(command);
+    final fields = <String>[
+      command.goal,
+      command.successCriteria,
+      command.currentState,
+      command.constraints,
+    ];
+    if (command.goal.trim().isEmpty ||
+        fields.any((field) => field.length > 4000)) {
+      throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
+    }
+    final goalId = EntityId(_ids.nextId('goal'));
+    final goalRef = ObjectRef(type: 'goal', id: goalId);
+    final events = <EventEnvelope>[
+      _event(
+        id: _ids.nextId('event'),
+        type: EventTypes.goalCreated,
+        command: command,
+        subjects: <ObjectRef>[goalRef],
+        payload: <String, Object?>{
+          'expected_revision': 0,
+          'title': command.goal.trim(),
+          'statement': command.goal.trim(),
+          'success_criteria': <String>[
+            if (command.successCriteria.trim().isNotEmpty)
+              command.successCriteria.trim(),
+          ],
+          'source': 'user_input',
+        },
+      ),
+      _event(
+        id: _ids.nextId('event'),
+        type: EventTypes.goalActivated,
+        command: command,
+        subjects: <ObjectRef>[goalRef],
+        payload: <String, Object?>{'expected_revision': 1},
+      ),
+    ];
+    if (command.currentState.trim().isNotEmpty) {
+      events.add(_event(
+        id: _ids.nextId('event'),
+        type: EventTypes.personalAssetRecorded,
+        command: command,
+        subjects: <ObjectRef>[
+          ObjectRef(type: 'personal_asset', id: EntityId(_ids.nextId('asset'))),
+        ],
+        sources: <ObjectRef>[goalRef],
+        payload: <String, Object?>{
+          'expected_revision': 0,
+          'kind': 'fact',
+          'title': '当前情况',
+          'content': command.currentState.trim(),
+          'source': 'user_input',
+        },
+      ));
+    }
+    if (command.constraints.trim().isNotEmpty) {
+      events.add(_event(
+        id: _ids.nextId('event'),
+        type: EventTypes.constraintRecorded,
+        command: command,
+        subjects: <ObjectRef>[
+          ObjectRef(
+            type: 'constraint',
+            id: EntityId(_ids.nextId('constraint')),
+          ),
+        ],
+        sources: <ObjectRef>[goalRef],
+        payload: <String, Object?>{
+          'expected_revision': 0,
+          'title': '执行约束',
+          'content': command.constraints.trim(),
+          'source': 'user_input',
+        },
+      ));
+    }
+    await _eventStore.appendAll(events);
+    return StrategyLoopResult(
+      objectId: goalId,
+      eventIds: events.map((event) => event.eventId),
+    );
+  }
+
   Future<StrategyLoopResult> submitProposal(
     SubmitStrategyProposalCommand command,
   ) async {
@@ -70,6 +158,9 @@ final class StrategyLoopUseCase {
       ...command.assetRefs,
       if (command.parentStrategy != null) command.parentStrategy!,
     ]);
+    if (command.parentStrategy case final parent?) {
+      await _requireAcceptedReview(command.profileId, parent);
+    }
 
     final strategyId = EntityId(_ids.nextId('strategy'));
     final proposedId = _ids.nextId('event');
@@ -270,6 +361,44 @@ final class StrategyLoopUseCase {
     }
     if (command.sensitivity == Sensitivity.d4) {
       throw const StrategyLoopFailure(StrategyLoopFailureCode.d4Forbidden);
+    }
+  }
+
+  Future<void> _requireAcceptedReview(
+    EntityId profileId,
+    ObjectRef parent,
+  ) async {
+    final events = _eventStore is CompleteProfileHistoryReader
+        ? await (_eventStore as CompleteProfileHistoryReader)
+            .readCompleteProfileHistory(profileId)
+        : await _eventStore.readBySubject(
+            ObjectRef(type: 'profile', id: profileId),
+          );
+    var projections = <String, ObjectProjection>{};
+    var seen = <String>{};
+    for (final event in events) {
+      final reduction = reduceCore(
+        projections: projections,
+        seenEventIds: seen,
+        event: event,
+      );
+      if (reduction.disposition != ReductionDisposition.applied) continue;
+      projections = Map<String, ObjectProjection>.of(reduction.projections);
+      seen = Set<String>.of(reduction.seenEventIds);
+    }
+    final accepted = projections.values.any((projection) {
+      final ref = projection.attributes['strategy_ref'];
+      return projection.objectType == 'review' &&
+          projection.state == 'accepted' &&
+          ref is Map &&
+          ref['type'] == parent.type &&
+          ref['id'] == parent.id.value &&
+          ref['revision'] == parent.revision!.value;
+    });
+    if (!accepted) {
+      throw const StrategyLoopFailure(
+        StrategyLoopFailureCode.acceptedReviewRequired,
+      );
     }
   }
 

@@ -148,7 +148,9 @@ final class StrategySessionQueryHandler {
     final review = _latest(
       projections.values.where((projection) =>
           projection.objectType == 'review' &&
-          projection.attributes['reviewed_by_session'] == session.id.value),
+          projection.attributes['reviewed_by_session'] == session.id.value &&
+          strategyId != null &&
+          _refId(projection.attributes['strategy_ref']) == strategyId.value),
       order,
     );
 

@@ -24,6 +24,11 @@ void main() {
     expect(find.byKey(const Key('synthetic-preview-notice')), findsOneWidget);
     expect(find.textContaining('刷新或关闭页面后清空'), findsOneWidget);
 
+    await tester.scrollUntilVisible(
+      find.text('开始首次分析'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('开始首次分析'));
     await tester.pumpAndSettle();
     expect(find.text('内置合成示例'), findsOneWidget);
@@ -117,7 +122,12 @@ void main() {
 
       if (viewport.height < 560) continue;
 
-      await tester.tap(find.text('开始首次分析'));
+      await tester.scrollUntilVisible(
+      find.text('开始首次分析'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('开始首次分析'));
       await tester.pumpAndSettle();
       expect(find.text('内置合成示例'), findsOneWidget);
       expect(
@@ -135,6 +145,11 @@ void main() {
     );
     await tester.tap(find.byKey(const Key('unlock-vault')));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('开始首次分析'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('开始首次分析'));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
@@ -496,6 +511,7 @@ void main() {
       final composition = AppComposition.inMemoryDemo();
       final controller = composition.strategyController;
       addTearDown(controller.dispose);
+      await controller.savePersonalContext(goal: 'Measure the latest result');
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(

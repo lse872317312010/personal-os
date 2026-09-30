@@ -48,7 +48,7 @@ Personal OS 是 Android-first、Agent-agnostic 的个人策略资产与反馈闭
 - [x] read/write Session、Harness 身份绑定与关闭失效；
 - [x] Application Command 权限边界；
 - [x] 第二 Harness 接续同一历史的契约测试；
-- [x] Android 离线系统分享/复制/导入兼容路径；
+- [x] Android 离线复制/导入兼容路径；
 - [x] MCP 2025-06-18 JSON-RPC握手、工具发现、调用适配和稳定错误；
 - [x] 每次调用重验Session生命周期、Harness身份和授予的capability。
 
@@ -109,6 +109,10 @@ Personal OS 是 Android-first、Agent-agnostic 的个人策略资产与反馈闭
 
 ## 最近三个执行节点
 
-1. Redmi 使用 exact commit + exact APK 完成 G3 九场景；
-2. 在独立威胁模型通过后实现 Android 前台临时 MCP 传输；
-3. 选择一个真实 Goal，按 G4 schema v2 启动两轮 2–6 周 dogfood。
+依据用户 2026-09-30 的优先级调整，见[决策 0016](decisions/0016-agent-access-and-web-loop-first.md)：
+
+1. 打通个人上下文到两轮策略的完整主链，在 Web 展示并验证操作；
+2. 优先改善任意文本 Agent 的接入、回复导入、阶段提示和跨 Agent 历史接续，在线 MCP 作为后续传输适配；
+3. 固定 Android 候选 APK，完成 Redmi G3，并启动同一 Goal 的 2–6 周真实 G4 验证。
+
+Web 演示可以先行；G3/G4 仍是生产可用结论的必要条件。
