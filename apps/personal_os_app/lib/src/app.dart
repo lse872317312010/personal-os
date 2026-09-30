@@ -60,7 +60,9 @@ final class _PersonalOsAppState extends State<PersonalOsApp>
         title: 'Personal OS',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          fontFamily: widget.composition.mode == AppExperienceMode.localAgent ? 'PersonalSC' : null,
+          fontFamily: widget.composition.mode == AppExperienceMode.localAgent
+              ? 'PersonalSC'
+              : null,
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xff315c4c),
           ),

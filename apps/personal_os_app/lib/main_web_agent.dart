@@ -34,17 +34,21 @@ final class _StartState extends State<_Start> {
 
   Future<void> _load() async {
     try {
-      final font = await http.get(Uri.base.resolve('fonts/NotoSansSC.ttf')).timeout(const Duration(seconds: 30));
+      final font = await http
+          .get(Uri.base.resolve('fonts/NotoSansSC.ttf'))
+          .timeout(const Duration(seconds: 30));
       if (font.statusCode != 200) {
         throw const FormatException('bundled_font_missing');
       }
       final loader = FontLoader('PersonalSC');
-      loader.addFont(Future<ByteData>.value(ByteData.sublistView(font.bodyBytes)));
+      loader.addFont(
+          Future<ByteData>.value(ByteData.sublistView(font.bodyBytes)));
       await loader.load();
       _fontReady = true;
       if (Uri.base.host != '127.0.0.1') {
         if (mounted) {
-          setState(() => _error = '下载并启动本机版，登录你的 ChatGPT。之后计划、复盘和下一轮都在应用内自动完成。');
+          setState(
+              () => _error = '下载并启动本机版，登录你的 ChatGPT。之后计划、复盘和下一轮都在应用内自动完成。');
         }
         return;
       }
@@ -57,7 +61,9 @@ final class _StartState extends State<_Start> {
       if (mounted) setState(() => _app = app);
     } on Object {
       if (mounted) {
-            setState(() => _error = _fontReady ? '本机服务未启动或历史记录无法读取。请重新启动 Personal OS 本机版。' : 'Unable to load app resources. Please restart Personal OS.');
+        setState(() => _error = _fontReady
+            ? '本机服务未启动或历史记录无法读取。请重新启动 Personal OS 本机版。'
+            : 'Unable to load app resources. Please restart Personal OS.');
       }
     }
   }
@@ -85,7 +91,10 @@ final class _StartState extends State<_Start> {
                                 const Icon(Icons.auto_awesome,
                                     size: 56, color: Color(0xff315c4c)),
                                 const SizedBox(height: 24),
-                                Text(_fontReady ? 'Personal OS\nAI 帮你想，你负责行动' : 'Personal OS',
+                                Text(
+                                    _fontReady
+                                        ? 'Personal OS\nAI 帮你想，你负责行动'
+                                        : 'Personal OS',
                                     style: const TextStyle(
                                         fontSize: 30,
                                         fontWeight: FontWeight.w700)),
