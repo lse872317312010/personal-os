@@ -52,7 +52,7 @@ jobs:
         working-directory: apps/personal_os_app
         run: |
           set -Eeuo pipefail
-          format_paths=(lib/main_web_preview.dart lib/src/app.dart lib/src/agent_interop/agent_handoff.dart lib/src/agent_interop/agent_reply_inbox.dart lib/src/agent_interop/agent_text_share.dart lib/src/composition/app_composition.dart lib/src/controller/strategy_loop_controller.dart lib/src/screens/home_screen.dart lib/src/screens/strategy_loop_screen.dart test/agent_handoff_test.dart test/agent_reply_inbox_test.dart test/agent_text_share_test.dart test/mvp_journey_test.dart test/web_agent_loop_test.dart test/strategy_cold_start_restore_test.dart test/strategy_loop_controller_test.dart test/app_composition_test.dart ../../packages/application/lib/src/strategy_session_read_model.dart)
+          format_paths=(lib/main_web_preview.dart lib/src/app.dart lib/src/agent_interop/agent_handoff.dart lib/src/agent_interop/agent_reply_inbox.dart lib/src/agent_interop/agent_text_share.dart lib/src/composition/app_composition.dart lib/src/controller/strategy_loop_controller.dart lib/src/screens/home_screen.dart lib/src/screens/strategy_loop_screen.dart lib/src/screens/strategy_action_card.dart test/agent_handoff_test.dart test/agent_reply_inbox_test.dart test/agent_text_share_test.dart test/mvp_journey_test.dart test/web_agent_loop_test.dart test/action_first_ui_test.dart test/strategy_cold_start_restore_test.dart test/strategy_loop_controller_test.dart test/app_composition_test.dart ../../packages/application/lib/src/strategy_session_read_model.dart)
           if ! dart format --output=none --set-exit-if-changed "${format_paths[@]}"; then
             dart format "${format_paths[@]}" >/dev/null
             git diff -- "${format_paths[@]}"
@@ -63,7 +63,7 @@ jobs:
 
       - name: Run end-to-end journey in Chrome
         working-directory: apps/personal_os_app
-        run: flutter test --platform chrome test/mvp_journey_test.dart test/web_agent_loop_test.dart
+        run: flutter test --platform chrome test/mvp_journey_test.dart test/web_agent_loop_test.dart test/action_first_ui_test.dart
 
       - name: Build synthetic web preview
         working-directory: apps/personal_os_app

@@ -10,6 +10,7 @@ import '../agent_interop/agent_reply_inbox.dart';
 import '../agent_interop/agent_text_share.dart';
 import '../composition/app_composition.dart';
 import '../controller/strategy_loop_controller.dart';
+import 'strategy_action_card.dart';
 
 final class StrategyLoopScreen extends StatefulWidget {
   const StrategyLoopScreen({
@@ -39,6 +40,9 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   final _successCriteria = TextEditingController();
   final _currentState = TextEditingController();
   final _constraints = TextEditingController();
+  final _scroll = ScrollController();
+  final _collaborationKey = GlobalKey();
+  bool _agentPanelOpen = true;
   final AgentTextSharePort _agentTextShare =
       const MethodChannelAgentTextShare();
 
@@ -47,6 +51,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   @override
   void initState() {
     super.initState();
+    _agentPanelOpen = widget.controller.strategyId == null;
     widget.replyInbox?.addListener(_syncReplyFromInbox);
     unawaited(_prepareRestoredSession());
   }
@@ -63,6 +68,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     _successCriteria.dispose();
     _currentState.dispose();
     _constraints.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -108,6 +114,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
       bundle,
       strategyId: widget.controller.strategyId,
     );
+    await _importAgentReply();
   }
 
   Future<void> _pasteAgentReply() async {
@@ -115,6 +122,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       if (!mounted || data?.text == null) return;
       _agentReply.text = data!.text!;
+      await _importAgentReply();
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -127,6 +135,51 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     await widget.controller.decideReview(decision);
     if (!mounted || widget.controller.status != StrategyUiStatus.ready) return;
     await widget.controller.exportContext();
+    _returnToAction();
+  }
+
+  Future<void> _startPlan() async {
+    if (widget.controller.status == StrategyUiStatus.running) return;
+    FocusScope.of(context).unfocus();
+    final controller = widget.controller;
+    if (controller.hasPendingProposal) {
+      await controller.decideProposal(ProposalDecision.accept);
+    }
+    if (!mounted ||
+        controller.status != StrategyUiStatus.ready ||
+        !controller.canActivate) {
+      return;
+    }
+    await controller.activateStrategy();
+  }
+
+  Future<void> _recordExecution() async {
+    final controller = widget.controller;
+    if (controller.status == StrategyUiStatus.running) return;
+    final actions = controller.strategyActions;
+    if (actions.isEmpty) return;
+    final action = controller.selectedAction ?? actions.first;
+    controller.selectAction(action.id);
+    await controller.recordExecution(
+      actionId: action.id,
+      executionStatus: ExecutionStatus.completed,
+    );
+  }
+
+  void _returnToAction() {
+    if (!mounted) return;
+    setState(() => _agentPanelOpen = false);
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  Future<void> _showAgentPanel() async {
+    setState(() => _agentPanelOpen = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    final panel = _collaborationKey.currentContext;
+    if (panel != null && panel.mounted) {
+      await Scrollable.ensureVisible(panel, alignment: 0.05);
+    }
   }
 
   Future<void> _recordOutcome() async {
@@ -227,6 +280,11 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
             repairableErrors.contains(controller.errorCode)) {
           setState(() => _showFormatRepairActions = true);
         }
+        if (controller.errorCode case final code?) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_strategyErrorText(code))),
+          );
+        }
         return;
       }
       setState(() => _showFormatRepairActions = false);
@@ -242,6 +300,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
         _syncReplyFromInbox();
       }
       if (!mounted) return;
+      _returnToAction();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -428,103 +487,132 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
         builder: (context, _) {
           final controller = widget.controller;
           final busy = controller.status == StrategyUiStatus.running;
-          final selectedActionId = controller.selectedActionId;
           return ListView(
+            controller: _scroll,
             padding: const EdgeInsets.all(20),
             children: <Widget>[
-              Text(
-                '个人策略闭环',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.mode == AppExperienceMode.syntheticDemo
-                    ? '浏览器演示只在当前页面内存运行，刷新或关闭页面后清空。'
-                        '外部 AI 助手只提交建议，接受、执行和结果始终由你确认。'
-                    : '手机保存资产、策略和真实反馈；外部 AI 助手只提交建议，'
-                        '接受、执行和结果始终由你确认。',
-              ),
-              const SizedBox(height: 16),
-              _StatusCard(controller: controller),
-              _LoopProgressCard(controller: controller),
-              const SizedBox(height: 12),
-              if (controller.personalGoal == null)
-                Card(
-                  key: const Key('personal-context-form'),
-                  child: ExpansionTile(
-                    key: ValueKey<bool>(controller.hasSession),
-                    initiallyExpanded: !controller.hasSession,
-                    title: const Text('目标和个人条件'),
-                    children: <Widget>[
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              '先保存这轮目标和个人条件',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              key: const Key('personal-goal-input'),
-                              controller: _goal,
-                              enabled: !busy,
-                              maxLength: 4000,
-                              decoration:
-                                  const InputDecoration(labelText: '这轮目标'),
-                            ),
-                            TextField(
-                              key: const Key('personal-success-input'),
-                              controller: _successCriteria,
-                              enabled: !busy,
-                              maxLength: 4000,
-                              decoration: const InputDecoration(
-                                labelText: '怎样算完成（可选）',
-                              ),
-                            ),
-                            TextField(
-                              key: const Key('personal-state-input'),
-                              controller: _currentState,
-                              enabled: !busy,
-                              maxLength: 4000,
-                              maxLines: 3,
-                              decoration: const InputDecoration(
-                                labelText: '已有条件或当前情况（可选）',
-                              ),
-                            ),
-                            TextField(
-                              key: const Key('personal-constraints-input'),
-                              controller: _constraints,
-                              enabled: !busy,
-                              maxLength: 4000,
-                              maxLines: 3,
-                              decoration: const InputDecoration(
-                                labelText: '时间、预算和其他约束（可选）',
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            if (widget.mode == AppExperienceMode.syntheticDemo)
-                              TextButton.icon(
-                                key: const Key('load-demo-personal-context'),
-                                onPressed: busy ? null : _loadDemoContext,
-                                icon: const Icon(Icons.science_outlined),
-                                label: const Text('填入演示资料'),
-                              ),
-                            FilledButton.icon(
-                              key: const Key('save-personal-context'),
-                              onPressed: busy ? null : _savePersonalContext,
-                              icon: const Icon(Icons.save_outlined),
-                              label: const Text('保存目标与个人上下文'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+              if (controller.errorCode != null || busy)
+                _StatusCard(controller: controller),
+              if (controller.strategyId != null)
+                StrategyActionCard(
+                  controller: controller,
+                  onStart: _startPlan,
+                  onReject: () => controller.decideProposal(
+                    ProposalDecision.reject,
                   ),
+                  onRecord: _recordExecution,
+                  onSaveOutcome: _recordOutcome,
+                  onAskAgent: _showAgentPanel,
+                  onReview: _decideReview,
+                  outcome: _outcome,
                 )
-              else
-                _PersonalContextCard(controller: controller),
+              else ...<Widget>[
+                Text(
+                  '把目标变成下一步行动',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.mode == AppExperienceMode.syntheticDemo
+                      ? '浏览器演示只在当前页面内存运行。先写一个目标，再让常用 AI 帮你安排。'
+                      : '先写一个目标，再让常用 AI 帮你安排。',
+                ),
+              ],
+              const SizedBox(height: 12),
+              Card(
+                key: const Key('personal-context-form'),
+                child: ExpansionTile(
+                  key: ValueKey<String>(
+                    '${controller.hasSession}:${controller.personalGoal != null}',
+                  ),
+                  initiallyExpanded: controller.personalGoal == null &&
+                      controller.strategyId == null &&
+                      !controller.hasSession,
+                  title: Text(
+                    controller.personalGoal == null ? '目标和个人条件' : '个人资料与历史',
+                  ),
+                  subtitle: controller.personalGoal == null
+                      ? null
+                      : Text(controller.personalGoal!),
+                  children: <Widget>[
+                    if (controller.personalGoal != null)
+                      _PersonalContextCard(controller: controller),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            controller.personalGoal == null
+                                ? '先保存这轮目标和个人条件'
+                                : '补充新的目标和个人条件',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            key: const Key('personal-goal-input'),
+                            controller: _goal,
+                            enabled: !busy,
+                            maxLength: 4000,
+                            decoration: const InputDecoration(
+                                labelText: '这轮目标', counterText: ''),
+                          ),
+                          ExpansionTile(
+                            key: const Key('personal-context-options'),
+                            tilePadding: EdgeInsets.zero,
+                            title: const Text('补充个人条件（可选）'),
+                            children: <Widget>[
+                              TextField(
+                                key: const Key('personal-success-input'),
+                                controller: _successCriteria,
+                                enabled: !busy,
+                                maxLength: 4000,
+                                decoration: const InputDecoration(
+                                  labelText: '怎样算完成（可选）',
+                                ),
+                              ),
+                              TextField(
+                                key: const Key('personal-state-input'),
+                                controller: _currentState,
+                                enabled: !busy,
+                                maxLength: 4000,
+                                maxLines: 3,
+                                decoration: const InputDecoration(
+                                  labelText: '已有条件或当前情况（可选）',
+                                ),
+                              ),
+                              TextField(
+                                key: const Key('personal-constraints-input'),
+                                controller: _constraints,
+                                enabled: !busy,
+                                maxLength: 4000,
+                                maxLines: 3,
+                                decoration: const InputDecoration(
+                                  labelText: '时间、预算和其他约束（可选）',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          if (widget.mode == AppExperienceMode.syntheticDemo)
+                            TextButton.icon(
+                              key: const Key('load-demo-personal-context'),
+                              onPressed: busy ? null : _loadDemoContext,
+                              icon: const Icon(Icons.science_outlined),
+                              label: const Text('填入演示资料'),
+                            ),
+                          FilledButton.icon(
+                            key: const Key('save-personal-context'),
+                            onPressed: busy ? null : _savePersonalContext,
+                            icon: const Icon(Icons.save_outlined),
+                            label: const Text('保存我的目标'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               if (widget.replyInbox?.replyQueueStorageUnavailable ?? false)
                 const Card(
                   key: Key('agent-reply-storage-warning'),
@@ -593,632 +681,437 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                     ),
                   ),
                 ),
-              const SizedBox(height: 16),
-              TextField(
-                key: const Key('assistant-name-input'),
-                controller: _assistantName,
-                enabled: !busy && !controller.hasSession,
-                decoration: const InputDecoration(
-                  labelText: 'AI 助手名称（可选）',
-                  hintText: '例如：ChatGPT、Codex、Claude 或本地助手',
-                  helperText: '可填写任何助手或 Harness 名称；无需专门适配。',
-                ),
-              ),
-              const SizedBox(height: 8),
-              FilledButton.icon(
-                key: const Key('open-agent-session'),
-                onPressed: busy ||
-                        controller.hasSession ||
-                        (widget.replyInbox?.hasPendingReply ?? false)
-                    ? null
-                    : _startAgentSession,
-                icon: const Icon(Icons.link),
-                label: const Text('开始协作并准备上下文'),
-              ),
-              if (controller.hasSession) ...<Widget>[
-                const SizedBox(height: 16),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(
-                          '协作会话：${controller.agentId}',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 8),
-                        if (controller.contextBundle == null)
-                          const Text('正在准备协作内容…')
-                        else ...<Widget>[
-                          const Text(
-                            '每次发送或复制都会自动准备最新上下文。可选择系统分享，'
-                            '或复制后粘贴到常用助手；助手回复可以直接分享回来，也可以粘贴到下方。',
-                          ),
-                          const SizedBox(height: 12),
-                          FilledButton.tonalIcon(
-                            key: const Key('copy-agent-handoff'),
-                            onPressed: busy || !controller.canRequestAgent
-                                ? null
-                                : () => _copyHandoff(context),
-                            icon: const Icon(Icons.copy),
-                            label: const Text('复制协作内容'),
-                          ),
-                          if (widget.mode == AppExperienceMode.secureVault)
-                            OutlinedButton.icon(
-                              key: const Key('share-agent-handoff'),
-                              onPressed: busy || !controller.canRequestAgent
-                                  ? null
-                                  : () => _shareHandoff(context),
-                              icon: const Icon(Icons.ios_share),
-                              label: const Text('选择 AI 助手发送'),
-                            ),
-                        ],
-                        if (widget.replyInbox?.hasPendingReply ?? false)
-                          Card(
-                            key: const Key('received-agent-reply-note'),
-                            color: Theme.of(context)
-                                .colorScheme
-                                .secondaryContainer,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(
-                                    <String>[
-                                      '收到的回复暂存在本机加密收件箱中，不会自动导入。'
-                                          '检查后再手动导入；导入的建议仍需你单独接受。',
-                                      if ((widget.replyInbox
-                                                  ?.queuedReplyCount ??
-                                              0) >
-                                          0)
-                                        '另有 ${widget.replyInbox!.queuedReplyCount} 条回复等待处理。',
-                                      if ((widget.replyInbox
-                                                  ?.droppedReplyCount ??
-                                              0) >
-                                          0)
-                                        '收件箱容量不足或保存失败，${widget.replyInbox!.droppedReplyCount} 条新回复未保留，请回到发送回复的助手重新分享。',
-                                    ].join(' '),
-                                  ),
-                                  if ((widget.replyInbox?.droppedReplyCount ??
-                                          0) >
-                                      0)
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: TextButton(
-                                        onPressed: widget.replyInbox!
-                                            .clearDroppedReplyNotice,
-                                        child: const Text('知道了'),
-                                      ),
-                                    ),
-                                  ValueListenableBuilder<TextEditingValue>(
-                                    valueListenable: _agentReply,
-                                    builder: (context, value, _) {
-                                      final reply =
-                                          widget.replyInbox?.pendingReply;
-                                      if (reply == null ||
-                                          value.text == reply) {
-                                        return const SizedBox.shrink();
-                                      }
-                                      return Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: TextButton.icon(
-                                          key: const Key(
-                                            'load-received-agent-reply',
-                                          ),
-                                          onPressed: () =>
-                                              _loadReceivedAgentReply(context),
-                                          icon: const Icon(Icons.content_paste),
-                                          label: Text(
-                                            value.text.isEmpty
-                                                ? '放入输入框'
-                                                : '用收到的回复替换当前输入',
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: TextButton.icon(
-                                      key: const Key(
-                                        'discard-received-agent-reply',
-                                      ),
-                                      onPressed: () async {
-                                        final reply =
-                                            widget.replyInbox?.pendingReply;
-                                        _loadedInboxReply = null;
-                                        if (_agentReply.text == reply) {
-                                          _agentReply.clear();
-                                        }
-                                        await widget.replyInbox
-                                            ?.clearPendingReply();
-                                      },
-                                      icon: const Icon(Icons.delete_outline),
-                                      label: const Text('丢弃回复'),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        const SizedBox(height: 16),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: <Widget>[
-                            TextButton.icon(
-                              key: const Key('paste-agent-reply'),
-                              onPressed: busy ? null : _pasteAgentReply,
-                              icon: const Icon(Icons.content_paste),
-                              label: const Text('粘贴助手回复'),
-                            ),
-                            if (widget.mode == AppExperienceMode.syntheticDemo)
-                              TextButton.icon(
-                                key: const Key('fill-demo-agent-reply'),
-                                onPressed: busy || !controller.canRequestAgent
-                                    ? null
-                                    : _fillDemoReply,
-                                icon: const Icon(Icons.science_outlined),
-                                label: const Text('填入演示回复'),
-                              ),
-                          ],
-                        ),
-                        TextField(
-                          key: const Key('agent-reply-input'),
-                          controller: _agentReply,
-                          minLines: 4,
-                          maxLines: 10,
-                          decoration: InputDecoration(
-                            labelText: 'AI 助手的回复',
-                            hintText: '可从助手分享回来，也可粘贴完整回复',
-                            helperText:
-                                widget.replyInbox?.hasPendingReply ?? false
-                                    ? '收到了一条回复；检查后再手动导入。'
-                                    : null,
-                            alignLabelWithHint: true,
-                          ),
-                        ),
-                        if (_showFormatRepairActions) ...<Widget>[
-                          const SizedBox(height: 12),
-                          Card(
-                            key: const Key('agent-reply-format-repair'),
-                            color:
-                                Theme.of(context).colorScheme.tertiaryContainer,
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: <Widget>[
-                                  Text(
-                                    '不用手动修改 JSON',
-                                    style:
-                                        Theme.of(context).textTheme.titleSmall,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  const Text(
-                                    '让原助手基于最新上下文重新生成，'
-                                    '应用会保留这条回复并说明需要修正的格式。',
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children: <Widget>[
-                                      FilledButton.tonalIcon(
-                                        key: const Key(
-                                          'copy-agent-repair-request',
-                                        ),
-                                        onPressed: busy
-                                            ? null
-                                            : () => _copyFormatRepairRequest(
-                                                  context,
-                                                ),
-                                        icon: const Icon(Icons.copy),
-                                        label: const Text('复制格式修正请求'),
-                                      ),
-                                      if (_canUseSystemShare)
-                                        OutlinedButton.icon(
-                                          key: const Key(
-                                            'share-agent-repair-request',
-                                          ),
-                                          onPressed: busy
-                                              ? null
-                                              : () => _shareFormatRepairRequest(
-                                                    context,
-                                                  ),
-                                          icon: const Icon(Icons.ios_share),
-                                          label: const Text('发送给助手修正'),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        FilledButton.icon(
-                          key: const Key('import-agent-reply'),
-                          onPressed: busy ? null : _importAgentReply,
-                          icon: const Icon(Icons.auto_awesome),
-                          label: const Text('识别并导入建议'),
-                        ),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          key: const Key('close-agent-session'),
-                          onPressed: busy || !controller.canCloseSession
-                              ? null
-                              : _closeAgentSession,
-                          icon: const Icon(Icons.swap_horiz),
-                          label: const Text('结束协作并切换助手'),
-                        ),
-                        if (!controller.canCloseSession &&
-                            controller.strategyId != null)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 8),
-                            child: Text(
-                              '先记录实际结果或拒绝当前策略，就能切换助手。',
-                            ),
-                          ),
-                      ],
+              const SizedBox(height: 12),
+              KeyedSubtree(
+                key: const Key('agent-collaboration-panel'),
+                child: Container(
+                  key: _collaborationKey,
+                  child: ExpansionTile(
+                    key: ValueKey<String>(
+                      '${controller.strategyId}:$_agentPanelOpen:'
+                      '${widget.replyInbox?.hasPendingReply}',
                     ),
-                  ),
-                ),
-                ExpansionTile(
-                  key: const Key('advanced-agent-options'),
-                  title: const Text('高级 / 兼容模式'),
-                  subtitle: const Text('手动导入 Bundle、查看原始上下文或技术信息'),
-                  children: <Widget>[
-                    if (controller.contextBundle
-                        case final bundle?) ...<Widget>[
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Context Bundle',
-                          style: Theme.of(context).textTheme.titleSmall,
+                    initiallyExpanded: _agentPanelOpen ||
+                        (widget.replyInbox?.hasPendingReply ?? false),
+                    maintainState: true,
+                    title: const Text('与 AI 协作'),
+                    subtitle: Text(controller.hasSession
+                        ? '复制请求、读取回复或更换助手'
+                        : '用你常用的 ChatGPT、Codex 或其他助手'),
+                    onExpansionChanged: (open) {
+                      _agentPanelOpen = open;
+                    },
+                    children: <Widget>[
+                      const SizedBox(height: 16),
+                      TextField(
+                        key: const Key('assistant-name-input'),
+                        controller: _assistantName,
+                        enabled: !busy && !controller.hasSession,
+                        decoration: const InputDecoration(
+                          labelText: 'AI 助手名称（可选）',
+                          hintText: '例如：ChatGPT、Codex、Claude 或本地助手',
+                          helperText: '可填写任何助手或 Harness 名称；无需专门适配。',
                         ),
                       ),
                       const SizedBox(height: 8),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: Theme.of(context).colorScheme.outlineVariant,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: SelectableText(
-                            bundle,
-                            key: const Key('context-bundle-output'),
-                            maxLines: 10,
-                          ),
-                        ),
-                      ),
-                      FilledButton.tonalIcon(
-                        key: const Key('export-context'),
-                        onPressed: busy ? null : controller.exportContext,
-                        icon: const Icon(Icons.refresh),
-                        label: const Text('重新准备协作上下文'),
-                      ),
-                    ],
-                    TextField(
-                      key: const Key('review-bundle-input'),
-                      controller: _review,
-                      minLines: 4,
-                      maxLines: 10,
-                      decoration: const InputDecoration(
-                        labelText: '手动导入 Review Bundle',
-                        hintText: '粘贴结构化复盘 JSON',
-                        alignLabelWithHint: true,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    FilledButton.tonal(
-                      key: const Key('import-review'),
-                      onPressed: busy
-                          ? null
-                          : () => controller.importReview(_review.text),
-                      child: const Text('验证并导入复盘'),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      key: const Key('proposal-bundle-input'),
-                      controller: _proposal,
-                      minLines: 4,
-                      maxLines: 10,
-                      decoration: const InputDecoration(
-                        labelText: '手动导入 Proposal Bundle',
-                        hintText: '粘贴结构化策略 JSON',
-                        alignLabelWithHint: true,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    FilledButton.tonal(
-                      key: const Key('import-proposal'),
-                      onPressed: busy
-                          ? null
-                          : () => controller.importProposal(_proposal.text),
-                      child: const Text('验证并导入策略'),
-                    ),
-                    const SizedBox(height: 12),
-                    SelectableText(
-                      'Session ID: ${controller.sessionId}',
-                      key: const Key('advanced-session-id'),
-                    ),
-                    if (controller.strategyId case final id?)
-                      Text('Strategy ID: $id'),
-                    if (controller.executionId case final id?)
-                      Text('Execution ID: $id'),
-                    if (controller.outcomeId case final id?)
-                      Text('Outcome ID: $id'),
-                    if (controller.reviewId case final id?)
-                      Text('Review ID: $id (${controller.reviewState})'),
-                    if (controller.proposalEvidenceRefs.isNotEmpty)
-                      Text(
-                        '引用：${controller.proposalEvidenceRefs.join(', ')}',
-                      ),
-                    if (controller.reviewEvidenceRefs.isNotEmpty)
-                      Text(
-                        '复盘证据：${controller.reviewEvidenceRefs.join(', ')}',
-                      ),
-                  ],
-                ),
-                if (!controller.canCloseSession &&
-                    controller.strategyId != null)
-                  const SizedBox(height: 8),
-              ],
-              const SizedBox(height: 16),
-              if (controller.reviewId != null) ...<Widget>[
-                const SizedBox(height: 20),
-                Text(
-                  '策略复盘（${_reviewStateText(controller.reviewState)}）',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(controller.reviewSummary ?? '无复盘摘要'),
-                        if (controller.reviewConclusion case final conclusion?)
-                          Text('结论：${_reviewConclusionText(conclusion)}'),
-                      ],
-                    ),
-                  ),
-                ),
-                if (controller.hasPendingReview) ...<Widget>[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: FilledButton(
-                          key: const Key('accept-review'),
-                          onPressed: busy
-                              ? null
-                              : () => _decideReview(
-                                    ReviewDecision.accept,
-                                  ),
-                          child: const Text('接受复盘'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton(
-                          key: const Key('reject-review'),
-                          onPressed: busy
-                              ? null
-                              : () => _decideReview(
-                                    ReviewDecision.reject,
-                                  ),
-                          child: const Text('拒绝复盘'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-              if (controller.hasPendingProposal) ...<Widget>[
-                const SizedBox(height: 20),
-                Text(
-                  '待你确认',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(controller.proposalTitle ?? '未命名策略'),
-                        if (controller.proposalRationale case final rationale?)
-                          Text('修改理由：$rationale'),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: FilledButton(
-                        key: const Key('accept-proposal'),
-                        onPressed: busy
+                      FilledButton.icon(
+                        key: const Key('open-agent-session'),
+                        onPressed: busy ||
+                                controller.hasSession ||
+                                (widget.replyInbox?.hasPendingReply ?? false)
                             ? null
-                            : () => controller.decideProposal(
-                                  ProposalDecision.accept,
+                            : _startAgentSession,
+                        icon: const Icon(Icons.link),
+                        label: const Text('准备给 AI 的请求'),
+                      ),
+                      if (controller.hasSession) ...<Widget>[
+                        const SizedBox(height: 16),
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  '协作会话：${controller.agentId}',
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium,
                                 ),
-                        child: const Text('接受策略'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton(
-                        key: const Key('reject-proposal'),
-                        onPressed: busy
-                            ? null
-                            : () => controller.decideProposal(
-                                  ProposalDecision.reject,
+                                const SizedBox(height: 8),
+                                if (controller.contextBundle == null)
+                                  const Text('正在准备协作内容…')
+                                else ...<Widget>[
+                                  const Text(
+                                    '每次发送或复制都会自动准备最新上下文。可选择系统分享，'
+                                    '或复制后粘贴到常用助手；助手回复可以直接分享回来，也可以粘贴到下方。',
+                                  ),
+                                  const SizedBox(height: 12),
+                                  FilledButton.tonalIcon(
+                                    key: const Key('copy-agent-handoff'),
+                                    onPressed:
+                                        busy || !controller.canRequestAgent
+                                            ? null
+                                            : () => _copyHandoff(context),
+                                    icon: const Icon(Icons.copy),
+                                    label: const Text('复制请求，发给常用 AI'),
+                                  ),
+                                  if (widget.mode ==
+                                      AppExperienceMode.secureVault)
+                                    OutlinedButton.icon(
+                                      key: const Key('share-agent-handoff'),
+                                      onPressed:
+                                          busy || !controller.canRequestAgent
+                                              ? null
+                                              : () => _shareHandoff(context),
+                                      icon: const Icon(Icons.ios_share),
+                                      label: const Text('选择 AI 助手发送'),
+                                    ),
+                                ],
+                                if (widget.replyInbox?.hasPendingReply ?? false)
+                                  Card(
+                                    key: const Key('received-agent-reply-note'),
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .secondaryContainer,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          Text(
+                                            <String>[
+                                              '收到的回复暂存在本机加密收件箱中，不会自动导入。'
+                                                  '检查后再手动导入；导入的建议仍需你单独接受。',
+                                              if ((widget.replyInbox
+                                                          ?.queuedReplyCount ??
+                                                      0) >
+                                                  0)
+                                                '另有 ${widget.replyInbox!.queuedReplyCount} 条回复等待处理。',
+                                              if ((widget.replyInbox
+                                                          ?.droppedReplyCount ??
+                                                      0) >
+                                                  0)
+                                                '收件箱容量不足或保存失败，${widget.replyInbox!.droppedReplyCount} 条新回复未保留，请回到发送回复的助手重新分享。',
+                                            ].join(' '),
+                                          ),
+                                          if ((widget.replyInbox
+                                                      ?.droppedReplyCount ??
+                                                  0) >
+                                              0)
+                                            Align(
+                                              alignment: Alignment.centerRight,
+                                              child: TextButton(
+                                                onPressed: widget.replyInbox!
+                                                    .clearDroppedReplyNotice,
+                                                child: const Text('知道了'),
+                                              ),
+                                            ),
+                                          ValueListenableBuilder<
+                                              TextEditingValue>(
+                                            valueListenable: _agentReply,
+                                            builder: (context, value, _) {
+                                              final reply = widget
+                                                  .replyInbox?.pendingReply;
+                                              if (reply == null ||
+                                                  value.text == reply) {
+                                                return const SizedBox.shrink();
+                                              }
+                                              return Align(
+                                                alignment: Alignment.centerLeft,
+                                                child: TextButton.icon(
+                                                  key: const Key(
+                                                    'load-received-agent-reply',
+                                                  ),
+                                                  onPressed: () =>
+                                                      _loadReceivedAgentReply(
+                                                          context),
+                                                  icon: const Icon(
+                                                      Icons.content_paste),
+                                                  label: Text(
+                                                    value.text.isEmpty
+                                                        ? '放入输入框'
+                                                        : '用收到的回复替换当前输入',
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          Align(
+                                            alignment: Alignment.centerRight,
+                                            child: TextButton.icon(
+                                              key: const Key(
+                                                'discard-received-agent-reply',
+                                              ),
+                                              onPressed: () async {
+                                                final reply = widget
+                                                    .replyInbox?.pendingReply;
+                                                _loadedInboxReply = null;
+                                                if (_agentReply.text == reply) {
+                                                  _agentReply.clear();
+                                                }
+                                                await widget.replyInbox
+                                                    ?.clearPendingReply();
+                                              },
+                                              icon: const Icon(
+                                                  Icons.delete_outline),
+                                              label: const Text('丢弃回复'),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                const SizedBox(height: 16),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: <Widget>[
+                                    TextButton.icon(
+                                      key: const Key('paste-agent-reply'),
+                                      onPressed: busy ? null : _pasteAgentReply,
+                                      icon: const Icon(Icons.content_paste),
+                                      label: const Text('粘贴并读取回复'),
+                                    ),
+                                    if (widget.mode ==
+                                        AppExperienceMode.syntheticDemo)
+                                      TextButton.icon(
+                                        key: const Key('fill-demo-agent-reply'),
+                                        onPressed:
+                                            busy || !controller.canRequestAgent
+                                                ? null
+                                                : _fillDemoReply,
+                                        icon:
+                                            const Icon(Icons.science_outlined),
+                                        label: const Text('用演示回复体验'),
+                                      ),
+                                  ],
                                 ),
-                        child: const Text('拒绝'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-              if (controller.canActivate) ...<Widget>[
-                const SizedBox(height: 16),
-                FilledButton(
-                  key: const Key('activate-strategy'),
-                  onPressed: busy ? null : controller.activateStrategy,
-                  child: const Text('激活并开始执行'),
-                ),
-              ],
-              if (controller.canRecordExecution) ...<Widget>[
-                const SizedBox(height: 20),
-                const Text('选择你实际完成的行动，再记录执行情况。'),
-                const SizedBox(height: 8),
-                if (controller.strategyActions.isEmpty)
-                  const Text(
-                    '当前策略没有可识别的行动，暂时无法安全记录执行。'
-                    '请重新导入一份包含行动内容的策略建议。',
-                  )
-                else ...<Widget>[
-                  if (controller.strategyActions.length == 1)
-                    Text(
-                      '本次记录：${controller.strategyActions.single.instruction}',
-                      key: const Key('selected-execution-action'),
-                    )
-                  else
-                    InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: '你完成了哪一步？',
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          key: const Key('execution-action-picker'),
-                          value: selectedActionId,
-                          hint: const Text('请选择实际完成的行动'),
-                          isExpanded: true,
-                          items: controller.strategyActions
-                              .map(
-                                (action) => DropdownMenuItem<String>(
-                                  value: action.id,
-                                  child: Text(
-                                    action.instruction,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+                                TextField(
+                                  key: const Key('agent-reply-input'),
+                                  controller: _agentReply,
+                                  minLines: 2,
+                                  maxLines: 4,
+                                  decoration: InputDecoration(
+                                    labelText: 'AI 助手的回复',
+                                    hintText: '可从助手分享回来，也可粘贴完整回复',
+                                    helperText:
+                                        widget.replyInbox?.hasPendingReply ??
+                                                false
+                                            ? '收到了一条回复；检查后再手动导入。'
+                                            : null,
+                                    alignLabelWithHint: true,
                                   ),
                                 ),
-                              )
-                              .toList(growable: false),
-                          onChanged: busy
-                              ? null
-                              : (actionId) {
-                                  if (actionId != null) {
-                                    controller.selectAction(actionId);
-                                  }
-                                },
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  FilledButton.tonal(
-                    key: const Key('record-execution'),
-                    onPressed: busy || selectedActionId == null
-                        ? null
-                        : () => controller.recordExecution(
-                              actionId: selectedActionId,
-                              executionStatus: ExecutionStatus.completed,
+                                if (_showFormatRepairActions) ...<Widget>[
+                                  const SizedBox(height: 12),
+                                  Card(
+                                    key: const Key('agent-reply-format-repair'),
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .tertiaryContainer,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: <Widget>[
+                                          Text(
+                                            '不用手动修改 JSON',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleSmall,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          const Text(
+                                            '让原助手基于最新上下文重新生成，'
+                                            '应用会保留这条回复并说明需要修正的格式。',
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Wrap(
+                                            spacing: 8,
+                                            runSpacing: 8,
+                                            children: <Widget>[
+                                              FilledButton.tonalIcon(
+                                                key: const Key(
+                                                  'copy-agent-repair-request',
+                                                ),
+                                                onPressed: busy
+                                                    ? null
+                                                    : () =>
+                                                        _copyFormatRepairRequest(
+                                                          context,
+                                                        ),
+                                                icon: const Icon(Icons.copy),
+                                                label: const Text('复制格式修正请求'),
+                                              ),
+                                              if (_canUseSystemShare)
+                                                OutlinedButton.icon(
+                                                  key: const Key(
+                                                    'share-agent-repair-request',
+                                                  ),
+                                                  onPressed: busy
+                                                      ? null
+                                                      : () =>
+                                                          _shareFormatRepairRequest(
+                                                            context,
+                                                          ),
+                                                  icon: const Icon(
+                                                      Icons.ios_share),
+                                                  label: const Text('发送给助手修正'),
+                                                ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 8),
+                                FilledButton.icon(
+                                  key: const Key('import-agent-reply'),
+                                  onPressed: busy ? null : _importAgentReply,
+                                  icon: const Icon(Icons.auto_awesome),
+                                  label: const Text('读取这份回复'),
+                                ),
+                                const SizedBox(height: 8),
+                                OutlinedButton.icon(
+                                  key: const Key('close-agent-session'),
+                                  onPressed: busy || !controller.canCloseSession
+                                      ? null
+                                      : _closeAgentSession,
+                                  icon: const Icon(Icons.swap_horiz),
+                                  label: const Text('更换 AI 助手'),
+                                ),
+                                if (!controller.canCloseSession &&
+                                    controller.strategyId != null)
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 8),
+                                    child: Text(
+                                      '先记录实际结果或拒绝当前策略，就能切换助手。',
+                                    ),
+                                  ),
+                              ],
                             ),
-                    child: const Text('记录行动已完成'),
-                  ),
-                ],
-              ],
-              if (controller.canRecordOutcome) ...<Widget>[
-                const SizedBox(height: 20),
-                TextField(
-                  key: const Key('outcome-input'),
-                  controller: _outcome,
-                  minLines: 2,
-                  maxLines: 5,
-                  decoration: const InputDecoration(
-                    labelText: '实际结果或观察',
+                          ),
+                        ),
+                        ExpansionTile(
+                          key: const Key('advanced-agent-options'),
+                          title: const Text('高级 / 兼容模式'),
+                          subtitle: const Text('手动导入 Bundle、查看原始上下文或技术信息'),
+                          children: <Widget>[
+                            if (controller.contextBundle
+                                case final bundle?) ...<Widget>[
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  'Context Bundle',
+                                  style: Theme.of(context).textTheme.titleSmall,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .outlineVariant,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: SelectableText(
+                                    bundle,
+                                    key: const Key('context-bundle-output'),
+                                    maxLines: 10,
+                                  ),
+                                ),
+                              ),
+                              FilledButton.tonalIcon(
+                                key: const Key('export-context'),
+                                onPressed:
+                                    busy ? null : controller.exportContext,
+                                icon: const Icon(Icons.refresh),
+                                label: const Text('重新准备协作上下文'),
+                              ),
+                            ],
+                            TextField(
+                              key: const Key('review-bundle-input'),
+                              controller: _review,
+                              minLines: 4,
+                              maxLines: 10,
+                              decoration: const InputDecoration(
+                                labelText: '手动导入 Review Bundle',
+                                hintText: '粘贴结构化复盘 JSON',
+                                alignLabelWithHint: true,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            FilledButton.tonal(
+                              key: const Key('import-review'),
+                              onPressed: busy
+                                  ? null
+                                  : () => controller.importReview(_review.text),
+                              child: const Text('验证并导入复盘'),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              key: const Key('proposal-bundle-input'),
+                              controller: _proposal,
+                              minLines: 4,
+                              maxLines: 10,
+                              decoration: const InputDecoration(
+                                labelText: '手动导入 Proposal Bundle',
+                                hintText: '粘贴结构化策略 JSON',
+                                alignLabelWithHint: true,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            FilledButton.tonal(
+                              key: const Key('import-proposal'),
+                              onPressed: busy
+                                  ? null
+                                  : () =>
+                                      controller.importProposal(_proposal.text),
+                              child: const Text('验证并导入策略'),
+                            ),
+                            const SizedBox(height: 12),
+                            SelectableText(
+                              'Session ID: ${controller.sessionId}',
+                              key: const Key('advanced-session-id'),
+                            ),
+                            if (controller.strategyId case final id?)
+                              Text('Strategy ID: $id'),
+                            if (controller.executionId case final id?)
+                              Text('Execution ID: $id'),
+                            if (controller.outcomeId case final id?)
+                              Text('Outcome ID: $id'),
+                            if (controller.reviewId case final id?)
+                              Text(
+                                  'Review ID: $id (${controller.reviewState})'),
+                            if (controller.proposalEvidenceRefs.isNotEmpty)
+                              Text(
+                                '引用：${controller.proposalEvidenceRefs.join(', ')}',
+                              ),
+                            if (controller.reviewEvidenceRefs.isNotEmpty)
+                              Text(
+                                '复盘证据：${controller.reviewEvidenceRefs.join(', ')}',
+                              ),
+                          ],
+                        ),
+                        if (!controller.canCloseSession &&
+                            controller.strategyId != null)
+                          const SizedBox(height: 8),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                FilledButton(
-                  key: const Key('record-outcome'),
-                  onPressed: busy ? null : _recordOutcome,
-                  child: const Text('保存真实反馈'),
-                ),
-              ],
+              ),
             ],
           );
         },
       );
-}
-
-final class _LoopProgressCard extends StatelessWidget {
-  const _LoopProgressCard({required this.controller});
-
-  final StrategyLoopController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final String next;
-    if (controller.personalGoal == null) {
-      next = '保存目标、已有条件和约束。';
-    } else if (!controller.hasSession) {
-      next = '选择常用 AI 助手并开始协作。';
-    } else if (controller.hasPendingProposal) {
-      next = '检查助手的策略，决定是否接受。';
-    } else if (controller.canActivate) {
-      next = '激活策略，开始执行具体行动。';
-    } else if (controller.outcomeId == null && controller.canRecordExecution) {
-      next =
-          controller.executionId == null ? '执行当前行动并记录完成情况。' : '记录本次实际结果，供助手复盘。';
-    } else if (controller.hasPendingReview) {
-      next = '检查复盘，决定是否接受。';
-    } else if (controller.contextBundle != null &&
-        agentHandoffStage(
-              controller.contextBundle!,
-              strategyId: controller.strategyId,
-            ) ==
-            AgentHandoffStage.revision) {
-      next = '复制最新上下文，让当前或另一位助手提出下一轮策略。';
-    } else if (controller.outcomeId != null) {
-      next = '把执行和结果交给助手，带回本轮复盘。';
-    } else {
-      next = '复制协作内容到常用 AI，再粘贴它的回复。';
-    }
-    return Card(
-      key: const Key('strategy-loop-next-step'),
-      color: Theme.of(context).colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              controller.parentStrategyRef == null ? '本轮策略' : '下一轮策略 · 已接续历史',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            if (controller.proposalTitle case final title?) Text(title),
-            const SizedBox(height: 8),
-            Text('下一步：$next'),
-            const SizedBox(height: 8),
-            const Text('目标与条件 → AI 建议 → 确认执行 → 结果 → 复盘 → 下一轮'),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 final class _PersonalContextCard extends StatelessWidget {
@@ -1306,21 +1199,6 @@ String _strategyStateText(String? state) => switch (state) {
       'completed' => '已完成',
       'abandoned' => '已停止',
       _ => '尚未导入策略',
-    };
-
-String _reviewStateText(String? state) => switch (state) {
-      'draft' => '等待你确认',
-      'accepted' => '已接受',
-      'rejected' => '已拒绝',
-      _ => '处理中',
-    };
-
-String _reviewConclusionText(String conclusion) => switch (conclusion) {
-      'effective' => '有效',
-      'ineffective' => '效果不佳',
-      'inconclusive' => '暂时无法判断',
-      'executionInsufficient' => '执行证据不足',
-      _ => conclusion,
     };
 
 String _strategyErrorText(String code) => switch (code) {

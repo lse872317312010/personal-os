@@ -21,10 +21,14 @@ final class StrategySessionAction {
   const StrategySessionAction({
     required this.id,
     required this.instruction,
+    this.successMeasure,
+    this.dueAt,
   });
 
   final String id;
   final String instruction;
+  final String? successMeasure;
+  final String? dueAt;
 }
 
 /// Durable state needed to resume the Android strategy workflow.
@@ -221,6 +225,8 @@ List<StrategySessionAction> _strategyActions(Object? value) {
     actions.add(StrategySessionAction(
       id: id,
       instruction: instruction.trim(),
+      successMeasure: _string(item['success_measure']),
+      dueAt: _string(item['due_at']),
     ));
   }
   return List<StrategySessionAction>.unmodifiable(actions);

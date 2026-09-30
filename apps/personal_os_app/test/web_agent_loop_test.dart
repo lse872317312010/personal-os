@@ -15,7 +15,7 @@ void main() {
       (tester) async {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    tester.view.physicalSize = const Size(390, 1800);
+    tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     String? copied;
     final messenger =
@@ -48,12 +48,17 @@ void main() {
     expect(copied, contains('每天投入不超过 20 分钟'));
     expect(copied, contains('本次任务：提出一份可执行的首次策略'));
     await _tap(tester, 'fill-demo-agent-reply');
-    await _tap(tester, 'import-agent-reply');
     final firstStrategy = controller.strategyId;
     expect(controller.hasPendingProposal, isTrue);
     expect(controller.executionId, isNull);
+    expect(
+      tester.getBottomRight(find.byKey(const Key('accept-proposal'))).dy,
+      lessThan(760),
+    );
+    expect(find.byKey(const Key('strategy-focus-instruction')), findsOneWidget);
     await _tap(tester, 'accept-proposal');
-    await _tap(tester, 'activate-strategy');
+    expect(controller.strategyState, 'active');
+    expect(controller.executionId, isNull);
     await _tap(tester, 'record-execution');
     await _enter(tester, 'outcome-input', '演示结果：20 分钟负担偏大，下一轮改成 10 分钟。');
     await _tap(tester, 'record-outcome');
@@ -63,7 +68,6 @@ void main() {
     expect(copied, contains('本次任务：只复盘已记录的执行和结果'));
     expect(copied, contains('20 分钟负担偏大'));
     await _tap(tester, 'fill-demo-agent-reply');
-    await _tap(tester, 'import-agent-reply');
     expect(controller.hasPendingReview, isTrue);
     await _tap(tester, 'accept-review');
     await _tap(tester, 'close-agent-session');
@@ -75,14 +79,14 @@ void main() {
     expect(copied, contains(firstExecution!));
     expect(copied, contains(firstOutcome!));
     await _tap(tester, 'fill-demo-agent-reply');
-    await _tap(tester, 'import-agent-reply');
     expect(controller.errorCode, isNull);
     expect(controller.parentStrategyRef, 'strategy:$firstStrategy@3');
     expect(controller.executionId, isNull);
     expect(controller.outcomeId, isNull);
     expect(controller.reviewId, isNull);
     await _tap(tester, 'accept-proposal');
-    await _tap(tester, 'activate-strategy');
+    expect(controller.strategyState, 'active');
+    expect(controller.executionId, isNull);
     await _tap(tester, 'record-execution');
     await _enter(tester, 'outcome-input', '演示结果：10 分钟更容易完成。');
     await _tap(tester, 'record-outcome');
@@ -98,6 +102,13 @@ void main() {
     expect(count('execution'), 2);
     expect(count('outcome'), 2);
     expect(count('review'), 1);
+    await tester.tap(find.text('首页'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('strategy-action-focus')), findsOneWidget);
+    expect(find.textContaining('10 分钟完成'), findsOneWidget);
+    await _tap(tester, 'open-current-agent-action');
+    expect(find.byKey(const Key('strategy-action-focus')), findsOneWidget);
+    expect(find.text('尚无任务。'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
@@ -164,6 +175,7 @@ void main() {
 
 Future<void> _tap(WidgetTester tester, String key) async {
   final finder = find.byKey(Key(key));
+  await _openCollaboration(tester, finder);
   if (key != 'unlock-vault') {
     await tester.scrollUntilVisible(
       finder,
@@ -180,11 +192,22 @@ Future<void> _tap(WidgetTester tester, String key) async {
 
 Future<void> _enter(WidgetTester tester, String key, String text) async {
   final finder = find.byKey(Key(key));
+  await _openCollaboration(tester, finder);
   await tester.scrollUntilVisible(
     finder,
     300,
     scrollable: find.byType(Scrollable).first,
   );
   await tester.enterText(finder, text);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openCollaboration(WidgetTester tester, Finder finder) async {
+  if (finder.evaluate().isNotEmpty) return;
+  final toggle = find.text('与 AI 协作');
+  if (toggle.evaluate().isEmpty) return;
+  await tester.ensureVisible(toggle);
+  await tester.pumpAndSettle();
+  await tester.tap(toggle);
   await tester.pumpAndSettle();
 }

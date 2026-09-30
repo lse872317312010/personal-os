@@ -127,6 +127,11 @@ void main() {
         300,
         scrollable: find.byType(Scrollable).first,
       );
+      await Scrollable.ensureVisible(
+        tester.element(find.text('开始首次分析')),
+        alignment: 0.5,
+      );
+      await tester.pumpAndSettle();
       await tester.tap(find.text('开始首次分析'));
       await tester.pumpAndSettle();
       expect(find.text('内置合成示例'), findsOneWidget);
@@ -257,7 +262,11 @@ void main() {
         },
       }),
     );
-    await tester.ensureVisible(find.byKey(const Key('import-proposal')));
+    await tester.pumpAndSettle();
+    await Scrollable.ensureVisible(
+      tester.element(find.byKey(const Key('import-proposal'))),
+      alignment: 0.5,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('import-proposal')));
     await tester.pumpAndSettle();
@@ -337,6 +346,9 @@ void main() {
       await tester.tap(find.byKey(const Key('unlock-vault')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('策略'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('与 AI 协作'));
+      await tester.tap(find.text('与 AI 协作'));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.byKey(const Key('agent-reply-input')),
