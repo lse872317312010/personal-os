@@ -147,7 +147,9 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     }
     if (!mounted ||
         controller.status != StrategyUiStatus.ready ||
-        !controller.canActivate) return;
+        !controller.canActivate) {
+      return;
+    }
     await controller.activateStrategy();
   }
 
@@ -175,7 +177,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted) return;
     final panel = _collaborationKey.currentContext;
-    if (panel != null) {
+    if (panel != null && panel.mounted) {
       await Scrollable.ensureVisible(panel, alignment: 0.05);
     }
   }
