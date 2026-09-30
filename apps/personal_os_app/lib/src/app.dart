@@ -71,24 +71,24 @@ final class _PersonalOsAppState extends State<PersonalOsApp>
         home: widget.composition.automaticAgent != null
             ? AutomaticStrategyScreen(agent: widget.composition.automaticAgent!)
             : AnimatedBuilder(
-          animation: widget.composition.controller,
-          builder: (context, _) {
-            final controller = widget.composition.controller;
-            if (!controller.vaultUnlocked) {
-              return VaultLockScreen(
-                controller: controller,
-                mode: widget.composition.mode,
-              );
-            }
-            return _UnlockedShell(
-              controller: controller,
-              strategyController: widget.composition.strategyController,
-              backupController: widget.composition.backupController,
-              replyInbox: widget.composition.replyInbox,
-              mode: widget.composition.mode,
-            );
-          },
-        ),
+                animation: widget.composition.controller,
+                builder: (context, _) {
+                  final controller = widget.composition.controller;
+                  if (!controller.vaultUnlocked) {
+                    return VaultLockScreen(
+                      controller: controller,
+                      mode: widget.composition.mode,
+                    );
+                  }
+                  return _UnlockedShell(
+                    controller: controller,
+                    strategyController: widget.composition.strategyController,
+                    backupController: widget.composition.backupController,
+                    replyInbox: widget.composition.replyInbox,
+                    mode: widget.composition.mode,
+                  );
+                },
+              ),
       );
 }
 

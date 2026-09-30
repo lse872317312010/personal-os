@@ -138,12 +138,15 @@ final class AppComposition {
     );
   }
 
-  factory AppComposition.localAgent({required AutomaticAgentGateway gateway, required EventStore eventStore}) => _build(
-    eventStore: eventStore,
-    mode: AppExperienceMode.localAgent,
-    automaticGateway: gateway,
-    modelGateway: const _UnavailableAppearanceAnalysisGateway(),
-  );
+  factory AppComposition.localAgent(
+          {required AutomaticAgentGateway gateway,
+          required EventStore eventStore}) =>
+      _build(
+        eventStore: eventStore,
+        mode: AppExperienceMode.localAgent,
+        automaticGateway: gateway,
+        modelGateway: const _UnavailableAppearanceAnalysisGateway(),
+      );
 
   static AppComposition _build({
     required EventStore eventStore,
@@ -256,7 +259,10 @@ final class AppComposition {
       restoreQuery: StrategySessionQueryHandler(eventStore),
       user: userActor,
     );
-    final automaticAgent = automaticGateway == null ? null : AutomaticAgentController(strategy: strategyController, gateway: automaticGateway);
+    final automaticAgent = automaticGateway == null
+        ? null
+        : AutomaticAgentController(
+            strategy: strategyController, gateway: automaticGateway);
     late final EncryptedEventBackupController backupController;
     controller = AppController(
       analyzeAppearance: useCase,

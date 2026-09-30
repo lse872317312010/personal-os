@@ -16,11 +16,17 @@ final class LocalAgentEventStore implements EventStore {
   Future<void> _tail = Future<void>.value();
   Future<void> load() async {
     final value = await gateway.get('/api/history');
-    final events = (value['events'] as List).map((e) => EventEnvelopeJsonCodec.decode(Map<String, Object?>.from(e as Map))).toList();
+    final events = (value['events'] as List)
+        .map((e) =>
+            EventEnvelopeJsonCodec.decode(Map<String, Object?>.from(e as Map)))
+        .toList();
     final memory = InMemoryEventStore();
     await memory.appendAll(events);
-    _memory = memory; _events = events; _revision = value['revision'] as int;
+    _memory = memory;
+    _events = events;
+    _revision = value['revision'] as int;
   }
+
   @override
   Future<void> appendAll(List<EventEnvelope> events) {
     final result = _tail.then((_) async {
@@ -28,17 +34,36 @@ final class LocalAgentEventStore implements EventStore {
       await memory.appendAll(_events);
       await memory.appendAll(events);
       final ids = _events.map((e) => e.eventId).toSet();
-      final next = <EventEnvelope>[..._events, ...events.where((e) => ids.add(e.eventId))];
+      final next = <EventEnvelope>[
+        ..._events,
+        ...events.where((e) => ids.add(e.eventId))
+      ];
       try {
-        final value = await gateway.post('/api/history', <String, Object?>{'revision': _revision, 'events': next.map(EventEnvelopeJsonCodec.encode).toList()});
-        _revision = value['revision'] as int; _events = next; _memory = memory;
-      } on Object { throw const PersistenceException.writeFailed(); }
+        final value = await gateway.post('/api/history', <String, Object?>{
+          'revision': _revision,
+          'events': next.map(EventEnvelopeJsonCodec.encode).toList()
+        });
+        _revision = value['revision'] as int;
+        _events = next;
+        _memory = memory;
+      } on Object {
+        throw const PersistenceException.writeFailed();
+      }
     });
     _tail = result.catchError((Object _) {});
     return result;
   }
+
   @override
-  Future<EventEnvelope?> readById(String eventId) async { await _tail; return _memory.readById(eventId); }
+  Future<EventEnvelope?> readById(String eventId) async {
+    await _tail;
+    return _memory.readById(eventId);
+  }
+
   @override
-  Future<List<EventEnvelope>> readBySubject(ObjectRef subject, {int? limit}) async { await _tail; return _memory.readBySubject(subject, limit: limit); }
+  Future<List<EventEnvelope>> readBySubject(ObjectRef subject,
+      {int? limit}) async {
+    await _tail;
+    return _memory.readBySubject(subject, limit: limit);
+  }
 }

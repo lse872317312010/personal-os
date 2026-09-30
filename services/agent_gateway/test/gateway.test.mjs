@@ -141,10 +141,10 @@ test('personal records are encrypted, survive restart and reject tampering', asy
   const directory = await mkdtemp(join(tmpdir(), 'personal-os-encrypted-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const store = new ProtectedStore(directory);
-  await store.write('history', { goal: 'private-personal-goal' });
+  await store.write('history', { goal: '个人目标 · private-personal-goal' });
   const path = join(directory, 'history.private'), raw = await readFile(path, 'utf8');
-  assert.equal(raw.includes('private-personal-goal'), false);
-  assert.deepEqual(await new ProtectedStore(directory).read('history'), { goal: 'private-personal-goal' });
+  assert.equal(raw.includes('个人目标 · private-personal-goal'), false);
+  assert.deepEqual(await new ProtectedStore(directory).read('history'), { goal: '个人目标 · private-personal-goal' });
   await writeFile(path, raw.slice(0, -10) + 'corrupted');
   await assert.rejects(store.read('history'), { message: 'protected_storage_unavailable' });
 });
