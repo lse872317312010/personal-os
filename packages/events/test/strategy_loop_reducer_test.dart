@@ -189,7 +189,8 @@ void main() {
       ),
     );
     expect(revised.disposition, ReductionDisposition.applied);
-    expect(revised.projections['agent_session:session-1']!.revision, Revision(3));
+    expect(
+        revised.projections['agent_session:session-1']!.revision, Revision(3));
     final closed = reduceCore(
       projections: revised.projections,
       seenEventIds: revised.seenEventIds,

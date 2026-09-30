@@ -471,7 +471,8 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                               controller: _goal,
                               enabled: !busy,
                               maxLength: 4000,
-                              decoration: const InputDecoration(labelText: '这轮目标'),
+                              decoration:
+                                  const InputDecoration(labelText: '这轮目标'),
                             ),
                             TextField(
                               key: const Key('personal-success-input'),
