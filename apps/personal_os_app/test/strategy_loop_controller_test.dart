@@ -7,7 +7,6 @@ import 'package:personal_os_app/src/composition/app_composition.dart';
 import 'package:personal_os_app/src/controller/strategy_loop_controller.dart';
 
 void main() {
-
   test('reset during session open discards the old completion', () async {
     final app = AppComposition.inMemoryDemo();
     final controller = app.strategyController;
@@ -69,7 +68,8 @@ void main() {
     expect(controller.hasSession, isFalse);
   });
 
-  test('opening another session preserves the current Harness identity', () async {
+  test('opening another session preserves the current Harness identity',
+      () async {
     final app = AppComposition.inMemoryDemo();
     final controller = app.strategyController;
     addTearDown(controller.dispose);
@@ -128,17 +128,39 @@ void main() {
         ],
         'actions': <Object?>[
           <String, Object?>{
-            'id': 'action-1',
+            'id': 'action-from-proposal',
             'instruction': 'Execute experiment',
+          },
+          <String, Object?>{
+            'id': 'second-action',
+            'instruction': 'Measure the follow-up result',
           },
         ],
       },
     }));
     expect(controller.status, StrategyUiStatus.ready);
+    expect(controller.selectedActionId, isNull);
+    expect(
+      controller.strategyActions.map((action) => action.id),
+      <String>['action-from-proposal', 'second-action'],
+    );
     await controller.decideProposal(ProposalDecision.accept);
     await controller.activateStrategy();
     await controller.recordExecution(
       actionId: 'action-1',
+      executionStatus: ExecutionStatus.completed,
+    );
+    expect(controller.errorCode, 'strategy.action_not_in_strategy');
+    expect(controller.executionId, isNull);
+    await controller.recordExecution(
+      actionId: 'action-from-proposal',
+      executionStatus: ExecutionStatus.completed,
+    );
+    expect(controller.errorCode, 'strategy.action_selection_required');
+    expect(controller.executionId, isNull);
+    controller.selectAction('action-from-proposal');
+    await controller.recordExecution(
+      actionId: 'action-from-proposal',
       executionStatus: ExecutionStatus.completed,
     );
     await controller.recordOutcome(
@@ -150,7 +172,7 @@ void main() {
     final firstExecution = controller.executionId;
 
     await controller.recordExecution(
-      actionId: 'action-1',
+      actionId: 'action-from-proposal',
       executionStatus: ExecutionStatus.completed,
     );
 

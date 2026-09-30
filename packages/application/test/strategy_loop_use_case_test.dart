@@ -34,6 +34,78 @@ void main() {
     );
   });
 
+  test('personal context is recorded atomically as user-owned objects',
+      () async {
+    final result = await useCase.recordPersonalContext(
+      RecordPersonalContextCommand(
+        actor: user,
+        profileId: EntityId('primary-user'),
+        correlationId: 'context-1',
+        goal: ' Learn consistently ',
+        successCriteria: 'Three sessions in one week',
+        currentState: 'Thirty minutes available in the evening',
+        constraints: 'Spend no money',
+      ),
+    );
+    expect(store.batches, hasLength(1));
+    expect(result.eventIds, hasLength(4));
+    expect(store.batches.single.map((event) => event.eventType), <String>[
+      EventTypes.goalCreated,
+      EventTypes.goalActivated,
+      EventTypes.personalAssetRecorded,
+      EventTypes.constraintRecorded,
+    ]);
+    expect(store.batches.single.first.payload['title'], 'Learn consistently');
+    expect(
+      store.batches.single
+          .every((event) => event.actor.actorType == ActorType.user),
+      isTrue,
+    );
+  });
+
+  test('an agent cannot write user facts through context setup', () async {
+    await expectLater(
+      useCase.recordPersonalContext(
+        RecordPersonalContextCommand(
+          actor: agent,
+          profileId: EntityId('primary-user'),
+          correlationId: 'context-1',
+          goal: 'Invent a goal',
+        ),
+      ),
+      throwsA(isA<StrategyLoopFailure>().having(
+        (error) => error.code,
+        'code',
+        StrategyLoopFailureCode.userAuthorityRequired,
+      )),
+    );
+    expect(store.batches, isEmpty);
+  });
+
+  test('empty context and D4 fail without a partial write', () async {
+    for (final command in <RecordPersonalContextCommand>[
+      RecordPersonalContextCommand(
+        actor: user,
+        profileId: EntityId('primary-user'),
+        correlationId: 'empty',
+        goal: ' ',
+      ),
+      RecordPersonalContextCommand(
+        actor: user,
+        profileId: EntityId('primary-user'),
+        correlationId: 'd4',
+        goal: 'A goal',
+        sensitivity: Sensitivity.d4,
+      ),
+    ]) {
+      await expectLater(
+        useCase.recordPersonalContext(command),
+        throwsA(isA<StrategyLoopFailure>()),
+      );
+    }
+    expect(store.batches, isEmpty);
+  });
+
   test('agent proposal atomically records strategy and session update',
       () async {
     final result = await useCase.submitProposal(

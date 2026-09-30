@@ -30,6 +30,35 @@ final class HomeScreen extends StatelessWidget {
                 : '建议来自安全会话；UI 不接触原始资料，也不调用未接入的认证或存储实现。',
           ),
           const SizedBox(height: 16),
+          Card(
+            key: const Key('agent-loop-home-card'),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    '让常用 AI 延续你的个人策略',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    '保存目标和个人条件，把上下文交给 ChatGPT、Codex 或任意助手。'
+                    '确认建议后执行，再把结果带回下一轮。',
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    key: const Key('start-personal-strategy-loop'),
+                    onPressed: () =>
+                        controller.navigate(AppDestination.strategy),
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    label: const Text('开始个人策略闭环'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           ObservationHistoryCard(controller: controller, mode: mode),
           if (mode == AppExperienceMode.secureVault) ...<Widget>[
             const SizedBox(height: 16),
@@ -110,7 +139,8 @@ final class _EncryptedBackupCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (controller.status != EncryptedBackupStatus.idle) ...<Widget>[
+                if (controller.status !=
+                    EncryptedBackupStatus.idle) ...<Widget>[
                   const SizedBox(height: 10),
                   Text(
                     _backupStatusText(controller),

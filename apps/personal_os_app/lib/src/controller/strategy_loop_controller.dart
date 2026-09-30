@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:personal_os_agent_protocol/agent_protocol.dart';
 import 'package:personal_os_application/application.dart';
@@ -42,9 +44,13 @@ final class StrategyLoopController extends ChangeNotifier {
   EntityId? _strategyId;
   int _strategyRevision = 0;
   String? _strategyState;
+  List<StrategySessionAction> _strategyActions =
+      const <StrategySessionAction>[];
+  String? _selectedActionId;
   EntityId? _executionId;
   EntityId? _outcomeId;
   String? _contextBundle;
+  String? _savedGoal;
   String _agentId = 'offline-harness';
   String? _proposalTitle;
   String? _proposalRationale;
@@ -61,9 +67,39 @@ final class StrategyLoopController extends ChangeNotifier {
   String? get sessionId => _sessionId?.value;
   String? get strategyId => _strategyId?.value;
   String? get strategyState => _strategyState;
+  List<StrategySessionAction> get strategyActions => _strategyActions;
+  String? get selectedActionId => _selectedActionId;
+  StrategySessionAction? get selectedAction {
+    final id = _selectedActionId;
+    if (id == null) return null;
+    for (final action in _strategyActions) {
+      if (action.id == id) return action;
+    }
+    return null;
+  }
+
   String? get executionId => _executionId?.value;
   String? get outcomeId => _outcomeId?.value;
   String? get contextBundle => _contextBundle;
+  String? get personalGoal {
+    for (final record in contextRecords) {
+      if ((record['ref'] as Map?)?['type'] != 'goal') continue;
+      final data = record['data'] as Map?;
+      final title = data?['title'] ?? data?['statement'];
+      if (title is String && title.isNotEmpty) return title;
+    }
+    return _savedGoal;
+  }
+
+  List<Map<String, Object?>> get contextRecords {
+    final bundle = _contextBundle;
+    if (bundle == null) return const <Map<String, Object?>>[];
+    final decoded = jsonDecode(bundle) as Map<String, Object?>;
+    return (decoded['objects'] as List)
+        .map((item) => Map<String, Object?>.from(item as Map))
+        .toList(growable: false);
+  }
+
   String get agentId => _agentId;
   String? get proposalTitle => _proposalTitle;
   String? get proposalRationale => _proposalRationale;
@@ -80,11 +116,47 @@ final class StrategyLoopController extends ChangeNotifier {
   bool get canActivate => _strategyState == 'accepted';
   bool get canRecordExecution => _strategyState == 'active';
   bool get canRecordOutcome => _executionId != null;
+  bool get canRequestAgent =>
+      hasSession &&
+      personalGoal != null &&
+      !hasPendingProposal &&
+      !canActivate &&
+      !hasPendingReview &&
+      (_strategyId == null ||
+          _outcomeId != null ||
+          _strategyState == 'abandoned');
   bool get canCloseSession =>
       hasSession &&
       (_strategyId == null ||
           _outcomeId != null ||
           _strategyState == 'abandoned');
+
+  Future<void> savePersonalContext({
+    required String goal,
+    String successCriteria = '',
+    String currentState = '',
+    String constraints = '',
+  }) async {
+    await _run((isCurrent) async {
+      await _strategyLoop.recordPersonalContext(
+        RecordPersonalContextCommand(
+          actor: _user,
+          profileId: _profileId,
+          correlationId: _correlation('personal-context'),
+          goal: goal,
+          successCriteria: successCriteria,
+          currentState: currentState,
+          constraints: constraints,
+        ),
+      );
+      if (!isCurrent()) return 'stale';
+      _savedGoal = goal.trim();
+      return 'personal_context_recorded';
+    });
+    if (_status == StrategyUiStatus.ready && hasSession) {
+      await exportContext();
+    }
+  }
 
   Future<void> bootstrap() async {
     final query = _restoreQuery;
@@ -105,6 +177,8 @@ final class StrategyLoopController extends ChangeNotifier {
     _strategyId = view.strategyId;
     _strategyRevision = view.strategyRevision;
     _strategyState = view.strategyState;
+    _strategyActions = List<StrategySessionAction>.unmodifiable(view.actions);
+    _selectedActionId = _defaultActionSelection(_strategyActions);
     _executionId = view.executionId;
     _outcomeId = view.outcomeId;
     _contextBundle = null;
@@ -183,6 +257,8 @@ final class StrategyLoopController extends ChangeNotifier {
       _strategyId = null;
       _strategyRevision = 0;
       _strategyState = null;
+      _strategyActions = const <StrategySessionAction>[];
+      _selectedActionId = null;
       _executionId = null;
       _outcomeId = null;
       _contextBundle = null;
@@ -199,6 +275,18 @@ final class StrategyLoopController extends ChangeNotifier {
     });
   }
 
+  /// Refreshes the bundle immediately before it is shared with an assistant.
+  ///
+  /// Never return an older bundle when refreshing fails.
+  Future<String?> refreshContextForHandoff() async {
+    if (_disposed || _status == StrategyUiStatus.running || !hasSession) {
+      return null;
+    }
+    await exportContext();
+    if (_disposed || _status != StrategyUiStatus.ready) return null;
+    return _contextBundle;
+  }
+
   Future<void> exportContext() async {
     final sessionId = _sessionId;
     if (sessionId == null) {
@@ -206,7 +294,7 @@ final class StrategyLoopController extends ChangeNotifier {
       return;
     }
     await _run((isCurrent) async {
-      final bundle = await _protocol.queryContext(
+      final firstPage = await _protocol.queryContext(
         sessionId: sessionId,
         purpose: 'personal strategy proposal',
         objectTypes: const <String>{
@@ -223,7 +311,45 @@ final class StrategyLoopController extends ChangeNotifier {
         },
       );
       if (!isCurrent()) return 'stale';
-      _contextBundle = bundle;
+      final combined = jsonDecode(firstPage) as Map<String, Object?>;
+      final records = List<Object?>.of(combined['objects'] as List);
+      final cursors = <String>{};
+      var page = combined;
+      while (page['has_more'] == true) {
+        final cursor = page['cursor'];
+        if (cursor is! String ||
+            !cursors.add(cursor) ||
+            records.length >= 5000) {
+          throw const AgentProtocolException(
+            'strategy.context_too_large',
+            'context could not be exported completely',
+          );
+        }
+        final next = await _protocol.queryContext(
+          sessionId: sessionId,
+          purpose: 'personal strategy proposal',
+          objectTypes: const <String>{
+            'goal',
+            'personal_asset',
+            'constraint',
+            'strategy',
+            'plan',
+            'task',
+            'execution',
+            'outcome',
+            'review',
+            'observation',
+          },
+          cursor: cursor,
+        );
+        if (!isCurrent()) return 'stale';
+        page = jsonDecode(next) as Map<String, Object?>;
+        records.addAll(page['objects'] as List);
+      }
+      combined['objects'] = records;
+      combined['has_more'] = false;
+      combined.remove('cursor');
+      _contextBundle = jsonEncode(combined);
       return 'context_exported';
     });
   }
@@ -290,10 +416,11 @@ final class StrategyLoopController extends ChangeNotifier {
     }
     await _run((isCurrent) async {
       final proposal = ProposalBundleCodec.decodeString(bundleJson);
-      if (proposal.parentStrategy != null && _reviewState != 'accepted') {
+      final strategyActions = _strategyActionsFromProposal(proposal.actions);
+      if (strategyActions.length != proposal.actions.length) {
         throw const AgentProtocolException(
-          'strategy.accepted_review_required',
-          'an accepted review is required before a revised strategy',
+          AgentProtocolError.invalidRequest,
+          'strategy actions require unique IDs and instructions',
         );
       }
       final result = await _protocol.submitProposal(
@@ -306,8 +433,17 @@ final class StrategyLoopController extends ChangeNotifier {
       _strategyId = result.objectId;
       _strategyRevision = 1;
       _strategyState = 'proposed';
+      _strategyActions = strategyActions;
+      _selectedActionId = _defaultActionSelection(_strategyActions);
       _proposalTitle = proposal.title;
       _proposalRationale = proposal.rationale;
+      _executionId = null;
+      _outcomeId = null;
+      _reviewId = null;
+      _reviewState = null;
+      _reviewSummary = null;
+      _reviewConclusion = null;
+      _reviewEvidenceRefs = const <String>[];
       final parent = proposal.parentStrategy;
       _parentStrategyRef = parent == null
           ? null
@@ -373,6 +509,23 @@ final class StrategyLoopController extends ChangeNotifier {
     });
   }
 
+  void selectAction(String actionId) {
+    if (_disposed || _status == StrategyUiStatus.running) return;
+    if (!canRecordExecution) {
+      _fail('strategy.active_strategy_required');
+      return;
+    }
+    final normalizedActionId = actionId.trim();
+    if (!_strategyActions.any((action) => action.id == normalizedActionId)) {
+      _fail('strategy.action_not_in_strategy');
+      return;
+    }
+    _selectedActionId = normalizedActionId;
+    _status = StrategyUiStatus.ready;
+    _errorCode = null;
+    notifyListeners();
+  }
+
   Future<void> recordExecution({
     required String actionId,
     required ExecutionStatus executionStatus,
@@ -383,8 +536,21 @@ final class StrategyLoopController extends ChangeNotifier {
       _fail('strategy.active_strategy_required');
       return;
     }
-    if (actionId.trim().isEmpty) {
+    final normalizedActionId = actionId.trim();
+    if (normalizedActionId.isEmpty) {
       _fail('strategy.action_required');
+      return;
+    }
+    if (!_strategyActions.any((action) => action.id == normalizedActionId)) {
+      _fail('strategy.action_not_in_strategy');
+      return;
+    }
+    if (_selectedActionId == null) {
+      _fail('strategy.action_selection_required');
+      return;
+    }
+    if (_selectedActionId != normalizedActionId) {
+      _fail('strategy.action_selection_mismatch');
       return;
     }
     await _run((isCurrent) async {
@@ -398,7 +564,7 @@ final class StrategyLoopController extends ChangeNotifier {
             id: strategyId,
             revision: Revision(_strategyRevision),
           ),
-          actionId: EntityId(actionId.trim()),
+          actionId: EntityId(normalizedActionId),
           status: executionStatus,
           note: note,
         ),
@@ -451,9 +617,12 @@ final class StrategyLoopController extends ChangeNotifier {
     _strategyId = null;
     _strategyRevision = 0;
     _strategyState = null;
+    _strategyActions = const <StrategySessionAction>[];
+    _selectedActionId = null;
     _executionId = null;
     _outcomeId = null;
     _contextBundle = null;
+    _savedGoal = null;
     _agentId = 'offline-harness';
     _proposalTitle = null;
     _proposalRationale = null;
@@ -535,4 +704,31 @@ final class StrategyLoopController extends ChangeNotifier {
     _errorCode = code;
     notifyListeners();
   }
+}
+
+String? _defaultActionSelection(List<StrategySessionAction> actions) =>
+    actions.length == 1 ? actions.single.id : null;
+
+List<StrategySessionAction> _strategyActionsFromProposal(
+  Iterable<Map<String, Object?>> rawActions,
+) {
+  final actions = <StrategySessionAction>[];
+  final ids = <String>{};
+  for (final item in rawActions) {
+    final id = item['id'];
+    final instruction = item['instruction'];
+    if (id is! String ||
+        id.isEmpty ||
+        id.trim() != id ||
+        instruction is! String ||
+        instruction.trim().isEmpty) {
+      continue;
+    }
+    if (!ids.add(id)) return const <StrategySessionAction>[];
+    actions.add(StrategySessionAction(
+      id: id,
+      instruction: instruction.trim(),
+    ));
+  }
+  return List<StrategySessionAction>.unmodifiable(actions);
 }

@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
 
+import '../agent_interop/agent_handoff.dart';
+import '../agent_interop/agent_reply_inbox.dart';
+import '../agent_interop/agent_text_share.dart';
 import '../composition/app_composition.dart';
 import '../controller/strategy_loop_controller.dart';
 
@@ -12,37 +15,411 @@ final class StrategyLoopScreen extends StatefulWidget {
   const StrategyLoopScreen({
     required this.controller,
     required this.mode,
+    this.replyInbox,
     super.key,
   });
 
   final StrategyLoopController controller;
   final AppExperienceMode mode;
+  final AgentReplyInboxController? replyInbox;
 
   @override
   State<StrategyLoopScreen> createState() => _StrategyLoopScreenState();
 }
 
 final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
-  final _agentId = TextEditingController(text: 'offline-harness');
+  final _assistantName = TextEditingController(text: '通用 AI 助手');
+  final _agentReply = TextEditingController();
+  String? _loadedInboxReply;
+  bool _showFormatRepairActions = false;
   final _review = TextEditingController();
   final _proposal = TextEditingController();
-  final _actionId = TextEditingController(text: 'action-1');
   final _outcome = TextEditingController();
+  final _goal = TextEditingController();
+  final _successCriteria = TextEditingController();
+  final _currentState = TextEditingController();
+  final _constraints = TextEditingController();
+  final AgentTextSharePort _agentTextShare =
+      const MethodChannelAgentTextShare();
+
+  bool get _canUseSystemShare => widget.mode == AppExperienceMode.secureVault;
 
   @override
   void initState() {
     super.initState();
-    unawaited(widget.controller.bootstrap());
+    widget.replyInbox?.addListener(_syncReplyFromInbox);
+    unawaited(_prepareRestoredSession());
   }
 
   @override
   void dispose() {
-    _agentId.dispose();
+    widget.replyInbox?.removeListener(_syncReplyFromInbox);
+    _assistantName.dispose();
+    _agentReply.dispose();
     _review.dispose();
     _proposal.dispose();
-    _actionId.dispose();
     _outcome.dispose();
+    _goal.dispose();
+    _successCriteria.dispose();
+    _currentState.dispose();
+    _constraints.dispose();
     super.dispose();
+  }
+
+  Future<void> _prepareRestoredSession() async {
+    await widget.controller.bootstrap();
+    if (!mounted) return;
+    _syncReplyFromInbox();
+    if (!widget.controller.hasSession) return;
+    if (widget.controller.contextBundle == null) {
+      await widget.controller.exportContext();
+    }
+  }
+
+  Future<void> _startAgentSession() async {
+    final name = _assistantName.text.trim().isEmpty
+        ? '通用 AI 助手'
+        : _assistantName.text.trim();
+    await widget.controller.openOfflineSession(agentId: name);
+    if (!mounted || !widget.controller.hasSession) return;
+    await widget.controller.exportContext();
+  }
+
+  Future<void> _savePersonalContext() async {
+    await widget.controller.savePersonalContext(
+      goal: _goal.text,
+      successCriteria: _successCriteria.text,
+      currentState: _currentState.text,
+      constraints: _constraints.text,
+    );
+  }
+
+  void _loadDemoContext() {
+    _goal.text = '一周内建立稳定的学习习惯';
+    _successCriteria.text = '一周完成 3 次学习，并记录每次耗时和困难';
+    _currentState.text = '演示资料：工作日晚上有 30 分钟空闲';
+    _constraints.text = '演示约束：每天投入不超过 20 分钟，不额外花钱';
+  }
+
+  Future<void> _fillDemoReply() async {
+    final bundle = await widget.controller.refreshContextForHandoff();
+    if (!mounted || bundle == null) return;
+    _agentReply.text = buildDemoAgentReply(
+      bundle,
+      strategyId: widget.controller.strategyId,
+    );
+  }
+
+  Future<void> _pasteAgentReply() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (!mounted || data?.text == null) return;
+      _agentReply.text = data!.text!;
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请在回复框中长按或使用 Ctrl+V 粘贴。')),
+      );
+    }
+  }
+
+  Future<void> _decideReview(ReviewDecision decision) async {
+    await widget.controller.decideReview(decision);
+    if (!mounted || widget.controller.status != StrategyUiStatus.ready) return;
+    await widget.controller.exportContext();
+  }
+
+  Future<void> _recordOutcome() async {
+    await widget.controller.recordOutcome(
+      observation: _outcome.text,
+      valence: OutcomeValence.mixed,
+    );
+    if (!mounted || widget.controller.status != StrategyUiStatus.ready) return;
+    _outcome.clear();
+    await widget.controller.exportContext();
+  }
+
+  void _syncReplyFromInbox() {
+    final inbox = widget.replyInbox;
+    if (!mounted) return;
+    if (inbox != null && !inbox.vaultOpen) {
+      _loadedInboxReply = null;
+      _agentReply.clear();
+      return;
+    }
+    if (!widget.controller.hasSession) return;
+    final reply = inbox?.pendingReply;
+    if (reply == null) {
+      _loadedInboxReply = null;
+      return;
+    }
+    if (_agentReply.text.isNotEmpty) return;
+    _loadedInboxReply = reply;
+    _agentReply.value = TextEditingValue(
+      text: reply,
+      selection: TextSelection.collapsed(offset: reply.length),
+    );
+  }
+
+  Future<void> _loadReceivedAgentReply(BuildContext context) async {
+    final reply = widget.replyInbox?.pendingReply;
+    if (reply == null) return;
+
+    final hasDifferentDraft =
+        _agentReply.text.isNotEmpty && _agentReply.text != reply;
+    if (hasDifferentDraft) {
+      final shouldReplace = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('替换当前输入？'),
+          content: const Text('当前输入内容将被收到的 AI 助手回复替换。'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('保留当前输入'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('替换输入'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted || shouldReplace != true) return;
+    }
+
+    _loadedInboxReply = reply;
+    _agentReply.value = TextEditingValue(
+      text: reply,
+      selection: TextSelection.collapsed(offset: reply.length),
+    );
+  }
+
+  Future<void> _importAgentReply() async {
+    try {
+      final replyText = _agentReply.text;
+      final pendingInboxReply = widget.replyInbox?.pendingReply;
+      final importedInboxReply =
+          pendingInboxReply != null && _loadedInboxReply == pendingInboxReply;
+      final reply = parseAgentHandoffReply(replyText);
+      final controller = widget.controller;
+      if (reply.kind == AgentReplyKind.review) {
+        await controller.importReview(reply.bundleJson);
+      } else {
+        await controller.importProposal(reply.bundleJson);
+      }
+      if (!mounted) return;
+      final imported = controller.status == StrategyUiStatus.ready &&
+          (reply.kind == AgentReplyKind.proposal
+              ? controller.hasPendingProposal
+              : controller.hasPendingReview);
+      if (!imported) {
+        const repairableErrors = <String>{
+          'invalid_request',
+          'validation_failed',
+          'unsupported_version',
+          'unpinned_reference',
+          'access_denied',
+          'not_found',
+          'stale_reference',
+        };
+        if (controller.status == StrategyUiStatus.failed &&
+            repairableErrors.contains(controller.errorCode)) {
+          setState(() => _showFormatRepairActions = true);
+        }
+        return;
+      }
+      setState(() => _showFormatRepairActions = false);
+      _agentReply.clear();
+      await controller.exportContext();
+      if (!mounted) return;
+      var inboxAcknowledged = true;
+      if (importedInboxReply) {
+        _loadedInboxReply = null;
+        inboxAcknowledged =
+            await widget.replyInbox?.clearPendingReply() ?? false;
+      } else {
+        _syncReplyFromInbox();
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            inboxAcknowledged
+                ? '建议已导入，请查看内容并决定是否接受。'
+                : '建议已导入，但收件箱未能确认移除原回复；请勿重复导入，'
+                    '待加密收件箱恢复后再明确丢弃原回复。',
+          ),
+        ),
+      );
+    } on AgentHandoffFormatException catch (error) {
+      if (!mounted) return;
+      if (error.issue != AgentHandoffFormatIssue.empty) {
+        setState(() => _showFormatRepairActions = true);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.userMessage)),
+      );
+    }
+  }
+
+  Future<String?> _prepareHandoff(
+    BuildContext context, {
+    required bool useSystemShare,
+    String? rejectedReply,
+  }) async {
+    if (rejectedReply != null && rejectedReply.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请先保留 AI 助手的原回复，再生成修正请求。')),
+      );
+      return null;
+    }
+    final bundle = await widget.controller.refreshContextForHandoff();
+    if (!context.mounted) return null;
+    if (bundle == null) {
+      final errorCode = widget.controller.errorCode;
+      final message = errorCode == null
+          ? '无法准备最新协作内容，请稍后重试。'
+          : _strategyErrorText(errorCode);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+      return null;
+    }
+    final prompt = rejectedReply == null
+        ? buildAgentHandoffPrompt(
+            bundle,
+            strategyId: widget.controller.strategyId,
+          )
+        : buildAgentHandoffRepairPrompt(
+            contextBundle: bundle,
+            rejectedReply: rejectedReply,
+            strategyId: widget.controller.strategyId,
+          );
+    if (widget.mode != AppExperienceMode.secureVault) return prompt;
+
+    final sharedData = rejectedReply == null
+        ? '当前导出的目标、资产、策略和历史记录'
+        : '当前导出的目标、资产、策略和历史记录，以及上一条未能识别的回复文本';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(useSystemShare ? '确认发送个人上下文' : '确认复制个人上下文'),
+        content: Text(
+          useSystemShare
+              ? '这会把$sharedData交给系统分享菜单中你选择的应用。'
+                  '对应应用和服务可能保存或处理这些信息。请确认你愿意分享。'
+              : '这会把$sharedData放入系统剪贴板。'
+                  '设备或输入法可能同步或暂存剪贴板内容；粘贴到外部 AI 助手后，'
+                  '对应服务也会收到这些信息。请确认你愿意分享。',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(useSystemShare ? '继续发送' : '继续复制'),
+          ),
+        ],
+      ),
+    );
+    if (!context.mounted || confirmed != true) return null;
+    return prompt;
+  }
+
+  Future<void> _copyHandoff(BuildContext context) async {
+    final prompt = await _prepareHandoff(context, useSystemShare: false);
+    if (prompt == null || !context.mounted) return;
+
+    try {
+      await Clipboard.setData(ClipboardData(text: prompt));
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('复制失败，请检查设备剪贴板权限后重试。')),
+      );
+      return;
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('协作内容已复制。粘贴到任意 AI 助手，再把回复粘贴回来。'),
+      ),
+    );
+  }
+
+  Future<void> _shareHandoff(BuildContext context) async {
+    final prompt = await _prepareHandoff(context, useSystemShare: true);
+    if (prompt == null || !context.mounted) return;
+
+    try {
+      await _agentTextShare.share(prompt);
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('无法打开系统分享菜单，请改用“复制协作内容”。'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _copyFormatRepairRequest(BuildContext context) async {
+    final prompt = await _prepareHandoff(
+      context,
+      useSystemShare: false,
+      rejectedReply: _agentReply.text,
+    );
+    if (prompt == null || !context.mounted) return;
+
+    try {
+      await Clipboard.setData(ClipboardData(text: prompt));
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('复制失败，请检查设备剪贴板权限后重试。')),
+      );
+      return;
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('修正请求已复制。粘贴回原助手会话，再把新回复分享或粘贴回来。'),
+      ),
+    );
+  }
+
+  Future<void> _shareFormatRepairRequest(BuildContext context) async {
+    final prompt = await _prepareHandoff(
+      context,
+      useSystemShare: true,
+      rejectedReply: _agentReply.text,
+    );
+    if (prompt == null || !context.mounted) return;
+
+    try {
+      await _agentTextShare.share(prompt);
+    } on Object {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('无法打开系统分享菜单，请改用“复制格式修正请求”。'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _closeAgentSession() async {
+    await widget.controller.closeSession();
+    if (!mounted || widget.controller.hasSession) return;
+    _loadedInboxReply = null;
+    _agentReply.clear();
+    setState(() => _showFormatRepairActions = false);
+    // Switching sessions is not an explicit decision to discard a reply.
+    _review.clear();
+    _proposal.clear();
   }
 
   @override
@@ -51,6 +428,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
         builder: (context, _) {
           final controller = widget.controller;
           final busy = controller.status == StrategyUiStatus.running;
+          final selectedActionId = controller.selectedActionId;
           return ListView(
             padding: const EdgeInsets.all(20),
             children: <Widget>[
@@ -62,140 +440,541 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               Text(
                 widget.mode == AppExperienceMode.syntheticDemo
                     ? '浏览器演示只在当前页面内存运行，刷新或关闭页面后清空。'
-                        '外部 Agent 只提交建议，接受、执行和结果始终由你确认。'
-                    : '手机保存资产、策略和真实反馈；外部 Agent 只提交建议，'
+                        '外部 AI 助手只提交建议，接受、执行和结果始终由你确认。'
+                    : '手机保存资产、策略和真实反馈；外部 AI 助手只提交建议，'
                         '接受、执行和结果始终由你确认。',
               ),
               const SizedBox(height: 16),
               _StatusCard(controller: controller),
+              _LoopProgressCard(controller: controller),
+              const SizedBox(height: 12),
+              if (controller.personalGoal == null)
+                Card(
+                  key: const Key('personal-context-form'),
+                  child: ExpansionTile(
+                    key: ValueKey<bool>(controller.hasSession),
+                    initiallyExpanded: !controller.hasSession,
+                    title: const Text('目标和个人条件'),
+                    children: <Widget>[
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Text(
+                              '先保存这轮目标和个人条件',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 8),
+                            TextField(
+                              key: const Key('personal-goal-input'),
+                              controller: _goal,
+                              enabled: !busy,
+                              maxLength: 4000,
+                              decoration:
+                                  const InputDecoration(labelText: '这轮目标'),
+                            ),
+                            TextField(
+                              key: const Key('personal-success-input'),
+                              controller: _successCriteria,
+                              enabled: !busy,
+                              maxLength: 4000,
+                              decoration: const InputDecoration(
+                                labelText: '怎样算完成（可选）',
+                              ),
+                            ),
+                            TextField(
+                              key: const Key('personal-state-input'),
+                              controller: _currentState,
+                              enabled: !busy,
+                              maxLength: 4000,
+                              maxLines: 3,
+                              decoration: const InputDecoration(
+                                labelText: '已有条件或当前情况（可选）',
+                              ),
+                            ),
+                            TextField(
+                              key: const Key('personal-constraints-input'),
+                              controller: _constraints,
+                              enabled: !busy,
+                              maxLength: 4000,
+                              maxLines: 3,
+                              decoration: const InputDecoration(
+                                labelText: '时间、预算和其他约束（可选）',
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            if (widget.mode == AppExperienceMode.syntheticDemo)
+                              TextButton.icon(
+                                key: const Key('load-demo-personal-context'),
+                                onPressed: busy ? null : _loadDemoContext,
+                                icon: const Icon(Icons.science_outlined),
+                                label: const Text('填入演示资料'),
+                              ),
+                            FilledButton.icon(
+                              key: const Key('save-personal-context'),
+                              onPressed: busy ? null : _savePersonalContext,
+                              icon: const Icon(Icons.save_outlined),
+                              label: const Text('保存目标与个人上下文'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                _PersonalContextCard(controller: controller),
+              if (widget.replyInbox?.replyQueueStorageUnavailable ?? false)
+                const Card(
+                  key: Key('agent-reply-storage-warning'),
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text(
+                      '本机加密收件箱暂不可用。已有回复不会被自动删除；'
+                      '新回复可能无法保存，请先处理当前可见回复，必要时回到助手重新分享。',
+                    ),
+                  ),
+                ),
+              if (!(widget.replyInbox?.hasPendingReply ?? false) &&
+                  (widget.replyInbox?.droppedReplyCount ?? 0) > 0)
+                Card(
+                  key: const Key('agent-reply-overflow-note'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          '收件箱容量不足或保存失败，${widget.replyInbox!.droppedReplyCount} 条新回复未保留，'
+                          '请回到发送回复的助手重新分享。',
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed:
+                                widget.replyInbox!.clearDroppedReplyNotice,
+                            child: const Text('知道了'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              if (!controller.hasSession &&
+                  (widget.replyInbox?.hasPendingReply ?? false))
+                Card(
+                  key: const Key('orphaned-agent-reply'),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          '收到了一条助手回复，但没有找到原协作会话。',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          '为避免把回复放进错误会话，请先丢弃这条回复，再重新开始协作并发送最新上下文。',
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            key: const Key('discard-orphaned-agent-reply'),
+                            onPressed: () => unawaited(
+                              widget.replyInbox!.clearPendingReply(),
+                            ),
+                            icon: const Icon(Icons.delete_outline),
+                            label: const Text('丢弃回复'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               const SizedBox(height: 16),
               TextField(
-                key: const Key('agent-id-input'),
-                controller: _agentId,
+                key: const Key('assistant-name-input'),
+                controller: _assistantName,
                 enabled: !busy && !controller.hasSession,
                 decoration: const InputDecoration(
-                  labelText: 'Agent / Harness ID',
-                  hintText: '例如 codex-cli、claude-code 或 my-harness',
+                  labelText: 'AI 助手名称（可选）',
+                  hintText: '例如：ChatGPT、Codex、Claude 或本地助手',
+                  helperText: '可填写任何助手或 Harness 名称；无需专门适配。',
                 ),
               ),
               const SizedBox(height: 8),
               FilledButton.icon(
                 key: const Key('open-agent-session'),
-                onPressed: busy || controller.hasSession
+                onPressed: busy ||
+                        controller.hasSession ||
+                        (widget.replyInbox?.hasPendingReply ?? false)
                     ? null
-                    : () => controller.openOfflineSession(
-                          agentId: _agentId.text,
-                        ),
+                    : _startAgentSession,
                 icon: const Icon(Icons.link),
-                label: const Text('创建离线 Agent 会话'),
+                label: const Text('开始协作并准备上下文'),
               ),
-              if (controller.sessionId case final sessionId?) ...<Widget>[
-                const SizedBox(height: 8),
-                SelectableText('Session ID: $sessionId'),
-                const SizedBox(height: 8),
-                FilledButton.tonalIcon(
-                  key: const Key('export-context'),
-                  onPressed: busy ? null : controller.exportContext,
-                  icon: const Icon(Icons.upload_file),
-                  label: const Text('导出 Context Bundle'),
-                ),
-                if (controller.contextBundle case final bundle?) ...<Widget>[
-                  const SizedBox(height: 8),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: SelectableText(
-                        bundle,
-                        key: const Key('context-bundle-output'),
-                        maxLines: 10,
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      key: const Key('copy-context-bundle'),
-                      onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: bundle));
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Context Bundle 已复制')),
-                        );
-                      },
-                      icon: const Icon(Icons.copy),
-                      label: const Text('复制给外部 Agent'),
-                    ),
-                  ),
-                ],
+              if (controller.hasSession) ...<Widget>[
                 const SizedBox(height: 16),
-
-                TextField(
-                  key: const Key('review-bundle-input'),
-                  controller: _review,
-                  minLines: 5,
-                  maxLines: 12,
-                  decoration: const InputDecoration(
-                    labelText: 'Review Bundle JSON（可选）',
-                    hintText: '粘贴 Agent 对已有策略、执行和结果的结构化复盘',
-                    alignLabelWithHint: true,
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Text(
+                          '协作会话：${controller.agentId}',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        if (controller.contextBundle == null)
+                          const Text('正在准备协作内容…')
+                        else ...<Widget>[
+                          const Text(
+                            '每次发送或复制都会自动准备最新上下文。可选择系统分享，'
+                            '或复制后粘贴到常用助手；助手回复可以直接分享回来，也可以粘贴到下方。',
+                          ),
+                          const SizedBox(height: 12),
+                          FilledButton.tonalIcon(
+                            key: const Key('copy-agent-handoff'),
+                            onPressed: busy || !controller.canRequestAgent
+                                ? null
+                                : () => _copyHandoff(context),
+                            icon: const Icon(Icons.copy),
+                            label: const Text('复制协作内容'),
+                          ),
+                          if (widget.mode == AppExperienceMode.secureVault)
+                            OutlinedButton.icon(
+                              key: const Key('share-agent-handoff'),
+                              onPressed: busy || !controller.canRequestAgent
+                                  ? null
+                                  : () => _shareHandoff(context),
+                              icon: const Icon(Icons.ios_share),
+                              label: const Text('选择 AI 助手发送'),
+                            ),
+                        ],
+                        if (widget.replyInbox?.hasPendingReply ?? false)
+                          Card(
+                            key: const Key('received-agent-reply-note'),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .secondaryContainer,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    <String>[
+                                      '收到的回复暂存在本机加密收件箱中，不会自动导入。'
+                                          '检查后再手动导入；导入的建议仍需你单独接受。',
+                                      if ((widget.replyInbox
+                                                  ?.queuedReplyCount ??
+                                              0) >
+                                          0)
+                                        '另有 ${widget.replyInbox!.queuedReplyCount} 条回复等待处理。',
+                                      if ((widget.replyInbox
+                                                  ?.droppedReplyCount ??
+                                              0) >
+                                          0)
+                                        '收件箱容量不足或保存失败，${widget.replyInbox!.droppedReplyCount} 条新回复未保留，请回到发送回复的助手重新分享。',
+                                    ].join(' '),
+                                  ),
+                                  if ((widget.replyInbox?.droppedReplyCount ??
+                                          0) >
+                                      0)
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton(
+                                        onPressed: widget.replyInbox!
+                                            .clearDroppedReplyNotice,
+                                        child: const Text('知道了'),
+                                      ),
+                                    ),
+                                  ValueListenableBuilder<TextEditingValue>(
+                                    valueListenable: _agentReply,
+                                    builder: (context, value, _) {
+                                      final reply =
+                                          widget.replyInbox?.pendingReply;
+                                      if (reply == null ||
+                                          value.text == reply) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      return Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: TextButton.icon(
+                                          key: const Key(
+                                            'load-received-agent-reply',
+                                          ),
+                                          onPressed: () =>
+                                              _loadReceivedAgentReply(context),
+                                          icon: const Icon(Icons.content_paste),
+                                          label: Text(
+                                            value.text.isEmpty
+                                                ? '放入输入框'
+                                                : '用收到的回复替换当前输入',
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton.icon(
+                                      key: const Key(
+                                        'discard-received-agent-reply',
+                                      ),
+                                      onPressed: () async {
+                                        final reply =
+                                            widget.replyInbox?.pendingReply;
+                                        _loadedInboxReply = null;
+                                        if (_agentReply.text == reply) {
+                                          _agentReply.clear();
+                                        }
+                                        await widget.replyInbox
+                                            ?.clearPendingReply();
+                                      },
+                                      icon: const Icon(Icons.delete_outline),
+                                      label: const Text('丢弃回复'),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: <Widget>[
+                            TextButton.icon(
+                              key: const Key('paste-agent-reply'),
+                              onPressed: busy ? null : _pasteAgentReply,
+                              icon: const Icon(Icons.content_paste),
+                              label: const Text('粘贴助手回复'),
+                            ),
+                            if (widget.mode == AppExperienceMode.syntheticDemo)
+                              TextButton.icon(
+                                key: const Key('fill-demo-agent-reply'),
+                                onPressed: busy || !controller.canRequestAgent
+                                    ? null
+                                    : _fillDemoReply,
+                                icon: const Icon(Icons.science_outlined),
+                                label: const Text('填入演示回复'),
+                              ),
+                          ],
+                        ),
+                        TextField(
+                          key: const Key('agent-reply-input'),
+                          controller: _agentReply,
+                          minLines: 4,
+                          maxLines: 10,
+                          decoration: InputDecoration(
+                            labelText: 'AI 助手的回复',
+                            hintText: '可从助手分享回来，也可粘贴完整回复',
+                            helperText:
+                                widget.replyInbox?.hasPendingReply ?? false
+                                    ? '收到了一条回复；检查后再手动导入。'
+                                    : null,
+                            alignLabelWithHint: true,
+                          ),
+                        ),
+                        if (_showFormatRepairActions) ...<Widget>[
+                          const SizedBox(height: 12),
+                          Card(
+                            key: const Key('agent-reply-format-repair'),
+                            color:
+                                Theme.of(context).colorScheme.tertiaryContainer,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    '不用手动修改 JSON',
+                                    style:
+                                        Theme.of(context).textTheme.titleSmall,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    '让原助手基于最新上下文重新生成，'
+                                    '应用会保留这条回复并说明需要修正的格式。',
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: <Widget>[
+                                      FilledButton.tonalIcon(
+                                        key: const Key(
+                                          'copy-agent-repair-request',
+                                        ),
+                                        onPressed: busy
+                                            ? null
+                                            : () => _copyFormatRepairRequest(
+                                                  context,
+                                                ),
+                                        icon: const Icon(Icons.copy),
+                                        label: const Text('复制格式修正请求'),
+                                      ),
+                                      if (_canUseSystemShare)
+                                        OutlinedButton.icon(
+                                          key: const Key(
+                                            'share-agent-repair-request',
+                                          ),
+                                          onPressed: busy
+                                              ? null
+                                              : () => _shareFormatRepairRequest(
+                                                    context,
+                                                  ),
+                                          icon: const Icon(Icons.ios_share),
+                                          label: const Text('发送给助手修正'),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        FilledButton.icon(
+                          key: const Key('import-agent-reply'),
+                          onPressed: busy ? null : _importAgentReply,
+                          icon: const Icon(Icons.auto_awesome),
+                          label: const Text('识别并导入建议'),
+                        ),
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          key: const Key('close-agent-session'),
+                          onPressed: busy || !controller.canCloseSession
+                              ? null
+                              : _closeAgentSession,
+                          icon: const Icon(Icons.swap_horiz),
+                          label: const Text('结束协作并切换助手'),
+                        ),
+                        if (!controller.canCloseSession &&
+                            controller.strategyId != null)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 8),
+                            child: Text(
+                              '先记录实际结果或拒绝当前策略，就能切换助手。',
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 8),
-                FilledButton.tonal(
-                  key: const Key('import-review'),
-                  onPressed: busy
-                      ? null
-                      : () => controller.importReview(_review.text),
-                  child: const Text('验证并导入待确认复盘'),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  key: const Key('proposal-bundle-input'),
-                  controller: _proposal,
-                  minLines: 6,
-                  maxLines: 14,
-                  decoration: const InputDecoration(
-                    labelText: 'Proposal Bundle JSON',
-                    hintText: '粘贴外部 Agent 返回的 personal-os.mcp.v0 提案',
-                    alignLabelWithHint: true,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                FilledButton.tonal(
-                  key: const Key('import-proposal'),
-                  onPressed: busy
-                      ? null
-                      : () => controller.importProposal(_proposal.text),
-                  child: const Text('验证并导入待确认策略'),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  key: const Key('close-agent-session'),
-                  onPressed:
-                      busy || !controller.canCloseSession
+                ExpansionTile(
+                  key: const Key('advanced-agent-options'),
+                  title: const Text('高级 / 兼容模式'),
+                  subtitle: const Text('手动导入 Bundle、查看原始上下文或技术信息'),
+                  children: <Widget>[
+                    if (controller.contextBundle
+                        case final bundle?) ...<Widget>[
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Context Bundle',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.outlineVariant,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: SelectableText(
+                            bundle,
+                            key: const Key('context-bundle-output'),
+                            maxLines: 10,
+                          ),
+                        ),
+                      ),
+                      FilledButton.tonalIcon(
+                        key: const Key('export-context'),
+                        onPressed: busy ? null : controller.exportContext,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('重新准备协作上下文'),
+                      ),
+                    ],
+                    TextField(
+                      key: const Key('review-bundle-input'),
+                      controller: _review,
+                      minLines: 4,
+                      maxLines: 10,
+                      decoration: const InputDecoration(
+                        labelText: '手动导入 Review Bundle',
+                        hintText: '粘贴结构化复盘 JSON',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    FilledButton.tonal(
+                      key: const Key('import-review'),
+                      onPressed: busy
                           ? null
-                          : controller.closeSession,
-                  icon: const Icon(Icons.swap_horiz),
-                  label: const Text('结束会话并交给下一个 Harness'),
+                          : () => controller.importReview(_review.text),
+                      child: const Text('验证并导入复盘'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      key: const Key('proposal-bundle-input'),
+                      controller: _proposal,
+                      minLines: 4,
+                      maxLines: 10,
+                      decoration: const InputDecoration(
+                        labelText: '手动导入 Proposal Bundle',
+                        hintText: '粘贴结构化策略 JSON',
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    FilledButton.tonal(
+                      key: const Key('import-proposal'),
+                      onPressed: busy
+                          ? null
+                          : () => controller.importProposal(_proposal.text),
+                      child: const Text('验证并导入策略'),
+                    ),
+                    const SizedBox(height: 12),
+                    SelectableText(
+                      'Session ID: ${controller.sessionId}',
+                      key: const Key('advanced-session-id'),
+                    ),
+                    if (controller.strategyId case final id?)
+                      Text('Strategy ID: $id'),
+                    if (controller.executionId case final id?)
+                      Text('Execution ID: $id'),
+                    if (controller.outcomeId case final id?)
+                      Text('Outcome ID: $id'),
+                    if (controller.reviewId case final id?)
+                      Text('Review ID: $id (${controller.reviewState})'),
+                    if (controller.proposalEvidenceRefs.isNotEmpty)
+                      Text(
+                        '引用：${controller.proposalEvidenceRefs.join(', ')}',
+                      ),
+                    if (controller.reviewEvidenceRefs.isNotEmpty)
+                      Text(
+                        '复盘证据：${controller.reviewEvidenceRefs.join(', ')}',
+                      ),
+                  ],
                 ),
                 if (!controller.canCloseSession &&
                     controller.strategyId != null)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 8),
-                    child: Text('完成结果记录或拒绝策略后，才能切换 Harness。'),
-                  ),
+                  const SizedBox(height: 8),
               ],
-
+              const SizedBox(height: 16),
               if (controller.reviewId != null) ...<Widget>[
                 const SizedBox(height: 20),
                 Text(
-                  '策略复盘（${controller.reviewState}）',
+                  '策略复盘（${_reviewStateText(controller.reviewState)}）',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 8),
@@ -207,11 +986,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                       children: <Widget>[
                         Text(controller.reviewSummary ?? '无复盘摘要'),
                         if (controller.reviewConclusion case final conclusion?)
-                          Text('结论：$conclusion'),
-                        if (controller.reviewEvidenceRefs.isNotEmpty)
-                          Text(
-                            '证据：${controller.reviewEvidenceRefs.join(', ')}',
-                          ),
+                          Text('结论：${_reviewConclusionText(conclusion)}'),
                       ],
                     ),
                   ),
@@ -225,7 +1000,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                           key: const Key('accept-review'),
                           onPressed: busy
                               ? null
-                              : () => controller.decideReview(
+                              : () => _decideReview(
                                     ReviewDecision.accept,
                                   ),
                           child: const Text('接受复盘'),
@@ -237,7 +1012,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                           key: const Key('reject-review'),
                           onPressed: busy
                               ? null
-                              : () => controller.decideReview(
+                              : () => _decideReview(
                                     ReviewDecision.reject,
                                   ),
                           child: const Text('拒绝复盘'),
@@ -263,12 +1038,6 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                         Text(controller.proposalTitle ?? '未命名策略'),
                         if (controller.proposalRationale case final rationale?)
                           Text('修改理由：$rationale'),
-                        if (controller.parentStrategyRef case final parent?)
-                          Text('父策略：$parent'),
-                        if (controller.proposalEvidenceRefs.isNotEmpty)
-                          Text(
-                            '引用：${controller.proposalEvidenceRefs.join(', ')}',
-                          ),
                       ],
                     ),
                   ),
@@ -312,22 +1081,64 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
               ],
               if (controller.canRecordExecution) ...<Widget>[
                 const SizedBox(height: 20),
-                TextField(
-                  key: const Key('action-id-input'),
-                  controller: _actionId,
-                  decoration: const InputDecoration(labelText: 'Action ID'),
-                ),
+                const Text('选择你实际完成的行动，再记录执行情况。'),
                 const SizedBox(height: 8),
-                FilledButton.tonal(
-                  key: const Key('record-execution'),
-                  onPressed: busy
-                      ? null
-                      : () => controller.recordExecution(
-                            actionId: _actionId.text,
-                            executionStatus: ExecutionStatus.completed,
-                          ),
-                  child: const Text('记录为已完成'),
-                ),
+                if (controller.strategyActions.isEmpty)
+                  const Text(
+                    '当前策略没有可识别的行动，暂时无法安全记录执行。'
+                    '请重新导入一份包含行动内容的策略建议。',
+                  )
+                else ...<Widget>[
+                  if (controller.strategyActions.length == 1)
+                    Text(
+                      '本次记录：${controller.strategyActions.single.instruction}',
+                      key: const Key('selected-execution-action'),
+                    )
+                  else
+                    InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: '你完成了哪一步？',
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          key: const Key('execution-action-picker'),
+                          value: selectedActionId,
+                          hint: const Text('请选择实际完成的行动'),
+                          isExpanded: true,
+                          items: controller.strategyActions
+                              .map(
+                                (action) => DropdownMenuItem<String>(
+                                  value: action.id,
+                                  child: Text(
+                                    action.instruction,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: busy
+                              ? null
+                              : (actionId) {
+                                  if (actionId != null) {
+                                    controller.selectAction(actionId);
+                                  }
+                                },
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                  FilledButton.tonal(
+                    key: const Key('record-execution'),
+                    onPressed: busy || selectedActionId == null
+                        ? null
+                        : () => controller.recordExecution(
+                              actionId: selectedActionId,
+                              executionStatus: ExecutionStatus.completed,
+                            ),
+                    child: const Text('记录行动已完成'),
+                  ),
+                ],
               ],
               if (controller.canRecordOutcome) ...<Widget>[
                 const SizedBox(height: 20),
@@ -343,12 +1154,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                 const SizedBox(height: 8),
                 FilledButton(
                   key: const Key('record-outcome'),
-                  onPressed: busy
-                      ? null
-                      : () => controller.recordOutcome(
-                            observation: _outcome.text,
-                            valence: OutcomeValence.mixed,
-                          ),
+                  onPressed: busy ? null : _recordOutcome,
                   child: const Text('保存真实反馈'),
                 ),
               ],
@@ -356,6 +1162,112 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
           );
         },
       );
+}
+
+final class _LoopProgressCard extends StatelessWidget {
+  const _LoopProgressCard({required this.controller});
+
+  final StrategyLoopController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final String next;
+    if (controller.personalGoal == null) {
+      next = '保存目标、已有条件和约束。';
+    } else if (!controller.hasSession) {
+      next = '选择常用 AI 助手并开始协作。';
+    } else if (controller.hasPendingProposal) {
+      next = '检查助手的策略，决定是否接受。';
+    } else if (controller.canActivate) {
+      next = '激活策略，开始执行具体行动。';
+    } else if (controller.outcomeId == null && controller.canRecordExecution) {
+      next =
+          controller.executionId == null ? '执行当前行动并记录完成情况。' : '记录本次实际结果，供助手复盘。';
+    } else if (controller.hasPendingReview) {
+      next = '检查复盘，决定是否接受。';
+    } else if (controller.contextBundle != null &&
+        agentHandoffStage(
+              controller.contextBundle!,
+              strategyId: controller.strategyId,
+            ) ==
+            AgentHandoffStage.revision) {
+      next = '复制最新上下文，让当前或另一位助手提出下一轮策略。';
+    } else if (controller.outcomeId != null) {
+      next = '把执行和结果交给助手，带回本轮复盘。';
+    } else {
+      next = '复制协作内容到常用 AI，再粘贴它的回复。';
+    }
+    return Card(
+      key: const Key('strategy-loop-next-step'),
+      color: Theme.of(context).colorScheme.primaryContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              controller.parentStrategyRef == null ? '本轮策略' : '下一轮策略 · 已接续历史',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            if (controller.proposalTitle case final title?) Text(title),
+            const SizedBox(height: 8),
+            Text('下一步：$next'),
+            const SizedBox(height: 8),
+            const Text('目标与条件 → AI 建议 → 确认执行 → 结果 → 复盘 → 下一轮'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+final class _PersonalContextCard extends StatelessWidget {
+  const _PersonalContextCard({required this.controller});
+
+  final StrategyLoopController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final records = controller.contextRecords;
+    int count(String type) => records
+        .where((record) => (record['ref'] as Map)['type'] == type)
+        .length;
+    return Card(
+      key: const Key('structured-personal-context'),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              '应用替你保留的个人上下文',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text('目标：${controller.personalGoal}'),
+            for (final record in records)
+              if (<String>{'personal_asset', 'constraint'}
+                  .contains((record['ref'] as Map)['type']))
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    '${(record['data'] as Map)['title']}：'
+                    '${(record['data'] as Map)['content']}',
+                  ),
+                ),
+            const SizedBox(height: 8),
+            Text(
+              '策略版本 ${count('strategy')} · 执行记录 ${count('execution')} · '
+              '结果 ${count('outcome')} · 复盘 ${count('review')}',
+              key: const Key('strategy-history-summary'),
+            ),
+            const SizedBox(height: 4),
+            const Text('更换助手后仍会带上这些历史；助手建议与实际执行分开保存。'),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 final class _StatusCard extends StatelessWidget {
@@ -370,13 +1282,7 @@ final class _StatusCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text('状态：${controller.strategyState ?? '尚未导入策略'}'),
-              Text('Harness：${controller.agentId}'),
-              if (controller.strategyId case final id?) Text('Strategy: $id'),
-              if (controller.executionId case final id?) Text('Execution: $id'),
-              if (controller.outcomeId case final id?) Text('Outcome: $id'),
-              if (controller.reviewId case final id?)
-                Text('Review: $id (${controller.reviewState})'),
+              Text('当前状态：${_strategyStateText(controller.strategyState)}'),
               if (controller.errorCode case final error?)
                 Text(
                   _strategyErrorText(error),
@@ -393,45 +1299,70 @@ final class _StatusCard extends StatelessWidget {
       );
 }
 
+String _strategyStateText(String? state) => switch (state) {
+      'proposed' => '等待你确认建议',
+      'accepted' => '策略已确认',
+      'active' => '正在执行',
+      'completed' => '已完成',
+      'abandoned' => '已停止',
+      _ => '尚未导入策略',
+    };
+
+String _reviewStateText(String? state) => switch (state) {
+      'draft' => '等待你确认',
+      'accepted' => '已接受',
+      'rejected' => '已拒绝',
+      _ => '处理中',
+    };
+
+String _reviewConclusionText(String conclusion) => switch (conclusion) {
+      'effective' => '有效',
+      'ineffective' => '效果不佳',
+      'inconclusive' => '暂时无法判断',
+      'executionInsufficient' => '执行证据不足',
+      _ => conclusion,
+    };
+
 String _strategyErrorText(String code) => switch (code) {
       'strategy.session_already_open' => '当前已有会话，请先结束当前会话。',
-      'strategy.agent_id_invalid' => 'Agent / Harness ID 必须为 1–100 个字符。',
-      'strategy.session_required' => '请先创建离线 Agent 会话。',
+      'strategy.agent_id_invalid' => '助手名称需为 1–100 个字符，请缩短后重试。',
+      'strategy.session_required' => '请先开始与 AI 助手协作。',
       'strategy.loop_must_finish_before_handoff' =>
-        '请先记录本次行动的实际结果，再切换到其他 Harness。',
-      'strategy.session_or_review_bundle_required' =>
-        '请先创建会话，再粘贴 Review Bundle。',
+        '先完成当前策略并记录实际结果，或拒绝待确认的建议，之后才能切换助手。',
+      'strategy.session_or_review_bundle_required' => '请先开始协作，再粘贴 AI 助手的回复。',
       'strategy.pending_review_required' => '当前没有等待确认的复盘。',
       'strategy.accepted_review_required' => '修订策略前请先导入并接受一份复盘。',
-      'strategy.session_or_bundle_required' =>
-        '请先创建会话，再粘贴 Proposal Bundle。',
+      'strategy.session_or_bundle_required' => '请先开始协作，再粘贴 AI 助手的回复。',
       'strategy.pending_proposal_required' => '当前没有等待确认的策略。',
       'strategy.accepted_strategy_required' => '请先确认策略，再激活执行。',
       'strategy.active_strategy_required' => '请先激活策略，再记录执行。',
-      'strategy.action_required' => '请输入有效的 Action ID。',
-      'strategy.execution_or_observation_required' =>
-        '请先记录执行，并填写实际结果或观察。',
-      'strategy.restore_ambiguous_open_sessions' =>
-        '发现多个未完成的策略会话，无法安全恢复。',
+      'strategy.action_required' => '当前没有可记录的行动，请检查策略后重试。',
+      'strategy.action_selection_required' => '请先选择你实际完成的行动。',
+      'strategy.action_not_in_strategy' => '该行动不属于当前策略，请从策略步骤中重新选择。',
+      'strategy.action_selection_mismatch' => '行动选择已变化，请重新选择后再记录。',
+      'strategy.execution_or_observation_required' => '请先记录执行，并填写实际结果或观察。',
+      'strategy.restore_ambiguous_open_sessions' => '发现多个未完成的策略会话，无法安全恢复。',
       'strategy.restore_malformed_state' => '策略历史无法恢复，请检查本地记录。',
       'strategy.unexpected_failure' => '策略操作暂时无法完成，请稍后重试。',
-      'invalid_request' || 'validation_failed' =>
-        'Bundle 内容无效，请检查 JSON 格式和必填字段。',
-      'unsupported_version' =>
-        'Bundle 版本不受支持，请使用 personal-os.mcp.v0 格式。',
-      'unpinned_reference' || 'strategy_loop.pinned_reference_required' =>
-        'Bundle 引用缺少固定版本信息，请重新导出 Context Bundle。',
-      'session_closed' => '会话已结束，请新建会话后再继续。',
-      'access_denied' => '当前会话权限不足，请重新创建会话后重试。',
-      'not_found' => 'Bundle 引用的数据不存在，请重新导出 Context Bundle。',
-      'stale_reference' => 'Bundle 引用的状态已过期，请重新导出后再试。',
+      'strategy.context_too_large' => '个人历史过大，暂时无法完整准备上下文；请勿使用不完整的内容继续协作。',
+      'invalid_request' ||
+      'validation_failed' =>
+        '这份建议暂时无法导入。请重新复制完整回复，让助手再生成一次。',
+      'unsupported_version' => '这份建议与当前版本不兼容。请重新复制协作内容，再让助手生成。',
+      'unpinned_reference' ||
+      'strategy_loop.pinned_reference_required' =>
+        '建议引用的资料版本不完整。请重新准备协作内容，再试一次。',
+      'session_closed' => '这轮协作已结束，请开始新一轮。',
+      'access_denied' => '助手回复与当前协作不匹配。请复制最新协作内容，再让助手生成。',
+      'not_found' => '建议引用了当前资料中不存在的内容。请让助手只使用提供的上下文。',
+      'stale_reference' => '资料刚刚有更新。请重新准备协作内容，再让助手生成。',
       'internal_error' => '策略服务暂时不可用，请稍后重试。',
       'strategy_loop.invalid_command' => '当前策略状态不允许此操作，请检查步骤顺序。',
       'strategy_loop.user_authority_required' => '此操作需要用户本人确认。',
-      'strategy_loop.agent_authority_required' =>
-        '请使用本次离线 Agent 会话提交建议。',
+      'strategy_loop.agent_authority_required' => '请使用当前 AI 助手协作会话提交建议。',
       'strategy_loop.outcome_authority_denied' => '实际结果只能由用户本人记录。',
-      'strategy_loop.d4_forbidden' || 'feedback.d4_forbidden' =>
+      'strategy_loop.d4_forbidden' ||
+      'feedback.d4_forbidden' =>
         '当前闭环不支持 D4 级敏感资料。',
       _ => '操作未完成，请检查当前步骤后重试。',
     };

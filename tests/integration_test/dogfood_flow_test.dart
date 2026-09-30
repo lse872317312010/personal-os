@@ -28,6 +28,11 @@ void main() {
 
       await tester.tap(find.byKey(const Key('unlock-vault')));
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('开始首次分析'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
       await tester.tap(find.text('开始首次分析'));
       await tester.pumpAndSettle();
 

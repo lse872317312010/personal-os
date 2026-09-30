@@ -150,6 +150,38 @@ Failure codes: `backup_authentication_failed`,
 `backup_tamper_accepted`, `backup_failed`, `recovery_failed`,
 `state_not_restored`.
 
+## Optional M3 agent/Harness compatibility smoke test (not part of G3)
+
+Run this separately from the nine G3 scenarios with a dedicated synthetic profile.
+It does not change the G3 evidence record or contribute to `DEVICE_VERIFIED`.
+If the selected assistant needs network access, do this after the offline scenario.
+Do not retain the prompt, reply body, or screenshots in evidence.
+
+1. Start a strategy session with a generic assistant/Harness label and share the
+   synthetic Context Bundle through Android's system chooser to any text-capable
+   assistant or Harness.
+2. Share two distinct plain-text test replies back to Personal OS in sequence.
+   Confirm the Vault is locked when the app returns, neither reply body is shown
+   before unlock, and unlocking the original session displays the first reply
+   for review.
+3. Confirm neither reply is imported or accepted automatically. Leave both in
+   the inbox for the restart check; the user remains responsible for importing
+   suggestions and separately accepting them.
+4. Before importing or discarding, force-stop and relaunch Personal OS. Unlock
+   the Vault and confirm the first reply is restored. Explicitly discard it and
+   confirm the second reply appears next. Discard the second reply, relaunch
+   once more, and confirm that neither reply reappears.
+5. If another compatible assistant or Harness is installed, repeat this flow
+   with a fresh synthetic session. Provider-specific setup or SDKs should not be
+   required.
+
+Replies remain in the app-private encrypted FIFO until a successful manual
+import or explicit discard. Locking the Vault clears only the Flutter-visible
+copy; after unlocking, Personal OS can read and display the queued reply again.
+The queue is stored outside Android backup and encrypted with an Android
+Keystore key. This smoke test is separate from the G3 evidence record and must
+not retain the prompt, reply body, or screenshots.
+
 ## Finalization
 
 Validate the completed record:

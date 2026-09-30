@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
+import 'agent_interop/agent_reply_inbox.dart';
 import 'composition/app_composition.dart';
 import 'controller/app_controller.dart';
 import 'controller/encrypted_event_backup_controller.dart';
@@ -78,6 +81,7 @@ final class _PersonalOsAppState extends State<PersonalOsApp>
               controller: controller,
               strategyController: widget.composition.strategyController,
               backupController: widget.composition.backupController,
+              replyInbox: widget.composition.replyInbox,
               mode: widget.composition.mode,
             );
           },
@@ -85,69 +89,134 @@ final class _PersonalOsAppState extends State<PersonalOsApp>
       );
 }
 
-final class _UnlockedShell extends StatelessWidget {
+final class _UnlockedShell extends StatefulWidget {
   const _UnlockedShell({
     required this.controller,
     required this.strategyController,
     required this.backupController,
+    required this.replyInbox,
     required this.mode,
   });
 
   final AppController controller;
   final StrategyLoopController strategyController;
   final EncryptedEventBackupController backupController;
+  final AgentReplyInboxController replyInbox;
   final AppExperienceMode mode;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-        builder: (context, constraints) {
-          final useNavigationRail =
-              constraints.maxWidth >= 900 && constraints.maxHeight >= 560;
-          return Scaffold(
-            appBar: AppBar(
-              title: Text(controller.destination.label),
-              actions: <Widget>[
-                IconButton(
-                  key: const Key('lock-vault'),
-                  tooltip: '锁定 Vault',
-                  onPressed: controller.lockVault,
-                  icon: const Icon(Icons.lock_outline),
-                ),
-              ],
-            ),
-            body: Row(
-              children: <Widget>[
-                if (useNavigationRail)
-                  NavigationRail(
-                    key: const Key('desktop-navigation-rail'),
-                    selectedIndex: _primaryIndex(controller.destination),
-                    labelType: NavigationRailLabelType.all,
-                    onDestinationSelected: (index) =>
-                        controller.navigate(_primaryDestinations[index]),
-                    destinations: _navigationRailDestinations,
+  State<_UnlockedShell> createState() => _UnlockedShellState();
+}
+
+final class _UnlockedShellState extends State<_UnlockedShell> {
+  AppController get controller => widget.controller;
+  StrategyLoopController get strategyController => widget.strategyController;
+  EncryptedEventBackupController get backupController =>
+      widget.backupController;
+  AgentReplyInboxController get replyInbox => widget.replyInbox;
+  AppExperienceMode get mode => widget.mode;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(replyInbox.receivePendingReply());
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: replyInbox,
+        builder: (context, _) => LayoutBuilder(
+          builder: (context, constraints) {
+            final useNavigationRail =
+                constraints.maxWidth >= 900 && constraints.maxHeight >= 560;
+            return Scaffold(
+              appBar: AppBar(
+                title: Text(controller.destination.label),
+                actions: <Widget>[
+                  IconButton(
+                    key: const Key('lock-vault'),
+                    tooltip: '锁定 Vault',
+                    onPressed: controller.lockVault,
+                    icon: const Icon(Icons.lock_outline),
                   ),
-                Expanded(
-                  child: Center(
-                    child: ConstrainedBox(
-                      key: const Key('responsive-content-frame'),
-                      constraints: const BoxConstraints(maxWidth: 960),
-                      child: _buildPageBody(),
+                ],
+              ),
+              body: Column(
+                children: <Widget>[
+                  if ((replyInbox.hasPendingReply ||
+                          replyInbox.droppedReplyCount > 0 ||
+                          replyInbox.replyQueueStorageUnavailable) &&
+                      controller.destination != AppDestination.strategy)
+                    MaterialBanner(
+                      key: const Key('incoming-agent-reply-banner'),
+                      content: Text(_agentReplyInboxMessage(replyInbox)),
+                      actions: <Widget>[
+                        if (replyInbox.hasPendingReply) ...<Widget>[
+                          TextButton(
+                            onPressed: () =>
+                                controller.navigate(AppDestination.strategy),
+                            child: const Text('查看回复'),
+                          ),
+                          TextButton(
+                            onPressed: () async {
+                              await replyInbox.clearPendingReply();
+                            },
+                            child: const Text('丢弃'),
+                          ),
+                        ],
+                        if (!replyInbox.hasPendingReply &&
+                            replyInbox.replyQueueStorageUnavailable)
+                          TextButton(
+                            onPressed: () =>
+                                controller.navigate(AppDestination.strategy),
+                            child: const Text('查看收件箱状态'),
+                          ),
+                        if (replyInbox.droppedReplyCount > 0)
+                          TextButton(
+                            onPressed: replyInbox.clearDroppedReplyNotice,
+                            child: const Text('知道了'),
+                          ),
+                      ],
+                    ),
+                  Expanded(
+                    child: Row(
+                      children: <Widget>[
+                        if (useNavigationRail)
+                          NavigationRail(
+                            key: const Key('desktop-navigation-rail'),
+                            selectedIndex:
+                                _primaryIndex(controller.destination),
+                            labelType: NavigationRailLabelType.all,
+                            onDestinationSelected: (index) => controller
+                                .navigate(_primaryDestinations[index]),
+                            destinations: _navigationRailDestinations,
+                          ),
+                        Expanded(
+                          child: Center(
+                            child: ConstrainedBox(
+                              key: const Key('responsive-content-frame'),
+                              constraints: const BoxConstraints(maxWidth: 960),
+                              child: _buildPageBody(),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-            bottomNavigationBar: useNavigationRail
-                ? null
-                : NavigationBar(
-                    key: const Key('mobile-navigation-bar'),
-                    selectedIndex: _primaryIndex(controller.destination),
-                    onDestinationSelected: (index) =>
-                        controller.navigate(_primaryDestinations[index]),
-                    destinations: _navigationBarDestinations,
-                  ),
-          );
-        },
+                ],
+              ),
+              bottomNavigationBar: useNavigationRail
+                  ? null
+                  : NavigationBar(
+                      key: const Key('mobile-navigation-bar'),
+                      selectedIndex: _primaryIndex(controller.destination),
+                      onDestinationSelected: (index) =>
+                          controller.navigate(_primaryDestinations[index]),
+                      destinations: _navigationBarDestinations,
+                    ),
+            );
+          },
+        ),
       );
 
   Widget _buildPageBody() => Column(
@@ -170,6 +239,7 @@ final class _UnlockedShell extends StatelessWidget {
               AppDestination.plan => PlanScreen(controller: controller),
               AppDestination.strategy => StrategyLoopScreen(
                   controller: strategyController,
+                  replyInbox: replyInbox,
                   mode: mode,
                 ),
               AppDestination.tasks => TaskScreen(controller: controller),
@@ -202,6 +272,20 @@ final class _SyntheticPreviewNotice extends StatelessWidget {
       ),
     );
   }
+}
+
+String _agentReplyInboxMessage(AgentReplyInboxController inbox) {
+  final messages = <String>[
+    if (inbox.hasPendingReply) '收到一条 AI 助手回复。内容暂存在本机加密收件箱中，查看后由你决定是否导入。',
+    if (inbox.queuedReplyCount > 0) '另有 ${inbox.queuedReplyCount} 条回复等待处理。',
+    if (inbox.droppedReplyCount > 0)
+      '收件箱容量不足或保存失败，${inbox.droppedReplyCount} 条新回复未保留，'
+          '请回到发送回复的助手重新分享。',
+    if (inbox.replyQueueStorageUnavailable)
+      '本机加密收件箱暂不可用。已有回复不会被自动删除；新回复可能无法保存，'
+          '请先处理当前可见回复，必要时回到助手重新分享。',
+  ];
+  return messages.join(' ');
 }
 
 const _primaryDestinations = <AppDestination>[
