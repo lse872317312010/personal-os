@@ -519,89 +519,100 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                 ),
               ],
               const SizedBox(height: 12),
-              if (controller.personalGoal == null &&
-                  controller.strategyId == null)
-                Card(
-                  key: const Key('personal-context-form'),
-                  child: ExpansionTile(
-                    key: ValueKey<bool>(controller.hasSession),
-                    initiallyExpanded: !controller.hasSession,
-                    title: const Text('目标和个人条件'),
-                    children: <Widget>[
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              '先保存这轮目标和个人条件',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              key: const Key('personal-goal-input'),
-                              controller: _goal,
-                              enabled: !busy,
-                              maxLength: 4000,
-                              decoration: const InputDecoration(
-                                  labelText: '这轮目标', counterText: ''),
-                            ),
-                            ExpansionTile(
-                              key: const Key('personal-context-options'),
-                              tilePadding: EdgeInsets.zero,
-                              title: const Text('补充个人条件（可选）'),
-                              children: <Widget>[
-                                TextField(
-                                  key: const Key('personal-success-input'),
-                                  controller: _successCriteria,
-                                  enabled: !busy,
-                                  maxLength: 4000,
-                                  decoration: const InputDecoration(
-                                    labelText: '怎样算完成（可选）',
-                                  ),
-                                ),
-                                TextField(
-                                  key: const Key('personal-state-input'),
-                                  controller: _currentState,
-                                  enabled: !busy,
-                                  maxLength: 4000,
-                                  maxLines: 3,
-                                  decoration: const InputDecoration(
-                                    labelText: '已有条件或当前情况（可选）',
-                                  ),
-                                ),
-                                TextField(
-                                  key: const Key('personal-constraints-input'),
-                                  controller: _constraints,
-                                  enabled: !busy,
-                                  maxLength: 4000,
-                                  maxLines: 3,
-                                  decoration: const InputDecoration(
-                                    labelText: '时间、预算和其他约束（可选）',
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            if (widget.mode == AppExperienceMode.syntheticDemo)
-                              TextButton.icon(
-                                key: const Key('load-demo-personal-context'),
-                                onPressed: busy ? null : _loadDemoContext,
-                                icon: const Icon(Icons.science_outlined),
-                                label: const Text('填入演示资料'),
-                              ),
-                            FilledButton.icon(
-                              key: const Key('save-personal-context'),
-                              onPressed: busy ? null : _savePersonalContext,
-                              icon: const Icon(Icons.save_outlined),
-                              label: const Text('保存我的目标'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+              Card(
+                key: const Key('personal-context-form'),
+                child: ExpansionTile(
+                  key: ValueKey<String>(
+                    '${controller.hasSession}:${controller.personalGoal != null}',
                   ),
+                  initiallyExpanded: controller.personalGoal == null &&
+                      controller.strategyId == null &&
+                      !controller.hasSession,
+                  title: Text(controller.personalGoal == null
+                      ? '目标和个人条件'
+                      : '个人资料与历史'),
+                  subtitle: controller.personalGoal == null
+                      ? null
+                      : Text(controller.personalGoal!),
+                  children: <Widget>[
+                    if (controller.personalGoal != null)
+                      _PersonalContextCard(controller: controller),
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            controller.personalGoal == null
+                                ? '先保存这轮目标和个人条件'
+                                : '补充新的目标和个人条件',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            key: const Key('personal-goal-input'),
+                            controller: _goal,
+                            enabled: !busy,
+                            maxLength: 4000,
+                            decoration: const InputDecoration(
+                                labelText: '这轮目标', counterText: ''),
+                          ),
+                          ExpansionTile(
+                            key: const Key('personal-context-options'),
+                            tilePadding: EdgeInsets.zero,
+                            title: const Text('补充个人条件（可选）'),
+                            children: <Widget>[
+                              TextField(
+                                key: const Key('personal-success-input'),
+                                controller: _successCriteria,
+                                enabled: !busy,
+                                maxLength: 4000,
+                                decoration: const InputDecoration(
+                                  labelText: '怎样算完成（可选）',
+                                ),
+                              ),
+                              TextField(
+                                key: const Key('personal-state-input'),
+                                controller: _currentState,
+                                enabled: !busy,
+                                maxLength: 4000,
+                                maxLines: 3,
+                                decoration: const InputDecoration(
+                                  labelText: '已有条件或当前情况（可选）',
+                                ),
+                              ),
+                              TextField(
+                                key: const Key('personal-constraints-input'),
+                                controller: _constraints,
+                                enabled: !busy,
+                                maxLength: 4000,
+                                maxLines: 3,
+                                decoration: const InputDecoration(
+                                  labelText: '时间、预算和其他约束（可选）',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          if (widget.mode == AppExperienceMode.syntheticDemo)
+                            TextButton.icon(
+                              key: const Key('load-demo-personal-context'),
+                              onPressed: busy ? null : _loadDemoContext,
+                              icon: const Icon(Icons.science_outlined),
+                              label: const Text('填入演示资料'),
+                            ),
+                          FilledButton.icon(
+                            key: const Key('save-personal-context'),
+                            onPressed: busy ? null : _savePersonalContext,
+                            icon: const Icon(Icons.save_outlined),
+                            label: const Text('保存我的目标'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
+              ),
               if (widget.replyInbox?.replyQueueStorageUnavailable ?? false)
                 const Card(
                   key: Key('agent-reply-storage-warning'),
@@ -1097,14 +1108,6 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                   ),
                 ),
               ),
-              if (controller.personalGoal != null)
-                ExpansionTile(
-                  key: const Key('personal-history-details'),
-                  title: const Text('个人资料与历史'),
-                  subtitle: Text(controller.personalGoal!),
-                  children: <Widget>[
-                    _PersonalContextCard(controller: controller),
-                  ],
                 ),
             ],
           );
