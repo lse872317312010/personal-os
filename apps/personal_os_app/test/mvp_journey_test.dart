@@ -265,11 +265,11 @@ void main() {
       composition.strategyController.errorCode,
       'strategy.accepted_review_required',
     );
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('strategy-error-message')),
-      -300,
-      scrollable: find.byType(Scrollable).first,
-    );
+    FocusManager.instance.primaryFocus?.unfocus();
+    tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position
+        .jumpTo(0);
     await tester.pumpAndSettle();
     expect(find.text('修订策略前请先导入并接受一份复盘。'), findsOneWidget);
     expect(find.textContaining('invalid_request'), findsNothing);
