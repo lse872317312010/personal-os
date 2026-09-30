@@ -265,6 +265,12 @@ void main() {
       composition.strategyController.errorCode,
       'strategy.accepted_review_required',
     );
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('strategy-error-message')),
+      -300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
     expect(find.text('修订策略前请先导入并接受一份复盘。'), findsOneWidget);
     expect(find.textContaining('invalid_request'), findsNothing);
     expect(
@@ -272,7 +278,11 @@ void main() {
       findsNothing,
     );
 
-    await tester.ensureVisible(find.byKey(const Key('export-context')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('export-context')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('export-context')));
     await tester.pumpAndSettle();
