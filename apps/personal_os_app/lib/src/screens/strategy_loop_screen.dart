@@ -528,9 +528,11 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                   initiallyExpanded: controller.personalGoal == null &&
                       controller.strategyId == null &&
                       !controller.hasSession,
-                  title: Text(controller.personalGoal == null
-                      ? '目标和个人条件'
-                      : '个人资料与历史'),
+                  title: Text(
+                    controller.personalGoal == null
+                        ? '目标和个人条件'
+                        : '个人资料与历史',
+                  ),
                   subtitle: controller.personalGoal == null
                       ? null
                       : Text(controller.personalGoal!),
@@ -1108,7 +1110,6 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                   ),
                 ),
               ),
-                ),
             ],
           );
         },
