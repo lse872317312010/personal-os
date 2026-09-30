@@ -630,20 +630,18 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                           const SizedBox(height: 12),
                           FilledButton.tonalIcon(
                             key: const Key('copy-agent-handoff'),
-                            onPressed:
-                                busy || !controller.canRequestAgent
-                                    ? null
-                                    : () => _copyHandoff(context),
+                            onPressed: busy || !controller.canRequestAgent
+                                ? null
+                                : () => _copyHandoff(context),
                             icon: const Icon(Icons.copy),
                             label: const Text('复制协作内容'),
                           ),
                           if (widget.mode == AppExperienceMode.secureVault)
                             OutlinedButton.icon(
                               key: const Key('share-agent-handoff'),
-                              onPressed:
-                                  busy || !controller.canRequestAgent
-                                      ? null
-                                      : () => _shareHandoff(context),
+                              onPressed: busy || !controller.canRequestAgent
+                                  ? null
+                                  : () => _shareHandoff(context),
                               icon: const Icon(Icons.ios_share),
                               label: const Text('选择 AI 助手发送'),
                             ),
@@ -1148,9 +1146,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                 const SizedBox(height: 8),
                 FilledButton(
                   key: const Key('record-outcome'),
-                  onPressed: busy
-                      ? null
-                      : _recordOutcome,
+                  onPressed: busy ? null : _recordOutcome,
                   child: const Text('保存真实反馈'),
                 ),
               ],
@@ -1177,9 +1173,8 @@ final class _LoopProgressCard extends StatelessWidget {
     } else if (controller.canActivate) {
       next = '激活策略，开始执行具体行动。';
     } else if (controller.outcomeId == null && controller.canRecordExecution) {
-      next = controller.executionId == null
-          ? '执行当前行动并记录完成情况。'
-          : '记录本次实际结果，供助手复盘。';
+      next =
+          controller.executionId == null ? '执行当前行动并记录完成情况。' : '记录本次实际结果，供助手复盘。';
     } else if (controller.hasPendingReview) {
       next = '检查复盘，决定是否接受。';
     } else if (controller.contextBundle != null &&

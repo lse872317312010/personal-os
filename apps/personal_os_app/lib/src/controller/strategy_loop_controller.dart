@@ -99,6 +99,7 @@ final class StrategyLoopController extends ChangeNotifier {
         .map((item) => Map<String, Object?>.from(item as Map))
         .toList(growable: false);
   }
+
   String get agentId => _agentId;
   String? get proposalTitle => _proposalTitle;
   String? get proposalRationale => _proposalRationale;
@@ -121,7 +122,9 @@ final class StrategyLoopController extends ChangeNotifier {
       !hasPendingProposal &&
       !canActivate &&
       !hasPendingReview &&
-      (_strategyId == null || _outcomeId != null || _strategyState == 'abandoned');
+      (_strategyId == null ||
+          _outcomeId != null ||
+          _strategyState == 'abandoned');
   bool get canCloseSession =>
       hasSession &&
       (_strategyId == null ||

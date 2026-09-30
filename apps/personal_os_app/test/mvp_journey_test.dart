@@ -123,11 +123,11 @@ void main() {
       if (viewport.height < 560) continue;
 
       await tester.scrollUntilVisible(
-      find.text('开始首次分析'),
-      300,
-      scrollable: find.byType(Scrollable).first,
-    );
-    await tester.tap(find.text('开始首次分析'));
+        find.text('开始首次分析'),
+        300,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('开始首次分析'));
       await tester.pumpAndSettle();
       expect(find.text('内置合成示例'), findsOneWidget);
       expect(

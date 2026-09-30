@@ -34,7 +34,8 @@ void main() {
     );
   });
 
-  test('personal context is recorded atomically as user-owned objects', () async {
+  test('personal context is recorded atomically as user-owned objects',
+      () async {
     final result = await useCase.recordPersonalContext(
       RecordPersonalContextCommand(
         actor: user,
@@ -56,7 +57,8 @@ void main() {
     ]);
     expect(store.batches.single.first.payload['title'], 'Learn consistently');
     expect(
-      store.batches.single.every((event) => event.actor.actorType == ActorType.user),
+      store.batches.single
+          .every((event) => event.actor.actorType == ActorType.user),
       isTrue,
     );
   });

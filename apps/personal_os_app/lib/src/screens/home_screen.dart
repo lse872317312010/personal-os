@@ -49,7 +49,8 @@ final class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   FilledButton.icon(
                     key: const Key('start-personal-strategy-loop'),
-                    onPressed: () => controller.navigate(AppDestination.strategy),
+                    onPressed: () =>
+                        controller.navigate(AppDestination.strategy),
                     icon: const Icon(Icons.chat_bubble_outline),
                     label: const Text('开始个人策略闭环'),
                   ),
@@ -138,7 +139,8 @@ final class _EncryptedBackupCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (controller.status != EncryptedBackupStatus.idle) ...<Widget>[
+                if (controller.status !=
+                    EncryptedBackupStatus.idle) ...<Widget>[
                   const SizedBox(height: 10),
                   Text(
                     _backupStatusText(controller),

@@ -108,7 +108,8 @@ void main() {
     await controller.savePersonalContext(goal: 'A measurable goal');
     await controller.openOfflineSession(agentId: 'first-agent');
     await controller.exportContext();
-    await controller.importProposal(buildDemoAgentReply(controller.contextBundle!));
+    await controller
+        .importProposal(buildDemoAgentReply(controller.contextBundle!));
     await controller.decideProposal(ProposalDecision.accept);
     await controller.activateStrategy();
     await controller.recordExecution(
@@ -120,7 +121,8 @@ void main() {
       valence: OutcomeValence.mixed,
     );
     await controller.exportContext();
-    await controller.importReview(buildDemoAgentReply(controller.contextBundle!));
+    await controller
+        .importReview(buildDemoAgentReply(controller.contextBundle!));
     await controller.decideReview(ReviewDecision.accept);
     await controller.exportContext();
     final valid = buildDemoAgentReply(controller.contextBundle!);

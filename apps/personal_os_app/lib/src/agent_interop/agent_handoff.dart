@@ -114,8 +114,7 @@ String buildAgentHandoffPrompt(
   final request = switch (context.stage) {
     AgentHandoffStage.proposal => '本次任务：提出一份可执行的首次策略。',
     AgentHandoffStage.review => '本次任务：只复盘已记录的执行和结果，不提出新策略。',
-    AgentHandoffStage.revision =>
-      '本次任务：依据用户已接受的复盘提出下一轮策略，明确说明反馈导致的变化。',
+    AgentHandoffStage.revision => '本次任务：依据用户已接受的复盘提出下一轮策略，明确说明反馈导致的变化。',
   };
   final template = jsonEncode(context.replyTemplate());
 
@@ -194,13 +193,13 @@ String buildDemoAgentReply(String contextBundle, {String? strategyId}) {
     final strategy = reply['strategy'] as Map<String, Object?>;
     final revised = context.stage == AgentHandoffStage.revision;
     strategy['title'] = revised ? '演示策略 v2：缩小行动负担' : '演示策略 v1：开始一个小行动';
-    strategy['rationale'] = revised
-        ? '沿用第一轮目标和已接受的复盘，回应执行负担的反馈。'
-        : '使用已保存的个人条件和约束，先验证一个容易记录的小行动。';
+    strategy['rationale'] =
+        revised ? '沿用第一轮目标和已接受的复盘，回应执行负担的反馈。' : '使用已保存的个人条件和约束，先验证一个容易记录的小行动。';
     strategy['actions'] = <Map<String, Object?>>[
       <String, Object?>{
         'id': revised ? 'demo-action-v2' : 'demo-action-v1',
-        'instruction': revised ? '下一轮用 10 分钟完成一个小行动并记录结果。' : '本轮用 20 分钟完成一个小行动并记录结果。',
+        'instruction':
+            revised ? '下一轮用 10 分钟完成一个小行动并记录结果。' : '本轮用 20 分钟完成一个小行动并记录结果。',
         'success_measure': '记录完成情况、实际耗时和遇到的困难。',
       },
     ];
