@@ -21,3 +21,4 @@ runtime.lock
 services/agent_gateway/web/
 services/agent_gateway/runtime/
 .env.local
+apps/personal_os_app/web/fonts/*.ttf

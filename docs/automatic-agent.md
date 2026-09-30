@@ -21,6 +21,7 @@ For source development, use Node 22+, build the Flutter web app with base href
 ```sh
 cd apps/personal_os_app
 flutter pub get
+python3 ../../tool/prepare_local_web_font.py
 flutter build web --release --base-href / --target lib/main_web_agent.dart
 cd ../..
 cp -R apps/personal_os_app/build/web services/agent_gateway/web
@@ -101,6 +102,11 @@ that the remote provider has no other retention policy.
 The public GitHub Pages site distributes the local app. It cannot itself hold
 personal OAuth tokens or run a private callback service. Do not describe the
 public download page as a live model inference demo.
+
+CanvasKit and the pinned OFL-licensed Noto Sans SC font are included in the
+package and loaded from the same app origin. Startup does not request these
+resources from Google CDNs. The font's unmodified license is included in the
+web build; its exact upstream commit/blob is verified during packaging.
 
 ## Verification scope
 

@@ -11,6 +11,7 @@ on:
       - "pubspec.yaml"
       - "analysis_options.yaml"
       - "services/agent_gateway/**"
+      - "tool/prepare_local_web_font.py"
   push:
     branches: [main]
     paths:
@@ -21,6 +22,7 @@ on:
       - "pubspec.yaml"
       - "analysis_options.yaml"
       - "services/agent_gateway/**"
+      - "tool/prepare_local_web_font.py"
   workflow_dispatch:
 
 permissions:
@@ -49,6 +51,9 @@ jobs:
       - name: Install dependencies
         working-directory: apps/personal_os_app
         run: flutter pub get
+
+      - name: Bundle pinned local Chinese font
+        run: python3 tool/prepare_local_web_font.py
 
       - name: Format, analyze, and run widget suite
         working-directory: apps/personal_os_app

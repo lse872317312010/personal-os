@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/link.dart';
 
 import 'src/agent_interop/automatic_agent_gateway.dart';
@@ -22,6 +25,7 @@ final class _Start extends StatefulWidget {
 final class _StartState extends State<_Start> {
   AppComposition? _app;
   String? _error;
+  bool _fontReady = false;
   @override
   void initState() {
     super.initState();
@@ -29,11 +33,21 @@ final class _StartState extends State<_Start> {
   }
 
   Future<void> _load() async {
-    if (Uri.base.host != '127.0.0.1') {
-      setState(() => _error = '下载并启动本机版，登录你的 ChatGPT。之后计划、复盘和下一轮都在应用内自动完成。');
-      return;
-    }
     try {
+      final font = await http.get(Uri.base.resolve('fonts/NotoSansSC.ttf')).timeout(const Duration(seconds: 30));
+      if (font.statusCode != 200) {
+        throw const FormatException('bundled_font_missing');
+      }
+      final loader = FontLoader('PersonalSC');
+      loader.addFont(Future<ByteData>.value(ByteData.sublistView(font.bodyBytes)));
+      await loader.load();
+      _fontReady = true;
+      if (Uri.base.host != '127.0.0.1') {
+        if (mounted) {
+          setState(() => _error = '下载并启动本机版，登录你的 ChatGPT。之后计划、复盘和下一轮都在应用内自动完成。');
+        }
+        return;
+      }
       final gateway = LocalAutomaticAgentGateway(origin: Uri.base);
       await gateway.status();
       final store = LocalAgentEventStore(gateway);
@@ -43,7 +57,7 @@ final class _StartState extends State<_Start> {
       if (mounted) setState(() => _app = app);
     } on Object {
       if (mounted) {
-        setState(() => _error = '本机服务未启动或历史记录无法读取。请重新启动 Personal OS 本机版。');
+            setState(() => _error = _fontReady ? '本机服务未启动或历史记录无法读取。请重新启动 Personal OS 本机版。' : 'Unable to load app resources. Please restart Personal OS.');
       }
     }
   }
@@ -54,6 +68,7 @@ final class _StartState extends State<_Start> {
       : MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
+              fontFamily: 'PersonalSC',
               colorScheme:
                   ColorScheme.fromSeed(seedColor: const Color(0xff315c4c)),
               useMaterial3: true),
@@ -70,12 +85,12 @@ final class _StartState extends State<_Start> {
                                 const Icon(Icons.auto_awesome,
                                     size: 56, color: Color(0xff315c4c)),
                                 const SizedBox(height: 24),
-                                const Text('Personal OS\nAI 帮你想，你负责行动',
-                                    style: TextStyle(
+                                Text(_fontReady ? 'Personal OS\nAI 帮你想，你负责行动' : 'Personal OS',
+                                    style: const TextStyle(
                                         fontSize: 30,
                                         fontWeight: FontWeight.w700)),
                                 const SizedBox(height: 16),
-                                Text(_error ?? '正在读取本机资料…',
+                                Text(_error ?? 'Loading…',
                                     style: const TextStyle(height: 1.6)),
                                 const SizedBox(height: 24),
                                 if (_error == null)
