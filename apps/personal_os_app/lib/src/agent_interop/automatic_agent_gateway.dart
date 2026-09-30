@@ -61,9 +61,10 @@ final class LocalAutomaticAgentGateway implements AutomaticAgentGateway {
               : _client.post(url, headers: headers, body: jsonEncode(body)))
           .timeout(const Duration(seconds: 190));
       final value = jsonDecode(response.body) as Map<String, Object?>;
-      if (response.statusCode != 200)
+      if (response.statusCode != 200) {
         throw AgentGatewayException(
             value['error'] as String? ?? 'service_unavailable');
+      }
       return value;
     } on AgentGatewayException {
       rethrow;

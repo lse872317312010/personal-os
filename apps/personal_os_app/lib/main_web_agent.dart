@@ -42,8 +42,9 @@ final class _StartState extends State<_Start> {
           AppComposition.localAgent(gateway: gateway, eventStore: store);
       if (mounted) setState(() => _app = app);
     } on Object {
-      if (mounted)
+      if (mounted) {
         setState(() => _error = '本机服务未启动或历史记录无法读取。请重新启动 Personal OS 本机版。');
+      }
     }
   }
 

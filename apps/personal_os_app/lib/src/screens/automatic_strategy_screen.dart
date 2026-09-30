@@ -38,8 +38,9 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
   Future<void> _load() async {
     await strategy.bootstrap();
     await agent.connect();
-    if (!strategy.hasSession)
+    if (!strategy.hasSession) {
       await strategy.openOfflineSession(agentId: 'automatic-${agent.provider}');
+    }
     if (strategy.hasSession) await strategy.refreshContextForHandoff();
   }
 
@@ -60,22 +61,26 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
 
   Future<void> _generate() async {
     await agent.generate();
-    if (mounted && _scroll.hasClients)
+    if (mounted && _scroll.hasClients) {
       await _scroll.animateTo(0,
           duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+    }
   }
 
   Future<void> _saveGoal() async {
     if (busy || _goal.text.trim().isEmpty) return;
     await strategy.savePersonalContext(
         goal: _goal.text, currentState: _conditions.text);
-    if (strategy.status != StrategyUiStatus.failed) await _generate();
+    if (strategy.status != StrategyUiStatus.failed) {
+      await _generate();
+    }
   }
 
   Future<void> _start() async {
     if (busy) return;
-    if (strategy.hasPendingProposal)
+    if (strategy.hasPendingProposal) {
       await strategy.decideProposal(ProposalDecision.accept);
+    }
     if (strategy.canActivate) await strategy.activateStrategy();
   }
 

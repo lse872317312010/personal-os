@@ -192,8 +192,9 @@ final class _TestGateway implements AutomaticAgentGateway {
     if (invalid) return '{}';
     final value =
         jsonDecode(buildDemoAgentReply(context)) as Map<String, Object?>;
-    if (value['strategy'] is Map)
+    if (value['strategy'] is Map) {
       (value['strategy'] as Map)['title'] = '测试模型自动计划';
+    }
     return jsonEncode(value);
   }
 
@@ -203,8 +204,9 @@ final class _TestGateway implements AutomaticAgentGateway {
   @override
   Future<Map<String, Object?>> post(
       String path, Map<String, Object?> body) async {
-    if (body['revision'] != revision)
+    if (body['revision'] != revision) {
       throw const AgentGatewayException('history_conflict');
+    }
     events = body['events'] as List<Object?>;
     return <String, Object?>{'revision': ++revision};
   }

@@ -50,8 +50,9 @@ final class AutomaticAgentController extends ChangeNotifier {
           .map((e) => Map<String, Object?>.from(e as Map))
           .toList();
       models = catalog;
-      if (!models.any((e) => e['id'] == model))
+      if (!models.any((e) => e['id'] == model)) {
         model = models.isEmpty ? null : models.first['id'] as String;
+      }
     } on Object {
       if (_current(epoch)) error = '无法连接本机 AI 服务。请启动 Personal OS 本机版。';
     } finally {
@@ -92,14 +93,16 @@ final class AutomaticAgentController extends ChangeNotifier {
     error = null;
     notifyListeners();
     try {
-      if (!strategy.hasSession)
+      if (!strategy.hasSession) {
         await strategy.openOfflineSession(agentId: 'automatic-$provider');
+      }
       if (!_current(epoch)) return;
       await strategy.refreshContextForHandoff();
       if (!_current(epoch)) return;
       if (strategy.status == StrategyUiStatus.failed ||
-          strategy.contextBundle == null)
+          strategy.contextBundle == null) {
         throw const AgentGatewayException('context_unavailable');
+      }
       final context = strategy.contextBundle!,
           session = strategy.sessionId,
           strategyId = strategy.strategyId;
@@ -115,19 +118,23 @@ final class AutomaticAgentController extends ChangeNotifier {
       if (!_current(epoch) ||
           strategy.sessionId != session ||
           strategy.strategyId != strategyId ||
-          strategy.contextBundle != context) return;
+          strategy.contextBundle != context) {
+        return;
+      }
       final parsed = parseAgentHandoffReply(reply);
       if ((stage == AgentHandoffStage.review) !=
-          (parsed.kind == AgentReplyKind.review))
+          (parsed.kind == AgentReplyKind.review)) {
         throw const AgentGatewayException('invalid_agent_bundle');
+      }
       if (parsed.kind == AgentReplyKind.review) {
         await strategy.importReview(parsed.bundleJson);
       } else {
         await strategy.importProposal(parsed.bundleJson);
       }
       if (!_current(epoch)) return;
-      if (strategy.status == StrategyUiStatus.failed)
+      if (strategy.status == StrategyUiStatus.failed) {
         throw const AgentGatewayException('invalid_agent_bundle');
+      }
       _requestFingerprint = fingerprint;
     } on Object catch (failure) {
       if (_current(epoch)) error = _message(failure);
@@ -144,8 +151,9 @@ final class AutomaticAgentController extends ChangeNotifier {
     final epoch = _epoch;
     await strategy.recordOutcome(
         observation: observation, valence: OutcomeValence.mixed);
-    if (_current(epoch) && strategy.status != StrategyUiStatus.failed)
+    if (_current(epoch) && strategy.status != StrategyUiStatus.failed) {
       await generate();
+    }
   }
 
   Future<void> decideReview(ReviewDecision decision) async {
@@ -154,7 +162,9 @@ final class AutomaticAgentController extends ChangeNotifier {
     await strategy.decideReview(decision);
     if (_current(epoch) &&
         strategy.status != StrategyUiStatus.failed &&
-        decision == ReviewDecision.accept) await generate();
+        decision == ReviewDecision.accept) {
+      await generate();
+    }
   }
 
   bool _current(int epoch) => !_disposed && epoch == _epoch;
