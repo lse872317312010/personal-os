@@ -10,6 +10,7 @@ import '../agent_interop/agent_reply_inbox.dart';
 import '../agent_interop/agent_text_share.dart';
 import '../composition/app_composition.dart';
 import '../controller/strategy_loop_controller.dart';
+import 'strategy_action_card.dart';
 
 final class StrategyLoopScreen extends StatefulWidget {
   const StrategyLoopScreen({
@@ -39,6 +40,9 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   final _successCriteria = TextEditingController();
   final _currentState = TextEditingController();
   final _constraints = TextEditingController();
+  final _scroll = ScrollController();
+  final _collaborationKey = GlobalKey();
+  bool _agentPanelOpen = true;
   final AgentTextSharePort _agentTextShare =
       const MethodChannelAgentTextShare();
 
@@ -47,6 +51,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
   @override
   void initState() {
     super.initState();
+    _agentPanelOpen = widget.controller.strategyId == null;
     widget.replyInbox?.addListener(_syncReplyFromInbox);
     unawaited(_prepareRestoredSession());
   }
@@ -63,6 +68,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     _successCriteria.dispose();
     _currentState.dispose();
     _constraints.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -108,6 +114,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
       bundle,
       strategyId: widget.controller.strategyId,
     );
+    await _importAgentReply();
   }
 
   Future<void> _pasteAgentReply() async {
@@ -115,6 +122,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       if (!mounted || data?.text == null) return;
       _agentReply.text = data!.text!;
+      await _importAgentReply();
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -127,6 +135,49 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     await widget.controller.decideReview(decision);
     if (!mounted || widget.controller.status != StrategyUiStatus.ready) return;
     await widget.controller.exportContext();
+    _returnToAction();
+  }
+
+  Future<void> _startPlan() async {
+    if (widget.controller.status == StrategyUiStatus.running) return;
+    FocusScope.of(context).unfocus();
+    final controller = widget.controller;
+    if (controller.hasPendingProposal) {
+      await controller.decideProposal(ProposalDecision.accept);
+    }
+    if (!mounted ||
+        controller.status != StrategyUiStatus.ready ||
+        !controller.canActivate) return;
+    await controller.activateStrategy();
+  }
+
+  Future<void> _recordExecution() async {
+    final controller = widget.controller;
+    if (controller.status == StrategyUiStatus.running) return;
+    final actions = controller.strategyActions;
+    if (actions.isEmpty) return;
+    final action = controller.selectedAction ?? actions.first;
+    controller.selectAction(action.id);
+    await controller.recordExecution(
+      actionId: action.id,
+      executionStatus: ExecutionStatus.completed,
+    );
+  }
+
+  void _returnToAction() {
+    if (!mounted) return;
+    setState(() => _agentPanelOpen = false);
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  Future<void> _showAgentPanel() async {
+    setState(() => _agentPanelOpen = true);
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted) return;
+    final panel = _collaborationKey.currentContext;
+    if (panel != null) {
+      await Scrollable.ensureVisible(panel, alignment: 0.05);
+    }
   }
 
   Future<void> _recordOutcome() async {
@@ -227,6 +278,11 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
             repairableErrors.contains(controller.errorCode)) {
           setState(() => _showFormatRepairActions = true);
         }
+        if (controller.errorCode case final code?) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_strategyErrorText(code))),
+          );
+        }
         return;
       }
       setState(() => _showFormatRepairActions = false);
@@ -242,6 +298,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
         _syncReplyFromInbox();
       }
       if (!mounted) return;
+      _returnToAction();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -428,27 +485,40 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
         builder: (context, _) {
           final controller = widget.controller;
           final busy = controller.status == StrategyUiStatus.running;
-          final selectedActionId = controller.selectedActionId;
           return ListView(
+            controller: _scroll,
             padding: const EdgeInsets.all(20),
             children: <Widget>[
-              Text(
-                '个人策略闭环',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                widget.mode == AppExperienceMode.syntheticDemo
-                    ? '浏览器演示只在当前页面内存运行，刷新或关闭页面后清空。'
-                        '外部 AI 助手只提交建议，接受、执行和结果始终由你确认。'
-                    : '手机保存资产、策略和真实反馈；外部 AI 助手只提交建议，'
-                        '接受、执行和结果始终由你确认。',
-              ),
-              const SizedBox(height: 16),
-              _StatusCard(controller: controller),
-              _LoopProgressCard(controller: controller),
+              if (controller.errorCode != null || busy)
+                _StatusCard(controller: controller),
+              if (controller.strategyId != null)
+                StrategyActionCard(
+                  controller: controller,
+                  onStart: _startPlan,
+                  onReject: () => controller.decideProposal(
+                    ProposalDecision.reject,
+                  ),
+                  onRecord: _recordExecution,
+                  onSaveOutcome: _recordOutcome,
+                  onAskAgent: _showAgentPanel,
+                  onReview: _decideReview,
+                  outcome: _outcome,
+                )
+              else ...<Widget>[
+                Text(
+                  '把目标变成下一步行动',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  widget.mode == AppExperienceMode.syntheticDemo
+                      ? '浏览器演示只在当前页面内存运行。先写一个目标，再让常用 AI 帮你安排。'
+                      : '先写一个目标，再让常用 AI 帮你安排。',
+                ),
+              ],
               const SizedBox(height: 12),
-              if (controller.personalGoal == null)
+              if (controller.personalGoal == null &&
+                  controller.strategyId == null)
                 Card(
                   key: const Key('personal-context-form'),
                   child: ExpansionTile(
@@ -472,8 +542,13 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                               enabled: !busy,
                               maxLength: 4000,
                               decoration:
-                                  const InputDecoration(labelText: '这轮目标'),
+                                  const InputDecoration(labelText: '这轮目标', counterText: ''),
                             ),
+                            ExpansionTile(
+                              key: const Key('personal-context-options'),
+                              tilePadding: EdgeInsets.zero,
+                              title: const Text('补充个人条件（可选）'),
+                              children: <Widget>[
                             TextField(
                               key: const Key('personal-success-input'),
                               controller: _successCriteria,
@@ -503,6 +578,8 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                 labelText: '时间、预算和其他约束（可选）',
                               ),
                             ),
+                              ],
+                            ),
                             const SizedBox(height: 8),
                             if (widget.mode == AppExperienceMode.syntheticDemo)
                               TextButton.icon(
@@ -515,16 +592,14 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                               key: const Key('save-personal-context'),
                               onPressed: busy ? null : _savePersonalContext,
                               icon: const Icon(Icons.save_outlined),
-                              label: const Text('保存目标与个人上下文'),
+                              label: const Text('保存我的目标'),
                             ),
                           ],
                         ),
                       ),
                     ],
                   ),
-                )
-              else
-                _PersonalContextCard(controller: controller),
+                ),
               if (widget.replyInbox?.replyQueueStorageUnavailable ?? false)
                 const Card(
                   key: Key('agent-reply-storage-warning'),
@@ -593,6 +668,27 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                     ),
                   ),
                 ),
+              const SizedBox(height: 12),
+              KeyedSubtree(
+                key: const Key('agent-collaboration-panel'),
+                child: Container(
+                  key: _collaborationKey,
+                  child: ExpansionTile(
+                    key: ValueKey<String>(
+                      '${controller.strategyId}:$_agentPanelOpen:'
+                      '${widget.replyInbox?.hasPendingReply}',
+                    ),
+                    initiallyExpanded: _agentPanelOpen ||
+                        (widget.replyInbox?.hasPendingReply ?? false),
+                    maintainState: true,
+                    title: const Text('与 AI 协作'),
+                    subtitle: Text(controller.hasSession
+                        ? '复制请求、读取回复或更换助手'
+                        : '用你常用的 ChatGPT、Codex 或其他助手'),
+                    onExpansionChanged: (open) {
+                      _agentPanelOpen = open;
+                    },
+                    children: <Widget>[
               const SizedBox(height: 16),
               TextField(
                 key: const Key('assistant-name-input'),
@@ -613,7 +709,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                     ? null
                     : _startAgentSession,
                 icon: const Icon(Icons.link),
-                label: const Text('开始协作并准备上下文'),
+                label: const Text('准备给 AI 的请求'),
               ),
               if (controller.hasSession) ...<Widget>[
                 const SizedBox(height: 16),
@@ -642,7 +738,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                 ? null
                                 : () => _copyHandoff(context),
                             icon: const Icon(Icons.copy),
-                            label: const Text('复制协作内容'),
+                            label: const Text('复制请求，发给常用 AI'),
                           ),
                           if (widget.mode == AppExperienceMode.secureVault)
                             OutlinedButton.icon(
@@ -752,7 +848,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                               key: const Key('paste-agent-reply'),
                               onPressed: busy ? null : _pasteAgentReply,
                               icon: const Icon(Icons.content_paste),
-                              label: const Text('粘贴助手回复'),
+                              label: const Text('粘贴并读取回复'),
                             ),
                             if (widget.mode == AppExperienceMode.syntheticDemo)
                               TextButton.icon(
@@ -761,15 +857,15 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                     ? null
                                     : _fillDemoReply,
                                 icon: const Icon(Icons.science_outlined),
-                                label: const Text('填入演示回复'),
+                                label: const Text('用演示回复体验'),
                               ),
                           ],
                         ),
                         TextField(
                           key: const Key('agent-reply-input'),
                           controller: _agentReply,
-                          minLines: 4,
-                          maxLines: 10,
+                          minLines: 2,
+                          maxLines: 4,
                           decoration: InputDecoration(
                             labelText: 'AI 助手的回复',
                             hintText: '可从助手分享回来，也可粘贴完整回复',
@@ -843,7 +939,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                           key: const Key('import-agent-reply'),
                           onPressed: busy ? null : _importAgentReply,
                           icon: const Icon(Icons.auto_awesome),
-                          label: const Text('识别并导入建议'),
+                          label: const Text('读取这份回复'),
                         ),
                         const SizedBox(height: 8),
                         OutlinedButton.icon(
@@ -852,7 +948,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                               ? null
                               : _closeAgentSession,
                           icon: const Icon(Icons.swap_horiz),
-                          label: const Text('结束协作并切换助手'),
+                          label: const Text('更换 AI 助手'),
                         ),
                         if (!controller.canCloseSession &&
                             controller.strategyId != null)
@@ -970,255 +1066,23 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                     controller.strategyId != null)
                   const SizedBox(height: 8),
               ],
-              const SizedBox(height: 16),
-              if (controller.reviewId != null) ...<Widget>[
-                const SizedBox(height: 20),
-                Text(
-                  '策略复盘（${_reviewStateText(controller.reviewState)}）',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 8),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(controller.reviewSummary ?? '无复盘摘要'),
-                        if (controller.reviewConclusion case final conclusion?)
-                          Text('结论：${_reviewConclusionText(conclusion)}'),
-                      ],
-                    ),
-                  ),
-                ),
-                if (controller.hasPendingReview) ...<Widget>[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: FilledButton(
-                          key: const Key('accept-review'),
-                          onPressed: busy
-                              ? null
-                              : () => _decideReview(
-                                    ReviewDecision.accept,
-                                  ),
-                          child: const Text('接受复盘'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton(
-                          key: const Key('reject-review'),
-                          onPressed: busy
-                              ? null
-                              : () => _decideReview(
-                                    ReviewDecision.reject,
-                                  ),
-                          child: const Text('拒绝复盘'),
-                        ),
-                      ),
                     ],
                   ),
-                ],
-              ],
-              if (controller.hasPendingProposal) ...<Widget>[
-                const SizedBox(height: 20),
-                Text(
-                  '待你确认',
-                  style: Theme.of(context).textTheme.titleMedium,
                 ),
-                const SizedBox(height: 8),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: <Widget>[
-                        Text(controller.proposalTitle ?? '未命名策略'),
-                        if (controller.proposalRationale case final rationale?)
-                          Text('修改理由：$rationale'),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
+              ),
+              if (controller.personalGoal != null)
+                ExpansionTile(
+                  key: const Key('personal-history-details'),
+                  title: const Text('个人资料与历史'),
+                  subtitle: Text(controller.personalGoal!),
                   children: <Widget>[
-                    Expanded(
-                      child: FilledButton(
-                        key: const Key('accept-proposal'),
-                        onPressed: busy
-                            ? null
-                            : () => controller.decideProposal(
-                                  ProposalDecision.accept,
-                                ),
-                        child: const Text('接受策略'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: OutlinedButton(
-                        key: const Key('reject-proposal'),
-                        onPressed: busy
-                            ? null
-                            : () => controller.decideProposal(
-                                  ProposalDecision.reject,
-                                ),
-                        child: const Text('拒绝'),
-                      ),
-                    ),
+                    _PersonalContextCard(controller: controller),
                   ],
                 ),
-              ],
-              if (controller.canActivate) ...<Widget>[
-                const SizedBox(height: 16),
-                FilledButton(
-                  key: const Key('activate-strategy'),
-                  onPressed: busy ? null : controller.activateStrategy,
-                  child: const Text('激活并开始执行'),
-                ),
-              ],
-              if (controller.canRecordExecution) ...<Widget>[
-                const SizedBox(height: 20),
-                const Text('选择你实际完成的行动，再记录执行情况。'),
-                const SizedBox(height: 8),
-                if (controller.strategyActions.isEmpty)
-                  const Text(
-                    '当前策略没有可识别的行动，暂时无法安全记录执行。'
-                    '请重新导入一份包含行动内容的策略建议。',
-                  )
-                else ...<Widget>[
-                  if (controller.strategyActions.length == 1)
-                    Text(
-                      '本次记录：${controller.strategyActions.single.instruction}',
-                      key: const Key('selected-execution-action'),
-                    )
-                  else
-                    InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: '你完成了哪一步？',
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          key: const Key('execution-action-picker'),
-                          value: selectedActionId,
-                          hint: const Text('请选择实际完成的行动'),
-                          isExpanded: true,
-                          items: controller.strategyActions
-                              .map(
-                                (action) => DropdownMenuItem<String>(
-                                  value: action.id,
-                                  child: Text(
-                                    action.instruction,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              )
-                              .toList(growable: false),
-                          onChanged: busy
-                              ? null
-                              : (actionId) {
-                                  if (actionId != null) {
-                                    controller.selectAction(actionId);
-                                  }
-                                },
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  FilledButton.tonal(
-                    key: const Key('record-execution'),
-                    onPressed: busy || selectedActionId == null
-                        ? null
-                        : () => controller.recordExecution(
-                              actionId: selectedActionId,
-                              executionStatus: ExecutionStatus.completed,
-                            ),
-                    child: const Text('记录行动已完成'),
-                  ),
-                ],
-              ],
-              if (controller.canRecordOutcome) ...<Widget>[
-                const SizedBox(height: 20),
-                TextField(
-                  key: const Key('outcome-input'),
-                  controller: _outcome,
-                  minLines: 2,
-                  maxLines: 5,
-                  decoration: const InputDecoration(
-                    labelText: '实际结果或观察',
-                  ),
-                ),
-                const SizedBox(height: 8),
-                FilledButton(
-                  key: const Key('record-outcome'),
-                  onPressed: busy ? null : _recordOutcome,
-                  child: const Text('保存真实反馈'),
-                ),
-              ],
             ],
           );
         },
       );
-}
-
-final class _LoopProgressCard extends StatelessWidget {
-  const _LoopProgressCard({required this.controller});
-
-  final StrategyLoopController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final String next;
-    if (controller.personalGoal == null) {
-      next = '保存目标、已有条件和约束。';
-    } else if (!controller.hasSession) {
-      next = '选择常用 AI 助手并开始协作。';
-    } else if (controller.hasPendingProposal) {
-      next = '检查助手的策略，决定是否接受。';
-    } else if (controller.canActivate) {
-      next = '激活策略，开始执行具体行动。';
-    } else if (controller.outcomeId == null && controller.canRecordExecution) {
-      next =
-          controller.executionId == null ? '执行当前行动并记录完成情况。' : '记录本次实际结果，供助手复盘。';
-    } else if (controller.hasPendingReview) {
-      next = '检查复盘，决定是否接受。';
-    } else if (controller.contextBundle != null &&
-        agentHandoffStage(
-              controller.contextBundle!,
-              strategyId: controller.strategyId,
-            ) ==
-            AgentHandoffStage.revision) {
-      next = '复制最新上下文，让当前或另一位助手提出下一轮策略。';
-    } else if (controller.outcomeId != null) {
-      next = '把执行和结果交给助手，带回本轮复盘。';
-    } else {
-      next = '复制协作内容到常用 AI，再粘贴它的回复。';
-    }
-    return Card(
-      key: const Key('strategy-loop-next-step'),
-      color: Theme.of(context).colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(
-              controller.parentStrategyRef == null ? '本轮策略' : '下一轮策略 · 已接续历史',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            if (controller.proposalTitle case final title?) Text(title),
-            const SizedBox(height: 8),
-            Text('下一步：$next'),
-            const SizedBox(height: 8),
-            const Text('目标与条件 → AI 建议 → 确认执行 → 结果 → 复盘 → 下一轮'),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 final class _PersonalContextCard extends StatelessWidget {
@@ -1306,21 +1170,6 @@ String _strategyStateText(String? state) => switch (state) {
       'completed' => '已完成',
       'abandoned' => '已停止',
       _ => '尚未导入策略',
-    };
-
-String _reviewStateText(String? state) => switch (state) {
-      'draft' => '等待你确认',
-      'accepted' => '已接受',
-      'rejected' => '已拒绝',
-      _ => '处理中',
-    };
-
-String _reviewConclusionText(String conclusion) => switch (conclusion) {
-      'effective' => '有效',
-      'ineffective' => '效果不佳',
-      'inconclusive' => '暂时无法判断',
-      'executionInsufficient' => '执行证据不足',
-      _ => conclusion,
     };
 
 String _strategyErrorText(String code) => switch (code) {

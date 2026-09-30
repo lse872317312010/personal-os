@@ -728,6 +728,8 @@ List<StrategySessionAction> _strategyActionsFromProposal(
     actions.add(StrategySessionAction(
       id: id,
       instruction: instruction.trim(),
+      successMeasure: item['success_measure'] as String?,
+      dueAt: item['due_at'] as String?,
     ));
   }
   return List<StrategySessionAction>.unmodifiable(actions);

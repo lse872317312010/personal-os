@@ -3,23 +3,29 @@ import 'package:flutter/material.dart';
 import '../composition/app_composition.dart';
 import '../controller/app_controller.dart';
 import '../controller/encrypted_event_backup_controller.dart';
+import '../controller/strategy_loop_controller.dart';
 import '../navigation/app_destination.dart';
 import 'observation_history_card.dart';
+import 'strategy_action_card.dart';
 
 final class HomeScreen extends StatelessWidget {
   const HomeScreen({
     required this.controller,
+    required this.strategyController,
     required this.backupController,
     required this.mode,
     super.key,
   });
 
   final AppController controller;
+  final StrategyLoopController strategyController;
   final EncryptedEventBackupController backupController;
   final AppExperienceMode mode;
 
   @override
-  Widget build(BuildContext context) => ListView(
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: strategyController,
+        builder: (context, _) => ListView(
         padding: const EdgeInsets.all(20),
         children: <Widget>[
           Text('今天，从一个小改变开始', style: Theme.of(context).textTheme.headlineSmall),
@@ -30,7 +36,12 @@ final class HomeScreen extends StatelessWidget {
                 : '建议来自安全会话；UI 不接触原始资料，也不调用未接入的认证或存储实现。',
           ),
           const SizedBox(height: 16),
-          Card(
+          if (strategyController.strategyId != null)
+            StrategyActionCard(
+              controller: strategyController,
+              onOpen: () => controller.navigate(AppDestination.tasks),
+            )
+          else Card(
             key: const Key('agent-loop-home-card'),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -38,7 +49,7 @@ final class HomeScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    '让常用 AI 延续你的个人策略',
+                    '让 AI 帮你安排下一步',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 8),
@@ -52,7 +63,7 @@ final class HomeScreen extends StatelessWidget {
                     onPressed: () =>
                         controller.navigate(AppDestination.strategy),
                     icon: const Icon(Icons.chat_bubble_outline),
-                    label: const Text('开始个人策略闭环'),
+                    label: const Text('制定我的行动计划'),
                   ),
                 ],
               ),
@@ -91,6 +102,7 @@ final class HomeScreen extends StatelessWidget {
             label: Text(controller.result == null ? '开始首次分析' : '重新分析'),
           ),
         ],
+        ),
       );
 }
 

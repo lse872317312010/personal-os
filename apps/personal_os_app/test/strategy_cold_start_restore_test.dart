@@ -47,6 +47,9 @@ void main() {
       <String>['action-from-proposal'],
     );
     expect(restored.selectedActionId, 'action-from-proposal');
+    expect(restored.strategyActions.single.successMeasure,
+        'Record the measured result');
+    expect(restored.strategyActions.single.dueAt, '2026-10-07T00:00:00Z');
     expect(restored.executionId, executionId);
     expect(restored.outcomeId, outcomeId);
     expect(restored.canCloseSession, isTrue);
@@ -92,6 +95,8 @@ String _proposal(
           <String, Object?>{
             'id': 'action-from-proposal',
             'instruction': 'Execute experiment',
+            'success_measure': 'Record the measured result',
+            'due_at': '2026-10-07T00:00:00Z',
           },
         ],
       },

@@ -338,6 +338,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('策略'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('与 AI 协作'));
+      await tester.tap(find.text('与 AI 协作'));
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.byKey(const Key('agent-reply-input')),
         300,

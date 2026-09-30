@@ -120,6 +120,7 @@ final class _UnlockedShellState extends State<_UnlockedShell> {
   void initState() {
     super.initState();
     unawaited(replyInbox.receivePendingReply());
+    unawaited(strategyController.bootstrap());
   }
 
   @override
@@ -227,6 +228,7 @@ final class _UnlockedShellState extends State<_UnlockedShell> {
             child: switch (controller.destination) {
               AppDestination.home => HomeScreen(
                   controller: controller,
+                  strategyController: strategyController,
                   backupController: backupController,
                   mode: mode,
                 ),
@@ -242,7 +244,13 @@ final class _UnlockedShellState extends State<_UnlockedShell> {
                   replyInbox: replyInbox,
                   mode: mode,
                 ),
-              AppDestination.tasks => TaskScreen(controller: controller),
+              AppDestination.tasks => strategyController.strategyId != null
+                  ? StrategyLoopScreen(
+                      controller: strategyController,
+                      replyInbox: replyInbox,
+                      mode: mode,
+                    )
+                  : TaskScreen(controller: controller),
               AppDestination.review => ReviewScreen(controller: controller),
             },
           ),
