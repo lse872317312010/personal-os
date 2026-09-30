@@ -114,7 +114,8 @@ export class ChatGPTAuth {
   async accessToken() {
     if (!this.connected) throw new AgentError('sign_in_required', 401);
     const account = this.account;
-    if (account.saved_at + account.expires_in * 1000 > Date.now() + 60_000) return account.access_token;
+    const refreshSkew = Math.min(60_000, account.expires_in * 100);
+    if (account.saved_at + account.expires_in * 1000 > Date.now() + refreshSkew) return account.access_token;
     if (this.refreshing) { await this.refreshing; return this.accessToken(); }
     this.refreshing = (async () => {
       try {

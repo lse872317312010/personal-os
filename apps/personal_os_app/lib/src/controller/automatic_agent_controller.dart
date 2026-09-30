@@ -71,18 +71,45 @@ final class AutomaticAgentController extends ChangeNotifier {
   }
 
   Future<void> selectAccount(String id) async {
-    if (busy) return;
-    await gateway.post('/api/auth/select', <String, Object?>{'account_id': id});
-    await connect();
+    if (busy || _disposed) return;
+    final epoch = _epoch;
+    busy = true;
+    notifyListeners();
+    try {
+      await gateway.post('/api/auth/select', <String, Object?>{'account_id': id});
+      if (!_current(epoch)) return;
+      busy = false;
+      await connect();
+    } on Object catch (failure) {
+      if (_current(epoch)) error = _message(failure);
+    } finally {
+      if (_current(epoch)) {
+        busy = false;
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> logout() async {
-    if (busy) return;
-    final result = await gateway.post('/api/auth/logout', <String, Object?>{});
-    await connect();
-    if (result['revoked'] != true && !_disposed) {
-      error = '已在本机退出。远端撤销未确认，可在 ChatGPT 设置中断开此应用。';
-      notifyListeners();
+    if (busy || _disposed) return;
+    final epoch = _epoch;
+    busy = true;
+    notifyListeners();
+    try {
+      final result = await gateway.post('/api/auth/logout', <String, Object?>{});
+      if (!_current(epoch)) return;
+      busy = false;
+      await connect();
+      if (result['revoked'] != true && _current(epoch)) {
+        error = '已在本机退出。远端撤销未确认，可在 ChatGPT 设置中断开此应用。';
+      }
+    } on Object catch (failure) {
+      if (_current(epoch)) error = _message(failure);
+    } finally {
+      if (_current(epoch)) {
+        busy = false;
+        notifyListeners();
+      }
     }
   }
 

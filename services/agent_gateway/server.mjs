@@ -26,10 +26,8 @@ export function createGateway({ auth, providers, store, webRoot = join(root, 'we
     response.on('close', () => { if (!response.writableEnded) controller.abort(); });
     try {
       if (request.headers.host !== new URL(origin).host) throw new AgentError('invalid_host', 403);
-      if (request.headers.origin && request.headers.origin !== origin) throw new AgentError('foreign_origin', 403);
-      if (request.headers['sec-fetch-site'] === 'cross-site') throw new AgentError('foreign_origin', 403);
       const url = new URL(request.url, origin);
-      if (url.pathname === '/connect' && request.method === 'GET') {
+      if (url.pathname === '/connect' && request.method === 'GET' && request.headers['sec-fetch-site'] !== 'cross-site' && (!request.headers.origin || request.headers.origin === origin)) {
         const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>连接 Personal OS</title><style>body{font:17px system-ui;max-width:480px;margin:12vh auto;padding:24px;background:#f3f7f3;color:#123c32}button,select{font:inherit;padding:12px;border-radius:10px;width:100%;margin:12px 0}button{background:#123c32;color:white;border:0}a{color:#315c4c}</style><h1>连接你的 ChatGPT</h1><p>登录后，Personal OS 会自动发送当前目标、现状及相关行动历史，并接收行动计划和复盘。凭据保存在本机。</p><select id="account"><option value="">添加 ChatGPT 账号 / 工作区</option></select><button id="start">Continue with ChatGPT</button><p id="message"></p><a href="/">返回应用</a><script>const accounts=${JSON.stringify(auth.accounts).replace(/</g, '\\u003c')};for(const a of accounts){const o=document.createElement('option');o.value=a.id;o.textContent=a.label;document.querySelector('select').append(o)}document.querySelector('select').value=${JSON.stringify(auth.state.active || '')};document.querySelector('button').onclick=async()=>{document.querySelector('button').disabled=true;try{const r=await fetch('/api/auth/start',{method:'POST',headers:{'Content-Type':'application/json','X-Personal-OS':'1','X-Personal-OS-CSRF':'${csrf}'},body:JSON.stringify({account_id:document.querySelector('select').value||null})});const v=await r.json();if(!r.ok)throw Error();location.assign(v.url)}catch{document.querySelector('#message').textContent='连接暂不可用，请返回应用重试。';document.querySelector('button').disabled=false}}</script>`;
         response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "frame-ancestors 'none'" }); response.end(html); return;
       }
@@ -45,6 +43,10 @@ export function createGateway({ auth, providers, store, webRoot = join(root, 'we
         }
         response.writeHead(303, { Location: '/', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' }); response.end(); return;
       }
+      // OAuth comes back from auth.openai.com as a cross-site navigation. It is
+      // authorized by one-use state/PKCE/nonce, not by same-origin API rules.
+      if (request.headers.origin && request.headers.origin !== origin) throw new AgentError('foreign_origin', 403);
+      if (request.headers['sec-fetch-site'] === 'cross-site') throw new AgentError('foreign_origin', 403);
       if (url.pathname.startsWith('/api/')) {
         if (request.headers['x-personal-os'] !== '1') throw new AgentError('local_client_required', 403);
         if (request.method !== 'GET' && request.headers['x-personal-os-csrf'] !== csrf) throw new AgentError('invalid_csrf', 403);

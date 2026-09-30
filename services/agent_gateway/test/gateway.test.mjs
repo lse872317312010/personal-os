@@ -120,6 +120,9 @@ test('real loopback HTTP boundary enforces Host, origin, CSRF, bundle session an
   const headers = { 'X-Personal-OS': '1', 'Content-Type': 'application/json' };
   assert.equal((await fetch(`${origin}/api/agent/status`)).status, 403);
   assert.equal((await fetch(`${origin}/api/agent/status`, { headers: { ...headers, Origin: 'https://evil.invalid' } })).status, 403);
+  const callback = await fetch(`${origin}/auth/callback?state=wrong&code=code`, { headers: { 'Sec-Fetch-Site': 'cross-site' }, redirect: 'manual' });
+  assert.equal(callback.status, 400);
+  assert.equal((await callback.json()).error, 'invalid_authorization_state');
   const foreignHost = await new Promise((resolve, reject) => { const req = httpRequest(`${origin}/api/agent/status`, { headers: { ...headers, Host: 'evil.invalid' } }, res => { res.resume(); resolve(res.statusCode); }); req.on('error', reject); req.end(); });
   assert.equal(foreignHost, 403);
   const status = await (await fetch(`${origin}/api/agent/status`, { headers })).json();

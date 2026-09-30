@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:personal_os_app/src/agent_interop/agent_handoff.dart';
 import 'package:personal_os_app/src/agent_interop/automatic_agent_gateway.dart';
 import 'package:personal_os_app/src/agent_interop/local_agent_event_store.dart';
@@ -13,6 +15,47 @@ import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
 
 void main() {
+  test('automatic HTTP transport carries context and CSRF without model credentials', () async {
+    final requests = <http.Request>[];
+    final client = MockClient((request) async {
+      requests.add(request);
+      if (request.url.path.endsWith('/status')) {
+        return http.Response('{"csrf":"nonce","connected":true}', 200);
+      }
+      expect(request.headers['X-Personal-OS-CSRF'], 'nonce');
+      expect(request.headers.containsKey('Authorization'), false);
+      final body = jsonDecode(request.body) as Map;
+      expect(body['context'], '{"session_id":"one"}');
+      expect(body['stage'], 'proposal');
+      return http.Response('{"reply":"completed bundle"}', 200);
+    });
+    final gateway = LocalAutomaticAgentGateway(origin: Uri.parse('http://127.0.0.1:8787/'), client: client);
+    expect(await gateway.request(model: 'test', prompt: 'use personal context', context: '{"session_id":"one"}', stage: 'proposal'), 'completed bundle');
+    expect(requests.map((e) => e.url.path), <String>['/api/agent/status', '/api/agent/request']);
+    gateway.cancel();
+  });
+
+  testWidgets('automatic next action and confirmation fit a phone viewport', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final app = AppComposition.localAgent(gateway: _TestGateway(), eventStore: InMemoryEventStore());
+    addTearDown(app.strategyController.dispose);
+    addTearDown(app.automaticAgent!.dispose);
+    await app.strategyController.savePersonalContext(goal: '学习');
+    await app.automaticAgent!.connect();
+    await app.automaticAgent!.generate();
+    await tester.pumpWidget(PersonalOsApp(composition: app));
+    await tester.pumpAndSettle();
+    final action = find.byKey(const Key('strategy-focus-instruction'));
+    final confirm = find.byKey(const Key('accept-proposal'));
+    expect(action, findsOneWidget);
+    expect(tester.getBottomRight(confirm).dy, lessThan(784));
+    expect(find.byKey(const Key('agent-reply-input')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
       'automatic plan -> human action -> automatic review -> human acceptance -> next plan',
       (tester) async {
