@@ -257,6 +257,8 @@ void main() {
         },
       }),
     );
+    await tester.ensureVisible(find.byKey(const Key('import-proposal')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('import-proposal')));
     await tester.pumpAndSettle();
     expect(
@@ -270,6 +272,8 @@ void main() {
       findsNothing,
     );
 
+    await tester.ensureVisible(find.byKey(const Key('export-context')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('export-context')));
     await tester.pumpAndSettle();
     final bundle = tester
