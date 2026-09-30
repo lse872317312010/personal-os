@@ -1,4 +1,4 @@
-name: Flutter Web synthetic preview
+name: Flutter Web and automatic Agent app
 
 on:
   pull_request:
@@ -10,6 +10,7 @@ on:
       - "adapters/**"
       - "pubspec.yaml"
       - "analysis_options.yaml"
+      - "services/agent_gateway/**"
   push:
     branches: [main]
     paths:
@@ -19,6 +20,7 @@ on:
       - "adapters/**"
       - "pubspec.yaml"
       - "analysis_options.yaml"
+      - "services/agent_gateway/**"
   workflow_dispatch:
 
 permissions:
@@ -53,6 +55,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           format_paths=(lib/main_web_preview.dart lib/src/app.dart lib/src/agent_interop/agent_handoff.dart lib/src/agent_interop/agent_reply_inbox.dart lib/src/agent_interop/agent_text_share.dart lib/src/composition/app_composition.dart lib/src/controller/strategy_loop_controller.dart lib/src/screens/home_screen.dart lib/src/screens/strategy_loop_screen.dart lib/src/screens/strategy_action_card.dart test/agent_handoff_test.dart test/agent_reply_inbox_test.dart test/agent_text_share_test.dart test/mvp_journey_test.dart test/web_agent_loop_test.dart test/action_first_ui_test.dart test/strategy_cold_start_restore_test.dart test/strategy_loop_controller_test.dart test/app_composition_test.dart ../../packages/application/lib/src/strategy_session_read_model.dart)
+          format_paths+=(lib/main_web_agent.dart lib/src/agent_interop/automatic_agent_gateway.dart lib/src/agent_interop/local_agent_event_store.dart lib/src/controller/automatic_agent_controller.dart lib/src/screens/automatic_strategy_screen.dart test/automatic_agent_loop_test.dart)
           if ! dart format --output=none --set-exit-if-changed "${format_paths[@]}"; then
             dart format "${format_paths[@]}" >/dev/null
             git diff -- "${format_paths[@]}"
@@ -63,9 +66,9 @@ jobs:
 
       - name: Run end-to-end journey in Chrome
         working-directory: apps/personal_os_app
-        run: flutter test --platform chrome test/mvp_journey_test.dart test/web_agent_loop_test.dart test/action_first_ui_test.dart
+        run: flutter test --platform chrome test/mvp_journey_test.dart test/web_agent_loop_test.dart test/action_first_ui_test.dart test/automatic_agent_loop_test.dart
 
-      - name: Build synthetic web preview
+      - name: Build public download page
         working-directory: apps/personal_os_app
         run: flutter build web --release --base-href /personal-os/ --target lib/main_web_preview.dart
 
@@ -77,8 +80,80 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+      - name: Build automatic local web app
+        working-directory: apps/personal_os_app
+        run: flutter build web --release --base-href / --target lib/main_web_agent.dart
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: personal-os-agent-web
+          path: apps/personal_os_app/build/web
+          if-no-files-found: error
+
+  agent-runtime:
+    name: Test and package local Agent (${{ matrix.os }})
+    needs: verify
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify real loopback gateway and protected credentials
+        run: node --test services/agent_gateway/test/gateway.test.mjs
+      - uses: actions/download-artifact@v4
+        with:
+          name: personal-os-agent-web
+          path: services/agent_gateway/web
+      - name: Include portable Node runtime and provenance
+        shell: bash
+        run: |
+          node -e "const fs=require('node:fs');fs.mkdirSync('services/agent_gateway/runtime',{recursive:true});fs.copyFileSync(process.execPath,'services/agent_gateway/runtime/'+(process.platform==='win32'?'node.exe':'node'));fs.writeFileSync('services/agent_gateway/provenance.json',JSON.stringify({commit:process.env.GITHUB_SHA,node:process.version,platform:process.platform},null,2))"
+          cp docs/automatic-agent.md services/agent_gateway/README.md
+      - name: Package Windows app
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path services/agent_gateway/* -DestinationPath personal-os-automatic-windows.zip
+      - name: Package Linux app
+        if: runner.os == 'Linux'
+        run: |
+          chmod +x services/agent_gateway/runtime/node services/agent_gateway/start-personal-os.sh
+          cd services/agent_gateway
+          zip -qr ../../personal-os-automatic-linux.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: personal-os-automatic-${{ runner.os }}
+          path: personal-os-automatic-*.zip
+          if-no-files-found: error
+
+  publish-agent:
+    name: Publish automatic local app
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    needs: agent-runtime
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: personal-os-automatic-*
+          merge-multiple: true
+          path: packages
+      - name: Publish tested automatic app packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view automatic-agent-web --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create automatic-agent-web --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title 'Personal OS · 自动 Agent 本机版' --notes '解压 Windows 包后双击 Start-Personal-OS.cmd。首次 Continue with ChatGPT 授权后，行动计划、复盘与下一轮自动请求和接收。包内 provenance.json 记录构建 commit；当前发布不代表已完成真实账户推理验收。'
+          fi
+          gh release upload automatic-agent-web packages/*.zip --clobber --repo "$GITHUB_REPOSITORY"
+
   deploy:
-    name: Publish synthetic preview to GitHub Pages
+    name: Publish app download page to GitHub Pages
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     needs: verify
     runs-on: ubuntu-24.04

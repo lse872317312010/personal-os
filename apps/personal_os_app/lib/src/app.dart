@@ -9,6 +9,7 @@ import 'controller/encrypted_event_backup_controller.dart';
 import 'controller/strategy_loop_controller.dart';
 import 'navigation/app_destination.dart';
 import 'screens/screens.dart';
+import 'screens/automatic_strategy_screen.dart';
 
 final class PersonalOsApp extends StatefulWidget {
   const PersonalOsApp({required this.composition, super.key});
@@ -67,7 +68,9 @@ final class _PersonalOsAppState extends State<PersonalOsApp>
             border: OutlineInputBorder(),
           ),
         ),
-        home: AnimatedBuilder(
+        home: widget.composition.automaticAgent != null
+            ? AutomaticStrategyScreen(agent: widget.composition.automaticAgent!)
+            : AnimatedBuilder(
           animation: widget.composition.controller,
           builder: (context, _) {
             final controller = widget.composition.controller;

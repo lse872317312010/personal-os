@@ -16,6 +16,8 @@ import 'package:personal_os_storage_api/storage_api.dart';
 import 'package:personal_os_source_api/source_api.dart';
 
 import '../agent_interop/agent_reply_inbox.dart';
+import '../agent_interop/automatic_agent_gateway.dart';
+import '../controller/automatic_agent_controller.dart';
 import '../controller/agent_access_controller.dart';
 import '../controller/app_controller.dart';
 import '../controller/encrypted_event_backup_controller.dart';
@@ -28,7 +30,7 @@ import 'agent_access_event_store.dart';
 import 'native_sqlcipher_event_store.dart';
 import 'native_sqlcipher_session_coordinator.dart';
 
-enum AppExperienceMode { syntheticDemo, secureVault }
+enum AppExperienceMode { syntheticDemo, secureVault, localAgent }
 
 /// Replace this composition root with encrypted persistence, keystore-backed
 /// unlock, and a real model adapter. Widgets never reach those adapters.
@@ -41,6 +43,7 @@ final class AppComposition {
     required this.eventStore,
     required this.mode,
     required this.replyInbox,
+    this.automaticAgent,
   });
 
   final AppController controller;
@@ -50,6 +53,7 @@ final class AppComposition {
   final EventStore eventStore;
   final AppExperienceMode mode;
   final AgentReplyInboxController replyInbox;
+  final AutomaticAgentController? automaticAgent;
 
   factory AppComposition.inMemoryDemo({
     EventStore? eventStore,
@@ -134,6 +138,13 @@ final class AppComposition {
     );
   }
 
+  factory AppComposition.localAgent({required AutomaticAgentGateway gateway, required EventStore eventStore}) => _build(
+    eventStore: eventStore,
+    mode: AppExperienceMode.localAgent,
+    automaticGateway: gateway,
+    modelGateway: const _UnavailableAppearanceAnalysisGateway(),
+  );
+
   static AppComposition _build({
     required EventStore eventStore,
     required AppExperienceMode mode,
@@ -146,6 +157,7 @@ final class AppComposition {
     AppearanceAnalysisGateway? modelGateway,
     EncryptedEventBackupPort? backupPort,
     AgentReplyInboxPort? replyInboxPort,
+    AutomaticAgentGateway? automaticGateway,
   }) {
     final clock = _SystemClock();
     final policyClock = _SystemPolicyClock();
@@ -244,6 +256,7 @@ final class AppComposition {
       restoreQuery: StrategySessionQueryHandler(eventStore),
       user: userActor,
     );
+    final automaticAgent = automaticGateway == null ? null : AutomaticAgentController(strategy: strategyController, gateway: automaticGateway);
     late final EncryptedEventBackupController backupController;
     controller = AppController(
       analyzeAppearance: useCase,
@@ -281,6 +294,7 @@ final class AppComposition {
           : null,
       actor: userActor,
       onVaultLocked: () {
+        automaticAgent?.reset();
         agentAccessController.stop();
         strategyController.reset();
         backupController.reset();
@@ -309,6 +323,7 @@ final class AppComposition {
       agentAccessController: agentAccessController,
       controller: controller,
       replyInbox: replyInbox,
+      automaticAgent: automaticAgent,
     );
   }
 }

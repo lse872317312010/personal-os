@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  http: ^1.2.2
+  url_launcher: ^6.3.1
   personal_os_agent_protocol:
     path: ../../packages/agent_protocol
   personal_os_application:

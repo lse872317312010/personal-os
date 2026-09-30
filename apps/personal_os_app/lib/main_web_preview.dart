@@ -1,13 +1,5 @@
-import 'package:flutter/widgets.dart';
+import 'main_web_agent.dart' as automatic;
 
-import 'src/app.dart';
-import 'src/composition/app_composition.dart';
-
-/// Browser-only preview backed by ephemeral synthetic data.
-///
-/// The production entrypoint remains [AppComposition.forCurrentPlatform],
-/// which fails closed outside Android until a trusted secure adapter exists.
-void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  runApp(PersonalOsApp(composition: AppComposition.inMemoryDemo()));
-}
+/// Public page distributes the automatic local app. The same build runs the
+/// action interface when served by the user's loopback Agent runtime.
+void main() => automatic.main();
