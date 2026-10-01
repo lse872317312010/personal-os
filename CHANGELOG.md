@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-01 — Automatic Agent local Web loop
+
+- Added official ChatGPT OAuth and automatic model requests, with Responses, Chat Completions and HTTP Agent adapters;
+- Replaced the public manual handoff preview with a download entry for the single-page automatic app;
+- Made action plans prominent; outcome reports trigger reviews and accepted reviews trigger the next plan;
+- Added encrypted, append-only local history and bundled Windows/Linux runtimes, Chinese font and renderer;
+- Added gateway, two-round Flutter/Chrome and compiled-app startup checks. Test replies remain synthetic; real account inference and Redmi acceptance are separate verification steps.
+
 ## 2026-09-19 — MCP adapter authority hardening
 
 ### Added

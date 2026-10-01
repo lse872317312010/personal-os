@@ -6,13 +6,16 @@
 
 Personal OS保存个人已有资产、当前状态、目标、约束、策略、计划、执行、确定性结果和主观反馈。Codex或其他外部Agent/Harness通过MCP读取并维护这些数据，负责全部分析、推理、策略生成和复盘；Android App不内置特定模型，负责权威数据、执行监督和历史连续性。
 
-## Web 合成预览
+## 自动 Agent 本机版
 
-[打开 Web 合成预览](https://lse872317312010.github.io/personal-os/)
+[打开下载页](https://lse872317312010.github.io/personal-os/) · [Windows / Linux 启动包](https://github.com/lse872317312010/personal-os/releases/tag/automatic-agent-web)
 
-该预览用于在浏览器中验证界面和产品流程。它只使用合成示例，交互数据保存在当前页面内存中；刷新或关闭页面会清空数据，不读取相册，也不调用真实 AI。结果不代表真实分析。Web 预览不替代 Android MVP 验收或 Redmi 真机 G3 测试。
+Windows 解压后双击 `Start-Personal-OS.cmd`，浏览器自动打开应用。首次使用 **Continue with ChatGPT** 登录并授权；后续请求和回复在应用内自动完成，无需复制提示词、粘贴回复或导入 JSON。启动包包含 Node、中文字体和渲染组件，不需要 Flutter SDK。
 
-从首页选择“开始个人策略闭环”：保存目标和个人条件 → 准备协作上下文 → 复制到常用 Agent → 粘贴回复并导入 → 确认策略并执行 → 保存结果 → 让 Agent 复盘 → 接受复盘 → 用当前或另一位 Agent 提出下一轮策略。演示模式可以用“填入演示资料”和“填入演示回复”检查同一流程；这些按钮不代表调用真实模型。
+保存目标和现状 → 自动生成行动计划 → 用户确认并执行 → 记录结果 → 自动复盘 → 用户接受复盘 → 自动生成下一轮。行动卡在首屏，目标、连接设置和历史按需展开。结构化资料和事件历史加密保存在本机服务中，刷新或重启后可以接续；请求 AI 时会向所选服务发送当前上下文。
+
+同一网关支持 ChatGPT、Responses、Chat Completions 和 HTTP Agent。接入方法与数据边界见[自动接入说明](docs/automatic-agent.md)，当前优先级见[决策 0017](docs/decisions/0017-automatic-agent-local-web.md)。公开站点提供下载，实际应用在本机运行。测试使用明确的模型替身；真实 ChatGPT 推理仍需实际合资格账号授权，不构成 Android 真机或真实效果验收。
+
 ## 核心闭环
 
 个人资产与状态  
@@ -28,16 +31,16 @@ Personal OS保存个人已有资产、当前状态、目标、约束、策略、
 
 ## 当前冻结决策
 
-- MVP只保留Android；
+- 最终设备 MVP 保留 Android；当前按用户要求优先交付自动 Agent 本机 Web 闭环；
 - Redmi Turbo是首个Primary Vault和dogfood设备；
 - Flutter UI + Dart-first core继续保留；
-- Android Vault是核心数据唯一权威端；
+- Android Vault 的权威边界继续适用；本机 Web 的独立加密事件存储不冒充 Android Vault，也未实现两端同步；
 - 推理元交互完全交给外部Agent/Harness；
 - MCP是首选在线接口；
 - JSON/JSONL Context与Proposal Bundle是兼容和退出接口；
 - UI、MCP和文件导入共享同一Application API；
 - Agent可以维护资产、创建策略、计划和复盘，但不能篡改历史；
-- Windows、多设备同步、内置模型、多Agent编排和高级披露暂缓。
+- 原生 Windows 客户端、多设备同步、内置模型、多Agent编排和高级披露暂缓；Windows 本机 Web 启动包用于当前自动闭环。
 
 ## MVP目标
 
@@ -82,16 +85,18 @@ Personal OS保存个人已有资产、当前状态、目标、约束、策略、
 - Task、Execution、Outcome与结构化Review流程；
 - PersonalAsset、Strategy、AgentSession领域对象与生命周期；
 - 厂商无关Agent Protocol v0和固定revision Context/Proposal/Review Bundle；
+- 自动 Agent 网关、ChatGPT 授权、通用模型适配、单页行动卡及本机历史恢复；
 - Android两轮Strategy UI、Harness身份绑定、handoff与冷启动恢复；
 - 可验证无损事件归档和口令加密的Android备份/原子恢复；
 - 构建、测试、APK SHA-256和provenance链。
 
-这些代码是新方向的重要基础，但现有Android内置OpenAI路径、Windows spike和多设备同步不再属于当前MVP主线。代码处置必须在影响分析后完成。
+这些代码是新方向的重要基础。现有 Android 内置 OpenAI 路径、原生 Windows spike 和多设备同步不属于当前 MVP 主线；本机 Web 自动接入沿用共享策略协议和 Application API。
 
 ## 当前状态
 
 外部Agent策略主链已进入设备与真实使用验证阶段：
 
+- 本机 Web 入口已自动发送上下文、接收计划/复盘/下一轮，并持久保存连续历史；真实账号推理仍待首次授权验收；
 - 领域、事件、SQLite projection、Application authority与Agent Protocol v0已经落地；
 - Context、Proposal和Review Bundle使用同一厂商无关协议，并已验证两个Harness的历史接续；
 - Android可完成策略提案确认、执行/结果记录、结构化复盘、Strategy v2谱系展示和冷启动恢复；
@@ -103,6 +108,7 @@ Personal OS保存个人已有资产、当前状态、目标、约束、策略、
 
 ## 文档入口
 
+- [自动 Agent 接入与启动](docs/automatic-agent.md)
 - [项目章程](docs/PROJECT_CHARTER.md)
 - [产品原则](docs/PRODUCT_PRINCIPLES.md)
 - [MVP范围](docs/MVP_SCOPE.md)
