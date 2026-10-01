@@ -43,8 +43,6 @@ void main() {
     });
     final gateway = LocalAutomaticAgentGateway(
         origin: Uri.parse('http://127.0.0.1:8787/'), client: client);
-    await gateway.status();
-    expect((await gateway.models()).single['id'], 'test');
     expect(
         await gateway.request(
             model: 'test',
@@ -52,10 +50,11 @@ void main() {
             context: '{"session_id":"one"}',
             stage: 'proposal'),
         'completed bundle');
+    expect((await gateway.models()).single['id'], 'test');
     expect(requests.map((e) => e.url.path), <String>[
       '/api/agent/status',
-      '/api/agent/models',
-      '/api/agent/request'
+      '/api/agent/request',
+      '/api/agent/models'
     ]);
     gateway.cancel();
   });

@@ -92,19 +92,20 @@ final class LocalAutomaticAgentGateway implements AutomaticAgentGateway {
           .toList(growable: false);
   @override
   Future<String> request(
-          {required String model,
-          required String prompt,
-          required String context,
-          required String stage}) async =>
-      (await post('/api/agent/request', <String, Object?>{
-        'model': model,
-        'prompt': prompt,
-        'context': context,
-        'stage': stage,
-        if (_connectionId != null) 'connection_id': _connectionId,
-        if (_connectionRevision != null)
-          'connection_revision': _connectionRevision,
-      }))['reply'] as String;
+      {required String model,
+      required String prompt,
+      required String context,
+      required String stage}) async {
+    if (_csrf == null) await status();
+    return (await post('/api/agent/request', <String, Object?>{
+      'model': model,
+      'prompt': prompt,
+      'context': context,
+      'stage': stage,
+      if (_connectionId != null) 'connection_id': _connectionId,
+      if (_connectionRevision != null) 'connection_revision': _connectionRevision,
+    }))['reply'] as String;
+  }
   @override
   void cancel() {
     _client.close();
