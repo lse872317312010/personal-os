@@ -49,10 +49,12 @@ final class AutomaticAgentController extends ChangeNotifier {
           .map((e) => Map<String, Object?>.from(e as Map))
           .toList();
       connections = ((state['connections'] as List?) ?? <Object?>[])
-          .map((e) => Map<String, Object?>.from(e as Map)).toList();
+          .map((e) => Map<String, Object?>.from(e as Map))
+          .toList();
       connectionId = state['connection_id'] as String?;
       connectionName = state['connection_name'] as String?;
-      final catalog = connected ? await gateway.models() : <Map<String, Object?>>[];
+      final catalog =
+          connected ? await gateway.models() : <Map<String, Object?>>[];
       if (!_current(epoch)) return;
       models = catalog;
       if (!models.any((e) => e['id'] == model)) {
@@ -60,7 +62,9 @@ final class AutomaticAgentController extends ChangeNotifier {
       }
     } on Object catch (failure) {
       if (_current(epoch)) {
-        connected = false; models = []; model = null;
+        connected = false;
+        models = [];
+        model = null;
         error = _message(failure);
       }
     } finally {
@@ -84,10 +88,14 @@ final class AutomaticAgentController extends ChangeNotifier {
       '/api/agent/connections/select', <String, Object?>{'connection_id': id});
   Future<bool> removeConnection(String id) => _changeConnection(
       '/api/agent/connections/remove', <String, Object?>{'connection_id': id});
-  Future<bool> _changeConnection(String path, Map<String, Object?> value) async {
-    if (busy || _disposed || strategy.status == StrategyUiStatus.running) return false;
+  Future<bool> _changeConnection(
+      String path, Map<String, Object?> value) async {
+    if (busy || _disposed || strategy.status == StrategyUiStatus.running)
+      return false;
     final epoch = _epoch;
-    busy = true; error = null; notifyListeners();
+    busy = true;
+    error = null;
+    notifyListeners();
     try {
       await gateway.post(path, value);
       if (!_current(epoch)) return false;
@@ -99,7 +107,10 @@ final class AutomaticAgentController extends ChangeNotifier {
       if (_current(epoch)) error = _message(failure);
       return false;
     } finally {
-      if (_current(epoch)) { busy = false; notifyListeners(); }
+      if (_current(epoch)) {
+        busy = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -239,7 +250,9 @@ final class AutomaticAgentController extends ChangeNotifier {
     model = null;
     account = null;
     accounts = [];
-    connections = []; connectionId = null; connectionName = null;
+    connections = [];
+    connectionId = null;
+    connectionName = null;
     error = null;
     _requestFingerprint = null;
     if (!_disposed) notifyListeners();
@@ -262,14 +275,18 @@ final class AutomaticAgentController extends ChangeNotifier {
       'invalid_grant' ||
       'invalid_api_key' =>
         'AI 授权已失效，请在连接设置中重新登录或更新密钥。',
-      'invalid_provider_endpoint' => '服务地址需使用 HTTPS；本机服务可使用 http://127.0.0.1。请勿在地址中填写密钥。',
+      'invalid_provider_endpoint' =>
+        '服务地址需使用 HTTPS；本机服务可使用 http://127.0.0.1。请勿在地址中填写密钥。',
       'connection_name_required' => '请给这个连接起一个名字。',
       'connection_model_required' => '请填写服务提供的模型名称。',
       'invalid_connection' => '连接配置无效，请检查名称、模型和地址。',
       'connection_limit' => '已保存的连接太多，请先删除不用的连接。',
       'connection_changed' => 'AI 连接已在另一页面切换，请刷新连接后重试。',
       'connection_not_found' => '此连接已被移除，请重新选择。',
-      'local_service_unavailable' || 'service_unavailable' || 'connection_settings_unavailable' => '无法连接本机 AI 服务。请启动 Personal OS 本机版。',
+      'local_service_unavailable' ||
+      'service_unavailable' ||
+      'connection_settings_unavailable' =>
+        '无法连接本机 AI 服务。请启动 Personal OS 本机版。',
       'subscription_sharing_usage_limit_exceeded' ||
       'subscription_sharing_usage_unavailable' ||
       'insufficient_quota' ||

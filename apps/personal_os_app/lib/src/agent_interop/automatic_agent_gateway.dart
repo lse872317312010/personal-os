@@ -80,8 +80,14 @@ final class LocalAutomaticAgentGateway implements AutomaticAgentGateway {
   @override
   Future<List<Map<String, Object?>>> models() async =>
       ((await get(_connectionId == null
-                  ? '/api/agent/models'
-                  : Uri(path: '/api/agent/models', queryParameters: <String, String>{'connection_id': _connectionId!, if (_connectionRevision != null) 'connection_revision': _connectionRevision!}).toString()))['models'] as List)
+              ? '/api/agent/models'
+              : Uri(
+                  path: '/api/agent/models',
+                  queryParameters: <String, String>{
+                      'connection_id': _connectionId!,
+                      if (_connectionRevision != null)
+                        'connection_revision': _connectionRevision!
+                    }).toString()))['models'] as List)
           .map((e) => Map<String, Object?>.from(e as Map))
           .toList(growable: false);
   @override
@@ -96,7 +102,8 @@ final class LocalAutomaticAgentGateway implements AutomaticAgentGateway {
         'context': context,
         'stage': stage,
         if (_connectionId != null) 'connection_id': _connectionId,
-        if (_connectionRevision != null) 'connection_revision': _connectionRevision,
+        if (_connectionRevision != null)
+          'connection_revision': _connectionRevision,
       }))['reply'] as String;
   @override
   void cancel() {

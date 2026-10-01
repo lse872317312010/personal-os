@@ -22,13 +22,16 @@ void main() {
     final client = MockClient((request) async {
       requests.add(request);
       if (request.url.path.endsWith('/status')) {
-        return http.Response('{"csrf":"nonce","connected":true,"connection_id":"saved/one","connection_revision":"version-one"}', 200);
+        return http.Response(
+            '{"csrf":"nonce","connected":true,"connection_id":"saved/one","connection_revision":"version-one"}',
+            200);
       }
       expect(request.headers['X-Personal-OS-CSRF'], 'nonce');
       expect(request.headers.containsKey('Authorization'), false);
       if (request.url.path.endsWith('/models')) {
         expect(request.url.queryParameters['connection_id'], 'saved/one');
-        expect(request.url.queryParameters['connection_revision'], 'version-one');
+        expect(
+            request.url.queryParameters['connection_revision'], 'version-one');
         return http.Response('{"models":[{"id":"test"}]}', 200);
       }
       final body = jsonDecode(request.body) as Map;
@@ -49,8 +52,11 @@ void main() {
             context: '{"session_id":"one"}',
             stage: 'proposal'),
         'completed bundle');
-    expect(requests.map((e) => e.url.path),
-        <String>['/api/agent/status', '/api/agent/models', '/api/agent/request']);
+    expect(requests.map((e) => e.url.path), <String>[
+      '/api/agent/status',
+      '/api/agent/models',
+      '/api/agent/request'
+    ]);
     gateway.cancel();
   });
 
@@ -86,8 +92,18 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     final gateway = _TestGateway()
       ..connections = <Map<String, Object?>>[
-        <String, Object?>{'id': 'first', 'label': '第一个 Agent', 'kind': 'responses', 'model': 'test'},
-        <String, Object?>{'id': 'second', 'label': '第二个 Agent', 'kind': 'agent-http', 'model': 'second-model'},
+        <String, Object?>{
+          'id': 'first',
+          'label': '第一个 Agent',
+          'kind': 'responses',
+          'model': 'test'
+        },
+        <String, Object?>{
+          'id': 'second',
+          'label': '第二个 Agent',
+          'kind': 'agent-http',
+          'model': 'second-model'
+        },
       ]
       ..connectionId = 'first'
       ..provider = 'responses';
@@ -140,7 +156,8 @@ void main() {
     await tester.tap(acceptReview);
     await tester.pumpAndSettle();
     expect(gateway.stages, <String>['proposal', 'review', 'revision']);
-    expect(gateway.providersUsed, <String>['responses', 'agent-http', 'agent-http']);
+    expect(gateway.providersUsed,
+        <String>['responses', 'agent-http', 'agent-http']);
     expect(app.strategyController.hasPendingProposal, true);
     expect(app.strategyController.parentStrategyRef, isNotNull);
     expect(app.strategyController.executionId, isNull);
@@ -148,43 +165,77 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a phone user saves, edits and removes an AI connection in the app', (tester) async {
+  testWidgets(
+      'a phone user saves, edits and removes an AI connection in the app',
+      (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    final gateway = _TestGateway()..provider = 'chatgpt'..connectionId = 'chatgpt'
+    final gateway = _TestGateway()
+      ..provider = 'chatgpt'
+      ..connectionId = 'chatgpt'
       ..connections = <Map<String, Object?>>[
-        <String, Object?>{'id': 'chatgpt', 'label': 'ChatGPT', 'kind': 'chatgpt', 'model': ''},
+        <String, Object?>{
+          'id': 'chatgpt',
+          'label': 'ChatGPT',
+          'kind': 'chatgpt',
+          'model': ''
+        },
       ];
-    final app = AppComposition.localAgent(gateway: gateway, eventStore: InMemoryEventStore());
+    final app = AppComposition.localAgent(
+        gateway: gateway, eventStore: InMemoryEventStore());
     addTearDown(app.strategyController.dispose);
     addTearDown(app.automaticAgent!.dispose);
     await tester.pumpWidget(PersonalOsApp(composition: app));
     await tester.pumpAndSettle();
     final connection = find.byKey(const Key('automatic-connection'));
-    await tester.ensureVisible(connection); await tester.tap(connection); await tester.pumpAndSettle();
+    await tester.ensureVisible(connection);
+    await tester.tap(connection);
+    await tester.pumpAndSettle();
     final add = find.byKey(const Key('add-agent-connection'));
-    await tester.ensureVisible(add); await tester.tap(add); await tester.pumpAndSettle();
+    await tester.ensureVisible(add);
+    await tester.tap(add);
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('connection-name')), '我的模型');
     await tester.ensureVisible(find.byKey(const Key('connection-url')));
-    await tester.enterText(find.byKey(const Key('connection-url')), 'http://127.0.0.1:9000/v1');
+    await tester.enterText(
+        find.byKey(const Key('connection-url')), 'http://127.0.0.1:9000/v1');
     await tester.ensureVisible(find.byKey(const Key('connection-model')));
-    await tester.enterText(find.byKey(const Key('connection-model')), 'bridge-model');
+    await tester.enterText(
+        find.byKey(const Key('connection-model')), 'bridge-model');
     final key = find.byKey(const Key('connection-key'));
-    await tester.ensureVisible(key); await tester.enterText(key, 'test-only-secret');
-    expect(tester.widget<TextField>(find.descendant(of: key, matching: find.byType(TextField))).obscureText, true);
-    await tester.tap(find.byKey(const Key('save-agent-connection'))); await tester.pumpAndSettle();
+    await tester.ensureVisible(key);
+    await tester.enterText(key, 'test-only-secret');
+    expect(
+        tester
+            .widget<TextField>(
+                find.descendant(of: key, matching: find.byType(TextField)))
+            .obscureText,
+        true);
+    await tester.tap(find.byKey(const Key('save-agent-connection')));
+    await tester.pumpAndSettle();
     expect(gateway.lastSetup!['api_key'], 'test-only-secret');
     expect(app.automaticAgent!.connectionName, '我的模型');
     expect(app.automaticAgent!.model, 'bridge-model');
     expect(key, findsNothing);
     expect(app.automaticAgent!.connections.last.containsKey('api_key'), false);
     final edit = find.text('编辑此连接');
-    await tester.ensureVisible(edit); await tester.tap(edit); await tester.pumpAndSettle();
-    expect(tester.widget<TextField>(find.descendant(of: find.byKey(const Key('connection-key')), matching: find.byType(TextField))).controller!.text, isEmpty);
+    await tester.ensureVisible(edit);
+    await tester.tap(edit);
+    await tester.pumpAndSettle();
+    expect(
+        tester
+            .widget<TextField>(find.descendant(
+                of: find.byKey(const Key('connection-key')),
+                matching: find.byType(TextField)))
+            .controller!
+            .text,
+        isEmpty);
     final remove = find.text('删除连接（保留目标与历史）');
-    await tester.ensureVisible(remove); await tester.tap(remove); await tester.pumpAndSettle();
+    await tester.ensureVisible(remove);
+    await tester.tap(remove);
+    await tester.pumpAndSettle();
     expect(app.automaticAgent!.connectionId, 'chatgpt');
     expect(find.byKey(const Key('automatic-connection-picker')), findsNothing);
     expect(tester.takeException(), isNull);
@@ -296,6 +347,7 @@ final class _TestGateway implements AutomaticAgentGateway {
     final configured = currentConnection?['model'] as String?;
     return configured?.isNotEmpty == true ? configured! : 'test';
   }
+
   final started = Completer<void>();
   Completer<String>? delayed;
   AgentGatewayException? failure;
@@ -355,10 +407,22 @@ final class _TestGateway implements AutomaticAgentGateway {
         lastSetup = Map<String, Object?>.from(body);
         connectionId = body['id'] as String? ?? 'saved-connection';
         connections.removeWhere((e) => e['id'] == connectionId);
-        connections.add(<String, Object?>{'id': connectionId, 'label': body['label'], 'kind': body['kind'], 'base_url': body['base_url'] ?? '', 'agent_url': body['agent_url'] ?? '', 'model': body['model'], 'has_api_key': (body['api_key'] as String?)?.isNotEmpty == true});
+        connections.add(<String, Object?>{
+          'id': connectionId,
+          'label': body['label'],
+          'kind': body['kind'],
+          'base_url': body['base_url'] ?? '',
+          'agent_url': body['agent_url'] ?? '',
+          'model': body['model'],
+          'has_api_key': (body['api_key'] as String?)?.isNotEmpty == true
+        });
       }
-      provider = connections.firstWhere((e) => e['id'] == connectionId)['kind'] as String;
-      return <String, Object?>{'active': connectionId, 'connections': connections};
+      provider = connections.firstWhere((e) => e['id'] == connectionId)['kind']
+          as String;
+      return <String, Object?>{
+        'active': connectionId,
+        'connections': connections
+      };
     }
     if (body['revision'] != revision) {
       throw const AgentGatewayException('history_conflict');
