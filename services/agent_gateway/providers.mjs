@@ -4,6 +4,7 @@ const allowedErrors = new Set(['subscription_sharing_usage_limit_exceeded', 'sub
 function providerError(code) { return new AgentError(allowedErrors.has(code) ? code : 'provider_request_failed', 502); }
 export function endpoint(value) {
   const url = new URL(value);
+  if (url.protocol === 'http:' && url.hostname === 'localhost') url.hostname = '127.0.0.1';
   if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && ['127.0.0.1', '[::1]'].includes(url.hostname))) || url.username || url.password || url.hash || url.search) throw new AgentError('invalid_provider_endpoint');
   return url.href.replace(/\/$/, '');
 }
@@ -48,7 +49,7 @@ export class AgentProviders {
     if ((['responses', 'chat-completions'].includes(this.id) && !this.base) || (this.id === 'agent-http' && !this.agentUrl) || !['chatgpt', 'responses', 'chat-completions', 'agent-http'].includes(this.id)) throw new AgentError('invalid_provider_configuration');
   }
   get id() { return this.config.kind || 'chatgpt'; }
-  get connected() { return this.id === 'chatgpt' ? this.auth.connected : !!(this.config.model && (this.config.apiKey || this.agentUrl || this.base?.startsWith('http://127.0.0.1'))); }
+  get connected() { return this.id === 'chatgpt' ? this.auth.connected : !!(this.config.model && (this.agentUrl || this.base)); }
   async credential() { return this.id === 'chatgpt' ? this.auth.accessToken() : this.config.apiKey; }
   async models() {
     if (this.id !== 'chatgpt') return this.connected ? [{ id: this.config.model, name: this.config.model }] : [];

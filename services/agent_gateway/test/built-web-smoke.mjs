@@ -7,14 +7,15 @@ import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { ProtectedStore } from '../protected-store.mjs';
 import { ChatGPTAuth } from '../chatgpt-auth.mjs';
-import { AgentProviders } from '../providers.mjs';
+import { AgentConnections } from '../connections.mjs';
 import { createGateway } from '../server.mjs';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const profile = await mkdtemp(join(tmpdir(), 'personal-os-browser-smoke-'));
 const store = new ProtectedStore(join(profile, 'app'));
 const auth = new ChatGPTAuth(store); await auth.init();
-const gateway = createGateway({ store, auth, providers: new AgentProviders(auth), webRoot: resolve('apps/personal_os_app/build/web') });
+const connections = await new AgentConnections(store, auth).init();
+const gateway = createGateway({ store, auth, connections, providers: connections.provider, webRoot: resolve('apps/personal_os_app/build/web') });
 const origin = await gateway.listen();
 const browser = spawn(process.env.CHROME_EXECUTABLE || 'google-chrome', [
   '--headless=new', '--no-sandbox', '--disable-dev-shm-usage',

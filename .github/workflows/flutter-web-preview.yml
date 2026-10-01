@@ -60,7 +60,7 @@ jobs:
         run: |
           set -Eeuo pipefail
           format_paths=(lib/main_web_preview.dart lib/src/app.dart lib/src/agent_interop/agent_handoff.dart lib/src/agent_interop/agent_reply_inbox.dart lib/src/agent_interop/agent_text_share.dart lib/src/composition/app_composition.dart lib/src/controller/strategy_loop_controller.dart lib/src/screens/home_screen.dart lib/src/screens/strategy_loop_screen.dart lib/src/screens/strategy_action_card.dart test/agent_handoff_test.dart test/agent_reply_inbox_test.dart test/agent_text_share_test.dart test/mvp_journey_test.dart test/web_agent_loop_test.dart test/action_first_ui_test.dart test/strategy_cold_start_restore_test.dart test/strategy_loop_controller_test.dart test/app_composition_test.dart ../../packages/application/lib/src/strategy_session_read_model.dart)
-          format_paths+=(lib/main_web_agent.dart lib/src/agent_interop/automatic_agent_gateway.dart lib/src/agent_interop/local_agent_event_store.dart lib/src/controller/automatic_agent_controller.dart lib/src/screens/automatic_strategy_screen.dart test/automatic_agent_loop_test.dart)
+          format_paths+=(lib/main_web_agent.dart lib/src/agent_interop/automatic_agent_gateway.dart lib/src/agent_interop/local_agent_event_store.dart lib/src/controller/automatic_agent_controller.dart lib/src/screens/automatic_strategy_screen.dart lib/src/screens/agent_connection_dialog.dart test/automatic_agent_loop_test.dart)
           if ! dart format --output=none --set-exit-if-changed "${format_paths[@]}"; then
             dart format "${format_paths[@]}" >/dev/null
             git diff -- "${format_paths[@]}"
@@ -120,7 +120,7 @@ jobs:
         with:
           node-version: '22'
       - name: Verify real loopback gateway and protected credentials
-        run: node --test services/agent_gateway/test/gateway.test.mjs
+        run: node --test services/agent_gateway/test/*.test.mjs
       - uses: actions/download-artifact@v4
         with:
           name: personal-os-agent-web
@@ -167,6 +167,18 @@ jobs:
             gh release create automatic-agent-web --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title 'Personal OS · 自动 Agent 本机版' --notes '解压 Windows 包后双击 Start-Personal-OS.cmd。首次 Continue with ChatGPT 授权后，行动计划、复盘与下一轮自动请求和接收。包内 provenance.json 记录构建 commit；当前发布不代表已完成真实账户推理验收。'
           fi
           gh release upload automatic-agent-web packages/*.zip --clobber --repo "$GITHUB_REPOSITORY"
+          # This is a rolling download channel: its source tag must match the
+          # successfully uploaded packages, whose provenance records this SHA.
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/automatic-agent-web" -f sha="$GITHUB_SHA" -F force=true
+          cat > release-notes.md <<EOF
+          解压 Windows 包后双击 Start-Personal-OS.cmd；Linux 运行 bash start-personal-os.sh。
+
+          首次 Continue with ChatGPT 授权，或在应用内“接入其他 AI”中保存兼容 API / HTTP Agent。行动计划、复盘与下一轮自动请求和接收；切换连接保留目标和历史。
+
+          构建来源：https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA
+          包内 provenance.json 记录同一 commit。当前发布不代表已完成真实账户推理或 Android 真机验收。
+          EOF
+          gh release edit automatic-agent-web --repo "$GITHUB_REPOSITORY" --notes-file release-notes.md
 
   deploy:
     name: Publish app download page to GitHub Pages

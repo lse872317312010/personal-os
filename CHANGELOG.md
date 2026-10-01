@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-01 — Saved Agent connections in the app
+
+- Added a compact setup dialog and saved connection selector for Responses, OpenAI-compatible APIs and HTTP Agents;
+- Encrypted connection settings in the local profile; stored keys are never returned to the browser, and endpoint changes do not reuse another service's key;
+- Preserved goals, accepted actions and outcomes when switching or deleting a connection; stale clients and changes during inference are rejected;
+- Added real HTTP adapter/persistence checks and phone UI coverage, including changing Agent before automatic review and the next plan. Inference fixtures remain test doubles.
+
 ## 2026-10-01 — Automatic Agent local Web loop
 
 - Added official ChatGPT OAuth and automatic model requests, with Responses, Chat Completions and HTTP Agent adapters;

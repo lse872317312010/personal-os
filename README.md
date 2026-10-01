@@ -14,7 +14,9 @@ Windows 解压后双击 `Start-Personal-OS.cmd`，浏览器自动打开应用。
 
 保存目标和现状 → 自动生成行动计划 → 用户确认并执行 → 记录结果 → 自动复盘 → 用户接受复盘 → 自动生成下一轮。行动卡在首屏，目标、连接设置和历史按需展开。结构化资料和事件历史加密保存在本机服务中，刷新或重启后可以接续；请求 AI 时会向所选服务发送当前上下文。
 
-同一网关支持 ChatGPT、Responses、Chat Completions 和 HTTP Agent。接入方法与数据边界见[自动接入说明](docs/automatic-agent.md)，当前优先级见[决策 0017](docs/decisions/0017-automatic-agent-local-web.md)。公开站点提供下载，实际应用在本机运行。测试使用明确的模型替身；真实 ChatGPT 推理仍需实际合资格账号授权，不构成 Android 真机或真实效果验收。
+展开 AI 连接，点击“接入其他 AI”，填写服务地址、模型和必要的密钥即可使用 Responses、OpenAI 兼容 API 或 HTTP Agent。连接加密保存在本机，可随时选择和编辑；切换 Agent 或删除连接保留目标与行动历史，下一次复盘继续带上已有结果。日常接入不需要设置环境变量。
+
+接入方法与数据边界见[自动接入说明](docs/automatic-agent.md)，当前优先级见[决策 0017](docs/decisions/0017-automatic-agent-local-web.md)。公开站点提供下载，实际应用在本机运行。测试使用明确的模型替身；真实 ChatGPT 推理仍需实际合资格账号授权，不构成 Android 真机或真实效果验收。
 
 ## 核心闭环
 
