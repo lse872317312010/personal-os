@@ -71,7 +71,26 @@ try {
   const screenshot = await call('Page.captureScreenshot', { format: 'png' });
   await mkdir('build', { recursive: true });
   await writeFile('build/automatic-agent-start.png', Buffer.from(screenshot.data, 'base64'));
-  console.log('Compiled automatic app starts at phone width with local fonts/renderer and no external requests. No account grant or inference was made.');
+  const tree = await call('Accessibility.getFullAXTree');
+  const add = tree.nodes.find(n => n.role?.value === 'button' && n.name?.value?.includes('接入其他 AI'));
+  assert.ok(add?.backendDOMNodeId, 'Connection setup is not accessible from the app');
+  await call('DOM.scrollIntoViewIfNeeded', { backendNodeId: add.backendDOMNodeId });
+  const { model } = await call('DOM.getBoxModel', { backendNodeId: add.backendDOMNodeId });
+  const x = (model.content[0] + model.content[2]) / 2, y = (model.content[1] + model.content[5]) / 2;
+  await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+  await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+  let dialogReady = false;
+  while (Date.now() < deadline && !dialogReady) {
+    const dialog = await call('Accessibility.getFullAXTree');
+    dialogReady = dialog.nodes.some(n => n.name?.value?.includes('连接名称'))
+      && dialog.nodes.some(n => n.role?.value === 'button' && n.name?.value?.includes('保存并使用'));
+    if (!dialogReady) await delay(100);
+  }
+  assert.ok(dialogReady, 'Connection setup dialog did not open at phone width');
+  await delay(250);
+  const setupScreenshot = await call('Page.captureScreenshot', { format: 'png' });
+  await writeFile('build/automatic-agent-connection.png', Buffer.from(setupScreenshot.data, 'base64'));
+  console.log('Compiled automatic app starts and opens connection setup at phone width with local fonts/renderer and no external startup requests. No account grant or inference was made.');
 } finally {
   socket?.close();
   const forceExit = setTimeout(() => browser.kill('SIGKILL'), 5_000);

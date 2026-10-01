@@ -90,8 +90,9 @@ final class AutomaticAgentController extends ChangeNotifier {
       '/api/agent/connections/remove', <String, Object?>{'connection_id': id});
   Future<bool> _changeConnection(
       String path, Map<String, Object?> value) async {
-    if (busy || _disposed || strategy.status == StrategyUiStatus.running)
+    if (busy || _disposed || strategy.status == StrategyUiStatus.running) {
       return false;
+    }
     final epoch = _epoch;
     busy = true;
     error = null;
