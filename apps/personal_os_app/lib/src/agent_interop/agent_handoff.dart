@@ -151,8 +151,7 @@ $contextBundle
 final class ExternalAgentContextException implements Exception {
   const ExternalAgentContextException();
 
-  String get userMessage =>
-      '检测到疑似密码、API 密钥、验证码或私钥，已阻止发送。请先从上下文中移除。';
+  String get userMessage => '检测到疑似密码、API 密钥、验证码或私钥，已阻止发送。请先从上下文中移除。';
 
   @override
   String toString() => userMessage;
@@ -190,9 +189,9 @@ String buildExternalAgentContextBundle(String contextBundle) {
       .whereType<Map>()
       .map((record) => Map<String, Object?>.from(record))
       .where((record) {
-        final ref = record['ref'];
-        return ref is Map && allowedTypes.contains(ref['type']);
-      }).toList(growable: false);
+    final ref = record['ref'];
+    return ref is Map && allowedTypes.contains(ref['type']);
+  }).toList(growable: false);
   sanitized['objects'] = records;
   sanitized
     ..remove('cursor')
@@ -229,7 +228,8 @@ bool _containsD4CredentialMaterial(String value) {
     r'\bbearer\s+[A-Za-z0-9._~-]{16,}',
     r'\b(?:api[_ -]?key|password|passwd|secret|recovery[_ -]?code|otp|verification[_ -]?code|验证码|密码|私钥)\s*[:=：]\s*[^\s,;]{4,}',
   ];
-  return patterns.any((pattern) => RegExp(pattern, caseSensitive: false).hasMatch(value));
+  return patterns
+      .any((pattern) => RegExp(pattern, caseSensitive: false).hasMatch(value));
 }
 
 String buildAgentHandoffRepairPrompt({

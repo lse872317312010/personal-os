@@ -18,6 +18,7 @@ internal class AgentCompletionMethodChannel(
     activity: FragmentActivity,
     private val client: OpenAiResponsesAgentClient?,
     private val credentialPrompt: NativeModelCredentialPrompt?,
+    private val isVaultActive: () -> Boolean,
 ) : MethodChannel.MethodCallHandler {
     companion object {
         const val CHANNEL_NAME = "personal_os/internal/agent_completion"
@@ -74,6 +75,10 @@ internal class AgentCompletionMethodChannel(
     }
 
     private fun configureCredential(result: MethodChannel.Result) {
+        if (!vaultIsActive()) {
+            fail(result, AgentCompletionFailureCode.CREDENTIAL_REQUIRED)
+            return
+        }
         val prompt = credentialPrompt
         if (client == null || prompt == null) {
             fail(result, AgentCompletionFailureCode.ADAPTER_UNAVAILABLE)
@@ -110,6 +115,10 @@ internal class AgentCompletionMethodChannel(
     }
 
     private fun complete(arguments: Any?, result: MethodChannel.Result) {
+        if (!vaultIsActive()) {
+            fail(result, AgentCompletionFailureCode.CREDENTIAL_REQUIRED)
+            return
+        }
         val activeClient = client
         if (activeClient == null) {
             fail(result, AgentCompletionFailureCode.ADAPTER_UNAVAILABLE)
@@ -173,6 +182,12 @@ internal class AgentCompletionMethodChannel(
         code: AgentCompletionFailureCode,
     ) {
         result.error(code.wireValue, null, null)
+    }
+
+    private fun vaultIsActive(): Boolean = try {
+        isVaultActive()
+    } catch (_: Throwable) {
+        false
     }
 
     private class PendingRequest(val result: MethodChannel.Result) {

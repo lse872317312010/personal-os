@@ -162,6 +162,14 @@ class MainActivity : FlutterFragmentActivity() {
             } else {
                 null
             },
+            isVaultActive = {
+                try {
+                    vault.currentSessionId()
+                    true
+                } catch (_: Throwable) {
+                    false
+                }
+            },
         )
         agentCompletionHandler = agentCompletion
         agentCompletionChannel = MethodChannel(

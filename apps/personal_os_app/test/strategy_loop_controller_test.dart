@@ -220,7 +220,6 @@ void main() {
     expect(port.ready, isFalse);
     expect(port.clearCount, 1);
   });
-
 }
 
 final class _FakeAgentCompletionPort implements AgentCompletionPort {

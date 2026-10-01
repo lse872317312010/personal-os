@@ -294,8 +294,7 @@ final class StrategyLoopController extends ChangeNotifier {
       _fail('strategy.pending_proposal_required');
       return null;
     }
-    if (prompt.trim().isEmpty ||
-        prompt.length > maximumAgentPromptLength) {
+    if (prompt.trim().isEmpty || prompt.length > maximumAgentPromptLength) {
       _fail('agent.invalid_request');
       return null;
     }

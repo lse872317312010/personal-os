@@ -896,15 +896,17 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                         onPressed: busy ||
                                                 !controller.canRequestAgent
                                             ? null
-                                            : () => _requestAutomaticAgent(context),
+                                            : () =>
+                                                _requestAutomaticAgent(context),
                                         icon: const Icon(Icons.auto_awesome),
                                         label: const Text('向 OpenAI 请求并读取建议'),
                                       )
                                     else
                                       OutlinedButton.icon(
                                         key: const Key('connect-openai-agent'),
-                                        onPressed:
-                                            busy ? null : _configureAutomaticAgent,
+                                        onPressed: busy
+                                            ? null
+                                            : _configureAutomaticAgent,
                                         icon: const Icon(Icons.link),
                                         label: const Text('连接 OpenAI API'),
                                       ),
@@ -1413,13 +1415,11 @@ String _strategyErrorText(String code) => switch (code) {
       'strategy_loop.d4_forbidden' ||
       'feedback.d4_forbidden' =>
         '当前闭环不支持 D4 级敏感资料。',
-      'agent.adapter_unavailable' =>
-        '当前版本尚未启用 OpenAI 自动接入，或原生服务暂时不可用。',
+      'agent.adapter_unavailable' => '当前版本尚未启用 OpenAI 自动接入，或原生服务暂时不可用。',
       'agent.credential_required' => '请先连接 OpenAI API。',
       'agent.credential_cancelled' => '已取消 OpenAI API 密钥输入。',
-      'agent.invalid_request' =>
-        '本次协作内容过长、无效或含疑似凭据，已阻止发送。',
-      'agent.invalid_response' => 'OpenAI 返回的内容无法读取；原始回复仍保留在输入框中。',
+      'agent.invalid_request' => '本次协作内容过长、无效或含疑似凭据，已阻止发送。',
+      'agent.invalid_response' => 'OpenAI 返回格式暂不支持，请重试或改用手动助手。',
       'agent.request_failed' => 'OpenAI 请求未完成，请检查网络和 API 密钥后重试。',
       _ => '操作未完成，请检查当前步骤后重试。',
     };
