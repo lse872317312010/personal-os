@@ -32,6 +32,8 @@ internal class AgentCompletionMethodChannel(
     private val credentials = AgentSessionCredentialStore()
     private val disposed = AtomicBoolean(false)
     private val pending = AtomicReference<PendingRequest?>(null)
+    private val credentialLifecycleLock = Any()
+    private var credentialEpoch = 0L
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         if (disposed.get()) {
@@ -50,9 +52,12 @@ internal class AgentCompletionMethodChannel(
     }
 
     fun clearRuntimeCredential() {
+        synchronized(credentialLifecycleLock) {
+            credentialEpoch += 1
+            credentials.clear()
+        }
         credentialPrompt?.dispose()
         client?.cancelInFlight()
-        credentials.clear()
         val active = pending.getAndSet(null) ?: return
         if (!active.completed.compareAndSet(false, true)) return
         try {
@@ -68,9 +73,12 @@ internal class AgentCompletionMethodChannel(
 
     fun dispose() {
         if (!disposed.compareAndSet(false, true)) return
+        synchronized(credentialLifecycleLock) {
+            credentialEpoch += 1
+            credentials.clear()
+        }
         credentialPrompt?.dispose()
         client?.cancelInFlight()
-        credentials.clear()
         pending.getAndSet(null)?.completed?.set(true)
         executor.shutdownNow()
     }
@@ -89,6 +97,7 @@ internal class AgentCompletionMethodChannel(
             fail(result, AgentCompletionFailureCode.REQUEST_FAILED)
             return
         }
+        val expectedEpoch = synchronized(credentialLifecycleLock) { credentialEpoch }
         try {
             prompt.requestSessionCredential credentialCallback@ { ownedCredential ->
                 if (disposed.get()) {
@@ -100,8 +109,24 @@ internal class AgentCompletionMethodChannel(
                     return@credentialCallback
                 }
                 try {
-                    credentials.install(ownedCredential)
-                    result.success(true)
+                    val sessionActive = vaultIsActive()
+                    val installed = synchronized(credentialLifecycleLock) {
+                        if (disposed.get() ||
+                            credentialEpoch != expectedEpoch ||
+                            !sessionActive
+                        ) {
+                            false
+                        } else {
+                            credentials.install(ownedCredential)
+                            true
+                        }
+                    }
+                    if (installed) {
+                        result.success(true)
+                    } else {
+                        ownedCredential.fill('\u0000')
+                        if (!disposed.get()) result.success(false)
+                    }
                 } catch (_: IllegalArgumentException) {
                     ownedCredential.fill('\u0000')
                     fail(result, AgentCompletionFailureCode.INVALID_REQUEST)
