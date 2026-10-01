@@ -53,13 +53,20 @@ try {
   while (Date.now() < deadline && !ready) {
     const value = await call('Runtime.evaluate', { expression: "document.querySelector('flt-semantics-placeholder')?.click(); document.body.outerHTML", returnByValue: true });
     const html = value.result.value || '';
-    ready = html.includes('Continue with ChatGPT') && html.includes('你想达成什么');
+    if (html.includes('Continue with ChatGPT') && html.includes('你想达成什么')) {
+      const ax = await call('Accessibility.getFullAXTree');
+      ready = ax.nodes.some(n => ['button', 'link'].includes(n.role?.value)
+        && n.name?.value?.includes('Continue with ChatGPT')
+        && !(n.properties || []).some(p => p.name === 'disabled' && p.value?.value === true));
+    }
     if (!ready) await delay(200);
   }
   assert.ok(ready, 'Actual compiled app did not show connection and goal controls');
   assert.ok(requests.some(u => u.includes('/fonts/NotoSansSC.ttf')), 'Chinese font was not loaded from the bundle');
   assert.ok(requests.some(u => u.includes('/canvaskit/')), 'Local renderer was not loaded');
   assert.deepEqual(requests.filter(u => !u.startsWith(origin) && !u.startsWith('data:') && !u.startsWith('blob:')), [], 'App startup requested an external host');
+  // Let the enabled-control transition finish before visual QA.
+  await delay(250);
   const screenshot = await call('Page.captureScreenshot', { format: 'png' });
   await mkdir('build', { recursive: true });
   await writeFile('build/automatic-agent-start.png', Buffer.from(screenshot.data, 'base64'));

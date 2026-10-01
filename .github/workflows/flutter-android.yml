@@ -54,6 +54,15 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Set up Java 21 for Android 36 tests
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Use the same JDK for Flutter and Gradle
+        run: flutter config --jdk-dir "$JAVA_HOME"
+
       - name: Install Android API 36
         shell: bash
         run: |
@@ -119,6 +128,15 @@ jobs:
           flutter-version: "3.47.0"
           channel: stable
           cache: true
+
+      - name: Set up Java 21 for Android 36 tests
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Use the same JDK for Flutter and Gradle
+        run: flutter config --jdk-dir "$JAVA_HOME"
 
       - name: Install Android API 36
         shell: bash
