@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:personal_os_agent_protocol/agent_protocol.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
+
+import '../agent_interop/agent_completion.dart';
 
 enum StrategyUiStatus { idle, running, ready, failed }
 
@@ -19,12 +22,15 @@ final class StrategyLoopController extends ChangeNotifier {
     required EntityId profileId,
     StrategySessionQueryHandler? restoreQuery,
     required ActorRef user,
+    AgentCompletionPort? agentCompletion,
   })  : _protocol = protocol,
         _strategyLoop = strategyLoop,
         _actionFeedback = actionFeedback,
         _profileId = profileId,
         _restoreQuery = restoreQuery,
-        _user = user;
+        _user = user,
+        _agentCompletion =
+            agentCompletion ?? const UnavailableAgentCompletionPort();
 
   final PersonalOsAgentProtocolService _protocol;
   final StrategyLoopUseCase _strategyLoop;
@@ -32,10 +38,12 @@ final class StrategyLoopController extends ChangeNotifier {
   final EntityId _profileId;
   final StrategySessionQueryHandler? _restoreQuery;
   final ActorRef _user;
+  final AgentCompletionPort _agentCompletion;
 
   int _lifecycleEpoch = 0;
   bool _disposed = false;
   bool _bootstrapped = false;
+  bool _automaticAgentConfigured = false;
 
   StrategyUiStatus _status = StrategyUiStatus.idle;
   String? _errorCode;
@@ -64,6 +72,7 @@ final class StrategyLoopController extends ChangeNotifier {
 
   StrategyUiStatus get status => _status;
   String? get errorCode => _errorCode;
+  bool get automaticAgentConfigured => _automaticAgentConfigured;
   String? get sessionId => _sessionId?.value;
   String? get strategyId => _strategyId?.value;
   String? get strategyState => _strategyState;
@@ -232,6 +241,100 @@ final class StrategyLoopController extends ChangeNotifier {
       _sessionRevision = grant.revision;
       return 'session_opened';
     });
+  }
+
+  /// Configures the native provider credential without sending personal data.
+  Future<bool> configureAutomaticAgent() async {
+    if (_disposed || _status == StrategyUiStatus.running) return false;
+    if (!hasSession) {
+      _fail('strategy.session_required');
+      return false;
+    }
+    if (_automaticAgentConfigured) return true;
+
+    final epoch = _lifecycleEpoch;
+    bool isCurrent() => !_disposed && epoch == _lifecycleEpoch;
+    _status = StrategyUiStatus.running;
+    _errorCode = null;
+    notifyListeners();
+    try {
+      final configured = await _agentCompletion.configureCredential();
+      if (!isCurrent()) return false;
+      _automaticAgentConfigured = configured;
+      _status = configured ? StrategyUiStatus.ready : StrategyUiStatus.failed;
+      _errorCode = configured ? null : 'agent.credential_cancelled';
+      notifyListeners();
+      return configured;
+    } on AgentCompletionFailure catch (error) {
+      if (!isCurrent()) return false;
+      _status = StrategyUiStatus.failed;
+      _errorCode = error.code;
+    } on Object {
+      if (!isCurrent()) return false;
+      _status = StrategyUiStatus.failed;
+      _errorCode = 'agent.adapter_unavailable';
+    }
+    notifyListeners();
+    return false;
+  }
+
+  /// Sends only after the caller has prepared fresh context and obtained the
+  /// user's per-request data-sharing confirmation.
+  Future<String?> requestAutomaticAgent({required String prompt}) async {
+    if (_disposed || _status == StrategyUiStatus.running) return null;
+    if (!hasSession) {
+      _fail('strategy.session_required');
+      return null;
+    }
+    if (!_automaticAgentConfigured) {
+      _fail('agent.credential_required');
+      return null;
+    }
+    if (!canRequestAgent) {
+      _fail('strategy.pending_proposal_required');
+      return null;
+    }
+    if (prompt.trim().isEmpty ||
+        prompt.length > maximumAgentPromptLength) {
+      _fail('agent.invalid_request');
+      return null;
+    }
+
+    final epoch = _lifecycleEpoch;
+    bool isCurrent() => !_disposed && epoch == _lifecycleEpoch;
+    _status = StrategyUiStatus.running;
+    _errorCode = null;
+    notifyListeners();
+    try {
+      final reply = await _agentCompletion.complete(prompt);
+      if (!isCurrent()) return null;
+      _status = StrategyUiStatus.ready;
+      notifyListeners();
+      return reply;
+    } on AgentCompletionFailure catch (error) {
+      if (!isCurrent()) return null;
+      _status = StrategyUiStatus.failed;
+      _errorCode = error.code;
+    } on Object {
+      if (!isCurrent()) return null;
+      _status = StrategyUiStatus.failed;
+      _errorCode = 'agent.request_failed';
+    }
+    notifyListeners();
+    return null;
+  }
+
+  Future<void> disconnectAutomaticAgent() async {
+    if (_disposed || _status == StrategyUiStatus.running) return;
+    _automaticAgentConfigured = false;
+    _status = StrategyUiStatus.ready;
+    _errorCode = null;
+    notifyListeners();
+    try {
+      await _agentCompletion.clearCredential();
+    } on Object {
+      _fail('agent.adapter_unavailable');
+    }
   }
 
   Future<void> closeSession() async {
@@ -610,6 +713,8 @@ final class StrategyLoopController extends ChangeNotifier {
     if (_disposed) return;
     _lifecycleEpoch += 1;
     _bootstrapped = false;
+    _automaticAgentConfigured = false;
+    unawaited(_clearAgentCredentialSafely());
     _status = StrategyUiStatus.idle;
     _errorCode = null;
     _sessionId = null;
@@ -695,7 +800,16 @@ final class StrategyLoopController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _lifecycleEpoch += 1;
+    unawaited(_clearAgentCredentialSafely());
     super.dispose();
+  }
+
+  Future<void> _clearAgentCredentialSafely() async {
+    try {
+      await _agentCompletion.clearCredential();
+    } on Object {
+      // Credential cleanup is also enforced by Android at Vault invalidation.
+    }
   }
 
   void _fail(String code) {

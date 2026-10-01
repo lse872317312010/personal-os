@@ -15,6 +15,7 @@ import 'package:personal_os_security_api/security_api.dart';
 import 'package:personal_os_storage_api/storage_api.dart';
 import 'package:personal_os_source_api/source_api.dart';
 
+import '../agent_interop/agent_completion.dart';
 import '../agent_interop/agent_reply_inbox.dart';
 import '../controller/agent_access_controller.dart';
 import '../controller/app_controller.dart';
@@ -54,12 +55,14 @@ final class AppComposition {
   factory AppComposition.inMemoryDemo({
     EventStore? eventStore,
     AgentReplyInboxPort? replyInboxPort,
+    AgentCompletionPort? agentCompletionPort,
   }) {
     final policyClock = _SystemPolicyClock();
     return _build(
       eventStore: eventStore ?? InMemoryEventStore(),
       mode: AppExperienceMode.syntheticDemo,
       replyInboxPort: replyInboxPort ?? const NoopAgentReplyInboxPort(),
+      agentCompletionPort: agentCompletionPort,
       initialGrants: <ConsentGrant>[
         _demoAppearanceConsent(policyClock.now()),
       ],
@@ -103,8 +106,10 @@ final class AppComposition {
     PlatformSecurityBridge? securityBridge,
     MethodChannel? channel,
     MethodChannel? modelChannel,
+    MethodChannel? agentChannel,
     MethodChannel? backupChannel,
     AgentReplyInboxPort? replyInboxPort,
+    AgentCompletionPort? agentCompletionPort,
   }) {
     final bridge =
         securityBridge ?? AndroidPlatformSecurityBridge(channel: channel);
@@ -131,6 +136,8 @@ final class AppComposition {
       ),
       replyInboxPort:
           replyInboxPort ?? const MethodChannelAgentReplyInboxPort(),
+      agentCompletionPort: agentCompletionPort ??
+          MethodChannelAgentCompletionPort(channel: agentChannel),
     );
   }
 
@@ -146,6 +153,7 @@ final class AppComposition {
     AppearanceAnalysisGateway? modelGateway,
     EncryptedEventBackupPort? backupPort,
     AgentReplyInboxPort? replyInboxPort,
+    AgentCompletionPort? agentCompletionPort,
   }) {
     final clock = _SystemClock();
     final policyClock = _SystemPolicyClock();
@@ -243,6 +251,7 @@ final class AppComposition {
       profileId: profileId,
       restoreQuery: StrategySessionQueryHandler(eventStore),
       user: userActor,
+      agentCompletion: agentCompletionPort,
     );
     late final EncryptedEventBackupController backupController;
     controller = AppController(

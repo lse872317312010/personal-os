@@ -9,9 +9,11 @@ import com.personalos.app.agent.AgentReplyReceiveChannel
 import com.personalos.app.agent.EncryptedAgentReplyQueueStore
 import com.personalos.app.agent.AgentTextShareChannel
 import com.personalos.app.backup.PortableEventBackupChannel
+import com.personalos.app.model.AgentCompletionMethodChannel
 import com.personalos.app.model.AndroidNativeModelCredentialPrompt
 import com.personalos.app.model.EphemeralNativeModelCredentialProvider
 import com.personalos.app.model.NativeAppearanceModelChannel
+import com.personalos.app.model.OpenAiResponsesAgentClient
 import com.personalos.app.model.OpenAiResponsesAppearanceModelClient
 import com.personalos.app.model.StructuredExternalAppearanceModelTransport
 import com.personalos.app.model.TranscodingExternalAppearanceModelClient
@@ -36,6 +38,8 @@ class MainActivity : FlutterFragmentActivity() {
     private var cameraCapture: ControlledCameraCapture? = null
     private var modelChannel: MethodChannel? = null
     private var modelHandler: NativeAppearanceModelChannel? = null
+    private var agentCompletionChannel: MethodChannel? = null
+    private var agentCompletionHandler: AgentCompletionMethodChannel? = null
     private var agentTextShareChannel: MethodChannel? = null
     private var agentReplyReceiveChannel: MethodChannel? = null
     private var agentReplyReceiveHandler: AgentReplyReceiveChannel? = null
@@ -146,6 +150,25 @@ class MainActivity : FlutterFragmentActivity() {
             NativeAppearanceModelChannel.CHANNEL_NAME,
         ).also { it.setMethodCallHandler(nativeModel) }
 
+        val agentCompletion = AgentCompletionMethodChannel(
+            activity = this,
+            client = if (BuildConfig.PERSONAL_OS_OPENAI_ENABLED) {
+                OpenAiResponsesAgentClient(model = BuildConfig.PERSONAL_OS_OPENAI_MODEL)
+            } else {
+                null
+            },
+            credentialPrompt = if (BuildConfig.PERSONAL_OS_OPENAI_ENABLED) {
+                AndroidNativeModelCredentialPrompt(this)
+            } else {
+                null
+            },
+        )
+        agentCompletionHandler = agentCompletion
+        agentCompletionChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            AgentCompletionMethodChannel.CHANNEL_NAME,
+        ).also { it.setMethodCallHandler(agentCompletion) }
+
         val tokenStore = ControlledSourceTokenStore()
         val blobSink = NativeVaultBlobSink(contentResolver, vault)
         val source = ControlledPhotoPicker(
@@ -171,7 +194,11 @@ class MainActivity : FlutterFragmentActivity() {
                 try {
                     nativeModel.revokeRuntimeCredential()
                 } finally {
-                    backup.onVaultInvalidated()
+                    try {
+                        agentCompletion.clearRuntimeCredential()
+                    } finally {
+                        backup.onVaultInvalidated()
+                    }
                 }
             }
         }
@@ -198,6 +225,10 @@ class MainActivity : FlutterFragmentActivity() {
         modelChannel = null
         modelHandler?.dispose()
         modelHandler = null
+        agentCompletionChannel?.setMethodCallHandler(null)
+        agentCompletionChannel = null
+        agentCompletionHandler?.dispose()
+        agentCompletionHandler = null
         agentTextShareChannel?.setMethodCallHandler(null)
         agentTextShareChannel = null
         agentReplyReceiveChannel?.setMethodCallHandler(null)
@@ -222,6 +253,8 @@ class MainActivity : FlutterFragmentActivity() {
         agentReplyReceiveHandler = null
         modelHandler?.dispose()
         modelHandler = null
+        agentCompletionHandler?.dispose()
+        agentCompletionHandler = null
         vaultHandler?.dispose()
         vaultHandler = null
         backupHandler?.dispose()

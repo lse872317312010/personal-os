@@ -1,5 +1,8 @@
 package com.personalos.app.model
 
+import org.json.JSONArray
+import org.json.JSONObject
+
 internal data class OpenAiCompletedResponse(
     val traceId: String,
     val modelId: String,
@@ -91,3 +94,35 @@ private fun Any?.openAiStringMap(): Map<String, Any?> {
 private fun invalidOpenAiResponse(): Nothing = throw NativeAppearanceModelFailure(
     NativeAppearanceModelFailureCode.INVALID_RESPONSE,
 )
+
+
+internal fun extractOpenAiCompletedResponse(
+    rawResponse: String,
+    maximumStructuredTextLength: Int,
+): OpenAiCompletedResponse {
+    try {
+        val envelope = JSONObject(rawResponse).toStringKeyMap()
+        return extractOpenAiCompletedResponse(envelope, maximumStructuredTextLength)
+    } catch (failure: NativeAppearanceModelFailure) {
+        throw failure
+    } catch (_: Throwable) {
+        invalidOpenAiResponse()
+    }
+}
+
+private fun JSONObject.toStringKeyMap(): Map<String, Any?> {
+    val result = linkedMapOf<String, Any?>()
+    val keys = keys()
+    while (keys.hasNext()) {
+        val key = keys.next()
+        result[key] = get(key).toKotlinJsonValue()
+    }
+    return result
+}
+
+private fun Any?.toKotlinJsonValue(): Any? = when (this) {
+    JSONObject.NULL -> null
+    is JSONObject -> toStringKeyMap()
+    is JSONArray -> (0 until length()).map { index -> get(index).toKotlinJsonValue() }
+    else -> this
+}
