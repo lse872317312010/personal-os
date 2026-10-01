@@ -506,7 +506,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     final prompt = await _prepareAutomaticAgentRequest(context);
     if (prompt == null || !context.mounted) return;
     final reply = await widget.controller.requestAutomaticAgent(prompt: prompt);
-    if (!mounted) return;
+    if (!mounted || !context.mounted) return;
     if (reply == null) {
       if (widget.controller.errorCode case final code?) {
         ScaffoldMessenger.of(context).showSnackBar(

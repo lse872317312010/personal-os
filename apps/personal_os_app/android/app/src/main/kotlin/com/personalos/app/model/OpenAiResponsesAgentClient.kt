@@ -132,6 +132,8 @@ internal class OpenAiResponsesAgentClient(
         connection.setRequestProperty("Accept-Encoding", "identity")
         connection.setRequestProperty("Cache-Control", "no-store")
         connection.setRequestProperty("Content-Type", "application/json")
+        // HttpsURLConnection needs a short-lived immutable header String;
+        // owned CharArray copies are still zeroized and this value is not logged.
         connection.setRequestProperty("Authorization", "Bearer ${String(credential)}")
     }
 

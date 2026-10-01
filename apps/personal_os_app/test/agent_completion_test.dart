@@ -24,7 +24,7 @@ void main() {
         _ => null,
       };
     });
-    final port = MethodChannelAgentCompletionPort(channel: channel);
+    final port = const MethodChannelAgentCompletionPort(channel: channel);
 
     expect(await port.configureCredential(), isTrue);
     expect(await port.complete('approved prompt'), '{"strategy":{}}');
@@ -49,7 +49,7 @@ void main() {
       called = true;
       return 'unexpected';
     });
-    final port = MethodChannelAgentCompletionPort(channel: channel);
+    final port = const MethodChannelAgentCompletionPort(channel: channel);
 
     await expectLater(
       port.complete('x' * (maximumAgentPromptLength + 1)),
@@ -69,7 +69,7 @@ void main() {
         .setMockMethodCallHandler(channel, (call) async {
       throw PlatformException(code: 'agent.request_failed');
     });
-    final port = MethodChannelAgentCompletionPort(channel: channel);
+    final port = const MethodChannelAgentCompletionPort(channel: channel);
 
     await expectLater(
       port.complete('approved prompt'),

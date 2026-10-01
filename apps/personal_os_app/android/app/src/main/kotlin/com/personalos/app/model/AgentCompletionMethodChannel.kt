@@ -50,6 +50,7 @@ internal class AgentCompletionMethodChannel(
     }
 
     fun clearRuntimeCredential() {
+        credentialPrompt?.dispose()
         client?.cancelInFlight()
         credentials.clear()
         val active = pending.getAndSet(null) ?: return

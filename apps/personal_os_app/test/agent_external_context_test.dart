@@ -65,7 +65,7 @@ void main() {
 
     expect(types, <String>['goal', 'strategy']);
     expect(jsonEncode(sanitized), isNot(contains('private')));
-    expect(sanitized, isNot(contains('cursor')));
+    expect(sanitized.containsKey('cursor'), isFalse);
     expect(sanitized['has_more'], isFalse);
     expect(
       (sanitized['scope'] as Map)['object_types'],
