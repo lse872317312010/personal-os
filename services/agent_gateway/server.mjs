@@ -13,9 +13,11 @@ const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 const send = (response, status, value) => { response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }); response.end(JSON.stringify(value)); };
 async function jsonBody(request) {
   if (!request.headers['content-type']?.startsWith('application/json')) throw new AgentError('json_required', 415);
-  let value = '', size = 0;
-  for await (const chunk of request) { size += chunk.length; if (size > 8_000_000) throw new AgentError('request_too_large', 413); value += chunk; }
-  try { return JSON.parse(value); } catch { throw new AgentError('invalid_json'); }
+  const chunks = []; let size = 0;
+  for await (const chunk of request) { size += chunk.length; if (size > 8_000_000) throw new AgentError('request_too_large', 413); chunks.push(chunk); }
+  // A Chinese character may span TCP chunks. Decode only the complete body,
+  // and reject malformed UTF-8 rather than persisting replacement characters.
+  try { return JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks))); } catch { throw new AgentError('invalid_json'); }
 }
 
 export function createGateway({ auth, providers, store, webRoot = join(root, 'web') }) {

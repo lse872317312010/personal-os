@@ -22,6 +22,7 @@ const browser = spawn(process.env.CHROME_EXECUTABLE || 'google-chrome', [
   '--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1',
   '--remote-debugging-port=0', `--user-data-dir=${join(profile, 'browser')}`, origin,
 ], { stdio: 'ignore' });
+const browserExited = new Promise(resolve => browser.once('exit', resolve));
 let socket;
 try {
   let port;
@@ -65,7 +66,9 @@ try {
   console.log('Compiled automatic app starts at phone width with local fonts/renderer and no external requests. No account grant or inference was made.');
 } finally {
   socket?.close();
+  const forceExit = setTimeout(() => browser.kill('SIGKILL'), 5_000);
   browser.kill('SIGTERM');
+  try { await browserExited; } finally { clearTimeout(forceExit); }
   await gateway.close();
-  await rm(profile, { recursive: true, force: true });
+  await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

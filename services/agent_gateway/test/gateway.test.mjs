@@ -140,6 +140,25 @@ test('real loopback HTTP boundary enforces Host, origin, CSRF, bundle session an
   if (process.platform !== 'win32') assert.equal((await stat(join(directory, 'history.private'))).mode & 0o777, 0o600);
 });
 
+test('real HTTP preserves Chinese history when a UTF-8 character crosses request chunks', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'personal-os-unicode-'));
+  const store = new ProtectedStore(directory), auth = new ChatGPTAuth(store); await auth.init();
+  const gateway = createGateway({ store, auth, providers: new AgentProviders(auth) });
+  const origin = await gateway.listen();
+  t.after(async () => { await gateway.close(); await rm(directory, { recursive: true, force: true }); });
+  const status = await (await fetch(`${origin}/api/agent/status`, { headers: { 'X-Personal-OS': '1' } })).json();
+  const event = { event_id: 'unicode-1', sensitivity: 'd1', goal: '每天学习，记录真实结果' };
+  const body = Buffer.from(JSON.stringify({ revision: 0, events: [event] }));
+  const split = body.indexOf(Buffer.from('每')) + 1;
+  const code = await new Promise((resolve, reject) => {
+    const req = httpRequest(`${origin}/api/history`, { method: 'POST', headers: { 'X-Personal-OS': '1', 'X-Personal-OS-CSRF': status.csrf, 'Content-Type': 'application/json' } }, res => { res.resume(); resolve(res.statusCode); });
+    req.on('error', reject); req.write(body.subarray(0, split));
+    setTimeout(() => req.end(body.subarray(split)), 25);
+  });
+  assert.equal(code, 200);
+  assert.deepEqual((await new ProtectedStore(directory).read('history')).events, [event]);
+});
+
 test('personal records are encrypted, survive restart and reject tampering', async t => {
   const directory = await mkdtemp(join(tmpdir(), 'personal-os-encrypted-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
