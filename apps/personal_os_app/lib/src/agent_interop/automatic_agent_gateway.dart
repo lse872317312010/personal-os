@@ -103,9 +103,11 @@ final class LocalAutomaticAgentGateway implements AutomaticAgentGateway {
       'context': context,
       'stage': stage,
       if (_connectionId != null) 'connection_id': _connectionId,
-      if (_connectionRevision != null) 'connection_revision': _connectionRevision,
+      if (_connectionRevision != null)
+        'connection_revision': _connectionRevision,
     }))['reply'] as String;
   }
+
   @override
   void cancel() {
     _client.close();
