@@ -21,20 +21,24 @@ final class AgentGatewayException implements Exception {
   final String code;
 }
 
-/// Same-origin local runtime. OAuth and provider credentials never cross this
-/// boundary; the CSRF nonce stays in memory rather than browser storage.
+/// Same-origin local runtime. OAuth tokens and stored keys are never returned.
+/// The connection form submits a user-entered key once; no browser persistence.
 final class LocalAutomaticAgentGateway implements AutomaticAgentGateway {
   LocalAutomaticAgentGateway({required this.origin, http.Client? client})
       : _client = client ?? http.Client();
   final Uri origin;
   http.Client _client;
   String? _csrf;
+  String? _connectionId;
+  String? _connectionRevision;
   @override
   Uri get signInPage => origin.resolve('/connect');
   @override
   Future<Map<String, Object?>> status() async {
     final value = await get('/api/agent/status');
     _csrf = value['csrf'] as String?;
+    _connectionId = value['connection_id'] as String?;
+    _connectionRevision = value['connection_revision'] as String?;
     return value;
   }
 
@@ -75,21 +79,35 @@ final class LocalAutomaticAgentGateway implements AutomaticAgentGateway {
 
   @override
   Future<List<Map<String, Object?>>> models() async =>
-      ((await get('/api/agent/models'))['models'] as List)
+      ((await get(_connectionId == null
+              ? '/api/agent/models'
+              : Uri(
+                  path: '/api/agent/models',
+                  queryParameters: <String, String>{
+                      'connection_id': _connectionId!,
+                      if (_connectionRevision != null)
+                        'connection_revision': _connectionRevision!
+                    }).toString()))['models'] as List)
           .map((e) => Map<String, Object?>.from(e as Map))
           .toList(growable: false);
   @override
   Future<String> request(
-          {required String model,
-          required String prompt,
-          required String context,
-          required String stage}) async =>
-      (await post('/api/agent/request', <String, Object?>{
-        'model': model,
-        'prompt': prompt,
-        'context': context,
-        'stage': stage
-      }))['reply'] as String;
+      {required String model,
+      required String prompt,
+      required String context,
+      required String stage}) async {
+    if (_csrf == null) await status();
+    return (await post('/api/agent/request', <String, Object?>{
+      'model': model,
+      'prompt': prompt,
+      'context': context,
+      'stage': stage,
+      if (_connectionId != null) 'connection_id': _connectionId,
+      if (_connectionRevision != null)
+        'connection_revision': _connectionRevision,
+    }))['reply'] as String;
+  }
+
   @override
   void cancel() {
     _client.close();

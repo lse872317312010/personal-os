@@ -8,6 +8,7 @@ import 'package:url_launcher/link.dart';
 import '../controller/automatic_agent_controller.dart';
 import '../controller/strategy_loop_controller.dart';
 import 'strategy_action_card.dart';
+import 'agent_connection_dialog.dart';
 
 /// One working surface: goal -> suggested action -> result -> review -> next
 /// action. No prompt export, clipboard, JSON editor or simulated model output.
@@ -39,7 +40,7 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
     await strategy.bootstrap();
     await agent.connect();
     if (!strategy.hasSession) {
-      await strategy.openOfflineSession(agentId: 'automatic-${agent.provider}');
+      await strategy.openOfflineSession(agentId: 'automatic-agent-gateway');
     }
     if (strategy.hasSession) await strategy.refreshContextForHandoff();
   }
@@ -268,12 +269,36 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
         key: const Key('automatic-connection'),
         initiallyExpanded: !agent.connected,
         title: Text(agent.connected
-            ? 'AI 已连接 · ${agent.provider == 'chatgpt' ? '使用 ChatGPT 订阅' : agent.provider}'
+            ? '使用 ${agent.connectionName ?? agent.provider}'
             : '连接你的 AI'),
-        subtitle: Text(agent.connected ? '计划、复盘和下一轮自动接收' : '首次登录一次，以后自动调用'),
+        subtitle: Text(agent.connected
+            ? '计划、复盘和下一轮自动接收'
+            : agent.provider == 'chatgpt'
+                ? '首次登录一次，以后自动调用'
+                : '检查服务配置，保存后自动调用'),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         children: <Widget>[
-          if (!agent.connected)
+          if (agent.connections.length > 1)
+            KeyedSubtree(
+                key: ValueKey(agent.connectionId),
+                child: DropdownButtonFormField<String>(
+                  key: const Key('automatic-connection-picker'),
+                  initialValue: agent.connectionId,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: '使用哪个 AI'),
+                  items: agent.connections
+                      .map((c) => DropdownMenuItem(
+                          value: c['id'] as String,
+                          child: Text(c['label'] as String,
+                              maxLines: 1, overflow: TextOverflow.ellipsis)))
+                      .toList(),
+                  onChanged: busy
+                      ? null
+                      : (id) {
+                          if (id != null) unawaited(agent.selectConnection(id));
+                        },
+                )),
+          if (!agent.connected && agent.provider == 'chatgpt')
             Link(
                 uri: agent.gateway.signInPage,
                 target: LinkTarget.blank,
@@ -283,17 +308,19 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                     icon: const Icon(Icons.login),
                     label: const Text('Continue with ChatGPT'))),
           if (agent.models.isNotEmpty)
-            DropdownButtonFormField<String>(
-                key: const Key('automatic-model'),
-                initialValue: agent.model,
-                decoration: const InputDecoration(labelText: '模型'),
-                items: agent.models
-                    .map((m) => DropdownMenuItem(
-                        value: m['id'] as String,
-                        child: Text(m['name'] as String)))
-                    .toList(),
-                onChanged: busy ? null : agent.selectModel),
-          if (agent.accounts.length > 1)
+            KeyedSubtree(
+                key: ValueKey('${agent.connectionId}:${agent.model}'),
+                child: DropdownButtonFormField<String>(
+                    key: const Key('automatic-model'),
+                    initialValue: agent.model,
+                    decoration: const InputDecoration(labelText: '模型'),
+                    items: agent.models
+                        .map((m) => DropdownMenuItem(
+                            value: m['id'] as String,
+                            child: Text(m['name'] as String)))
+                        .toList(),
+                    onChanged: busy ? null : agent.selectModel)),
+          if (agent.provider == 'chatgpt' && agent.accounts.length > 1)
             DropdownButtonFormField<String>(
                 initialValue: agent.account,
                 decoration:
@@ -309,6 +336,25 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                         if (id != null) unawaited(agent.selectAccount(id));
                       }),
           Wrap(spacing: 12, children: <Widget>[
+            TextButton(
+                key: const Key('add-agent-connection'),
+                onPressed: busy
+                    ? null
+                    : () => showDialog<void>(
+                        context: context,
+                        builder: (_) => AgentConnectionDialog(agent: agent)),
+                child: const Text('接入其他 AI')),
+            if (agent.connectionId != null && agent.connectionId != 'chatgpt')
+              TextButton(
+                  onPressed: busy
+                      ? null
+                      : () => showDialog<void>(
+                          context: context,
+                          builder: (_) => AgentConnectionDialog(
+                              agent: agent,
+                              connection: agent.connections.firstWhere(
+                                  (c) => c['id'] == agent.connectionId))),
+                  child: const Text('编辑此连接')),
             TextButton(
                 key: const Key('automatic-refresh-connection'),
                 onPressed: busy ? null : agent.connect,

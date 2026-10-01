@@ -45,10 +45,29 @@ existing state and provide a retry. Incomplete output is never adopted.
 
 ## Other model or Agent connections
 
-The same automatic service supports four adapters. Configure these variables
-in the local runtime environment **before launching**, not in source control
-or browser storage. Provider configuration is a one-time setup, not a daily
-prompt/reply handoff.
+Expand the AI connection card and choose **接入其他 AI**. Select OpenAI-compatible
+Chat Completions, Responses API, or a custom HTTP Agent. Enter a display name,
+service URL, model ID and, if required, an API key. Save once; plans and reviews
+are then sent and received automatically. No environment variables or manual
+prompt/reply handoff are needed.
+
+Saved connections appear in a selector. Switching, editing or removing a
+connection preserves the current goal, accepted plan, outcomes and history.
+The next request carries that same structured context to the selected Agent.
+Connections cannot change while a request is running; a stale browser's request
+is rejected before it can send personal context to an unexpected connection.
+Removing the active custom connection returns to ChatGPT. This removes only
+the saved service configuration; ChatGPT sign-out remains a separate action.
+
+Connection settings, including keys, are encrypted in the local runtime
+profile. Editing shows whether a key exists, never the stored key. A blank key
+keeps it only when the service type and destination stay the same; changing
+either requires re-entering the key. There is also an explicit clear-key option.
+
+For developer startup configuration, these variables seed a custom connection
+on the **first launch of a new profile**. Later launches use saved connections;
+changing environment variables does not overwrite them. Keep secrets out of
+source control and browser storage.
 
 | `PERSONAL_OS_PROVIDER` | Other configuration | Request contract |
 | --- | --- | --- |
@@ -58,7 +77,9 @@ prompt/reply handoff.
 | `agent-http` | `PERSONAL_OS_AGENT_URL`, `PERSONAL_OS_MODEL`, optional `PERSONAL_OS_API_KEY` | JSON HTTP Agent bridge |
 
 Remote provider endpoints must use HTTPS; local models may use HTTP on
-`127.0.0.1` or `[::1]`. The browser cannot supply arbitrary endpoints or keys.
+`127.0.0.1`, `localhost` (normalized to `127.0.0.1`) or `[::1]`. Explicit settings
+changes require the local app's same-origin and CSRF checks. URLs cannot contain
+credentials, query strings or fragments, and redirects are not followed.
 The custom HTTP bridge accepts:
 
 ```json
@@ -90,7 +111,9 @@ It does not run the synthetic appearance provider.
 The server binds only to `127.0.0.1`, validates Host/Origin and CSRF, rejects
 cross-site requests, serializes rotating-token refresh, prevents two runtimes
 from sharing a profile, and never logs credentials, authorization URLs, prompts
-or replies. The web client receives neither provider keys nor OAuth tokens.
+or replies. The web client cannot retrieve saved provider keys or OAuth tokens;
+a user-entered key is submitted once from the setup form and is not persisted
+in browser storage.
 History updates use revision checks and cannot erase prior events; the Dart
 reducer validates the complete append transaction before it is persisted.
 
@@ -112,7 +135,9 @@ web build; its exact upstream commit/blob is verified during packaging.
 
 `node --test services/agent_gateway/test/*.test.mjs` covers real loopback HTTP,
 OAuth state/PKCE/signed ID tokens, permission validation, rotating refresh,
-protected persistence and late streaming failures. Flutter/Chrome tests cover
+protected persistence, connection switching, all three generic transports and
+late streaming failures. Flutter/Chrome tests cover the phone connection form,
+switching Agent between action and review,
 automatic proposal, user acceptance/action/outcome, automatic review and the
 next proposal, plus persistence and stale-response cancellation.
 
