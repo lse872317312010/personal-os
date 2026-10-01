@@ -14,3 +14,11 @@ __pycache__/
 .idea/
 .vscode/
 .DS_Store
+
+# Local Agent credentials, personal history and packaged runtime
+*.private
+runtime.lock
+services/agent_gateway/web/
+services/agent_gateway/runtime/
+.env.local
+apps/personal_os_app/web/fonts/*.ttf

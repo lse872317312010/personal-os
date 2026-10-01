@@ -9,6 +9,7 @@ import 'controller/encrypted_event_backup_controller.dart';
 import 'controller/strategy_loop_controller.dart';
 import 'navigation/app_destination.dart';
 import 'screens/screens.dart';
+import 'screens/automatic_strategy_screen.dart';
 
 final class PersonalOsApp extends StatefulWidget {
   const PersonalOsApp({required this.composition, super.key});
@@ -59,6 +60,9 @@ final class _PersonalOsAppState extends State<PersonalOsApp>
         title: 'Personal OS',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
+          fontFamily: widget.composition.mode == AppExperienceMode.localAgent
+              ? 'PersonalSC'
+              : null,
           colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xff315c4c),
           ),
@@ -67,25 +71,27 @@ final class _PersonalOsAppState extends State<PersonalOsApp>
             border: OutlineInputBorder(),
           ),
         ),
-        home: AnimatedBuilder(
-          animation: widget.composition.controller,
-          builder: (context, _) {
-            final controller = widget.composition.controller;
-            if (!controller.vaultUnlocked) {
-              return VaultLockScreen(
-                controller: controller,
-                mode: widget.composition.mode,
-              );
-            }
-            return _UnlockedShell(
-              controller: controller,
-              strategyController: widget.composition.strategyController,
-              backupController: widget.composition.backupController,
-              replyInbox: widget.composition.replyInbox,
-              mode: widget.composition.mode,
-            );
-          },
-        ),
+        home: widget.composition.automaticAgent != null
+            ? AutomaticStrategyScreen(agent: widget.composition.automaticAgent!)
+            : AnimatedBuilder(
+                animation: widget.composition.controller,
+                builder: (context, _) {
+                  final controller = widget.composition.controller;
+                  if (!controller.vaultUnlocked) {
+                    return VaultLockScreen(
+                      controller: controller,
+                      mode: widget.composition.mode,
+                    );
+                  }
+                  return _UnlockedShell(
+                    controller: controller,
+                    strategyController: widget.composition.strategyController,
+                    backupController: widget.composition.backupController,
+                    replyInbox: widget.composition.replyInbox,
+                    mode: widget.composition.mode,
+                  );
+                },
+              ),
       );
 }
 
