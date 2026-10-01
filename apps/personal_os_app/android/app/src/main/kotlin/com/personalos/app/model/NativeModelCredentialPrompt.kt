@@ -15,11 +15,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 internal interface NativeModelCredentialPrompt {
     fun requestCredential(callback: (CharArray?) -> Unit)
+
+    fun requestSessionCredential(callback: (CharArray?) -> Unit) =
+        requestCredential(callback)
+
     fun dispose()
 }
 
 /**
- * Native-only one-call credential entry. No credential value crosses Flutter.
+ * Native-only credential entry. Values never cross Flutter.
  */
 internal class AndroidNativeModelCredentialPrompt(
     private val activity: FragmentActivity,
@@ -28,6 +32,31 @@ internal class AndroidNativeModelCredentialPrompt(
     private var activeInput: EditText? = null
 
     override fun requestCredential(callback: (CharArray?) -> Unit) {
+        showCredentialDialog(
+            title = "配置一次性模型凭据",
+            message = "凭据仅保留在本次 native 内存会话中，使用后立即清除。",
+            action = "使用一次",
+            callback = callback,
+        )
+    }
+
+    override fun requestSessionCredential(callback: (CharArray?) -> Unit) {
+        showCredentialDialog(
+            title = "连接 OpenAI API",
+            message = "API 密钥只保留在当前解锁会话的 Android 内存中，Vault 锁定时清除。"
+                + "此步骤不会发送个人资料；之后每次发送都需要你单独确认，"
+                + "OpenAI API 用量可能产生独立费用。",
+            action = "保留到锁定",
+            callback = callback,
+        )
+    }
+
+    private fun showCredentialDialog(
+        title: String,
+        message: String,
+        action: String,
+        callback: (CharArray?) -> Unit,
+    ) {
         check(Looper.myLooper() == Looper.getMainLooper())
         if (activity.isFinishing || activity.isDestroyed) {
             callback(null)
@@ -64,10 +93,10 @@ internal class AndroidNativeModelCredentialPrompt(
         }
 
         dialog = AlertDialog.Builder(activity)
-            .setTitle("配置一次性模型凭据")
-            .setMessage("凭据仅保留在本次 native 内存会话中，使用后立即清除。")
+            .setTitle(title)
+            .setMessage(message)
             .setView(input)
-            .setPositiveButton("使用一次") { _, _ ->
+            .setPositiveButton(action) { _, _ ->
                 complete(extractAndClear(input))
             }
             .setNegativeButton("取消") { _, _ -> complete(null) }

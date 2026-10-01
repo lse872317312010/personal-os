@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_os_application/application.dart';
+import 'package:personal_os_app/src/agent_interop/agent_completion.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_app/src/composition/app_composition.dart';
 import 'package:personal_os_app/src/controller/strategy_loop_controller.dart';
@@ -190,4 +191,60 @@ void main() {
     expect(controller.status, StrategyUiStatus.ready);
     expect(controller.canCloseSession, isTrue);
   });
+  test('automatic requests require setup and vault reset clears the provider',
+      () async {
+    final port = _FakeAgentCompletionPort();
+    final app = AppComposition.inMemoryDemo(agentCompletionPort: port);
+    final controller = app.strategyController;
+    addTearDown(controller.dispose);
+    await controller.openOfflineSession(agentId: 'openai-api');
+    await controller.savePersonalContext(goal: 'Finish one small project step');
+
+    final beforeSetup = await controller.requestAutomaticAgent(
+      prompt: 'approved prompt',
+    );
+    expect(beforeSetup, isNull);
+    expect(controller.errorCode, 'agent.credential_required');
+    expect(port.prompts, isEmpty);
+
+    expect(await controller.configureAutomaticAgent(), isTrue);
+    expect(controller.automaticAgentConfigured, isTrue);
+    expect(
+      await controller.requestAutomaticAgent(prompt: 'approved prompt'),
+      '{"strategy":{}}',
+    );
+    expect(port.prompts, <String>['approved prompt']);
+
+    controller.reset();
+    expect(controller.automaticAgentConfigured, isFalse);
+    expect(port.ready, isFalse);
+    expect(port.clearCount, 1);
+  });
+}
+
+final class _FakeAgentCompletionPort implements AgentCompletionPort {
+  bool ready = false;
+  int clearCount = 0;
+  final List<String> prompts = <String>[];
+
+  @override
+  Future<bool> configureCredential() async {
+    ready = true;
+    return true;
+  }
+
+  @override
+  Future<String> complete(String prompt) async {
+    if (!ready) {
+      throw const AgentCompletionFailure('agent.credential_required');
+    }
+    prompts.add(prompt);
+    return '{"strategy":{}}';
+  }
+
+  @override
+  Future<void> clearCredential() async {
+    ready = false;
+    clearCount += 1;
+  }
 }

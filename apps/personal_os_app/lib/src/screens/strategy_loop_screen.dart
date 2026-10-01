@@ -388,6 +388,148 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
     return prompt;
   }
 
+  Future<void> _configureAutomaticAgent() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('连接 OpenAI API'),
+        content: const Text(
+          '接下来会在 Android 原生安全输入框中输入 API 密钥。'
+          '此步骤不会发送个人资料；密钥只留在当前 Vault 解锁期间的内存中，'
+          '锁定 Vault 时清除。发送请求时会逐次征求确认，API 用量可能产生独立费用。',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('输入 API 密钥'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+    final configured = await widget.controller.configureAutomaticAgent();
+    if (!mounted) return;
+    if (configured) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('OpenAI API 已连接。发送个人上下文前仍会再次确认。')),
+      );
+    } else if (widget.controller.errorCode case final code?) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_strategyErrorText(code))),
+      );
+    }
+  }
+
+  Future<String?> _prepareAutomaticAgentRequest(BuildContext context) async {
+    final bundle = await widget.controller.refreshContextForHandoff();
+    if (!context.mounted) return null;
+    if (bundle == null) {
+      final errorCode = widget.controller.errorCode;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorCode == null
+              ? '无法准备最新协作内容，请稍后重试。'
+              : _strategyErrorText(errorCode)),
+        ),
+      );
+      return null;
+    }
+    late final String externalBundle;
+    late final String prompt;
+    try {
+      externalBundle = buildExternalAgentContextBundle(bundle);
+      prompt = buildAgentHandoffPrompt(
+        externalBundle,
+        strategyId: widget.controller.strategyId,
+      );
+    } on ExternalAgentContextException catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.userMessage)),
+      );
+      return null;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        scrollable: true,
+        title: const Text('发送本轮上下文到 OpenAI？'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              '本次只发送当前协作中的目标、约束、策略、行动、执行、结果和复盘。'
+              'Personal Asset 与 Observation 记录会先从内容中剔除。',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'OpenAI API 会收到下面这份数据。请检查其中是否包含你不想发送的内容。'
+              'API 用量可能产生独立费用，与 ChatGPT 订阅分开。',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: const Text('查看本次发送的数据'),
+              children: <Widget>[
+                SizedBox(
+                  height: 220,
+                  child: SingleChildScrollView(
+                    child: SelectableText(externalBundle),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('仅发送这一次'),
+          ),
+        ],
+      ),
+    );
+    if (!context.mounted || confirmed != true) return null;
+    return prompt;
+  }
+
+  Future<void> _requestAutomaticAgent(BuildContext context) async {
+    final prompt = await _prepareAutomaticAgentRequest(context);
+    if (prompt == null || !context.mounted) return;
+    final reply = await widget.controller.requestAutomaticAgent(prompt: prompt);
+    if (!mounted || !context.mounted) return;
+    if (reply == null) {
+      if (widget.controller.errorCode case final code?) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_strategyErrorText(code))),
+        );
+      }
+      return;
+    }
+    _agentReply.value = TextEditingValue(
+      text: reply,
+      selection: TextSelection.collapsed(offset: reply.length),
+    );
+    await _importAgentReply();
+  }
+
+  Future<void> _disconnectAutomaticAgent() async {
+    await widget.controller.disconnectAutomaticAgent();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('已从当前解锁会话断开 OpenAI API。')),
+    );
+  }
+
   Future<void> _copyHandoff(BuildContext context) async {
     final prompt = await _prepareHandoff(context, useSystemShare: false);
     if (prompt == null || !context.mounted) return;
@@ -696,7 +838,7 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                     maintainState: true,
                     title: const Text('与 AI 协作'),
                     subtitle: Text(controller.hasSession
-                        ? '复制请求、读取回复或更换助手'
+                        ? '直接请求 OpenAI，或用其他助手协作'
                         : '用你常用的 ChatGPT、Codex 或其他助手'),
                     onExpansionChanged: (open) {
                       _agentPanelOpen = open;
@@ -742,10 +884,41 @@ final class _StrategyLoopScreenState extends State<StrategyLoopScreen> {
                                   const Text('正在准备协作内容…')
                                 else ...<Widget>[
                                   const Text(
-                                    '每次发送或复制都会自动准备最新上下文。可选择系统分享，'
-                                    '或复制后粘贴到常用助手；助手回复可以直接分享回来，也可以粘贴到下方。',
+                                    '每次发送都会自动准备最新上下文。可直接向 OpenAI API 请求并读取回复，'
+                                    '也可用系统分享或复制给其他助手。',
                                   ),
                                   const SizedBox(height: 12),
+                                  if (widget.mode ==
+                                      AppExperienceMode.secureVault)
+                                    if (controller.automaticAgentConfigured)
+                                      FilledButton.icon(
+                                        key: const Key('request-openai-agent'),
+                                        onPressed: busy ||
+                                                !controller.canRequestAgent
+                                            ? null
+                                            : () =>
+                                                _requestAutomaticAgent(context),
+                                        icon: const Icon(Icons.auto_awesome),
+                                        label: const Text('向 OpenAI 请求并读取建议'),
+                                      )
+                                    else
+                                      OutlinedButton.icon(
+                                        key: const Key('connect-openai-agent'),
+                                        onPressed: busy
+                                            ? null
+                                            : _configureAutomaticAgent,
+                                        icon: const Icon(Icons.link),
+                                        label: const Text('连接 OpenAI API'),
+                                      ),
+                                  if (controller.automaticAgentConfigured)
+                                    TextButton.icon(
+                                      key: const Key('disconnect-openai-agent'),
+                                      onPressed: busy
+                                          ? null
+                                          : _disconnectAutomaticAgent,
+                                      icon: const Icon(Icons.link_off),
+                                      label: const Text('断开连接'),
+                                    ),
                                   FilledButton.tonalIcon(
                                     key: const Key('copy-agent-handoff'),
                                     onPressed:
@@ -1242,5 +1415,11 @@ String _strategyErrorText(String code) => switch (code) {
       'strategy_loop.d4_forbidden' ||
       'feedback.d4_forbidden' =>
         '当前闭环不支持 D4 级敏感资料。',
+      'agent.adapter_unavailable' => '当前版本尚未启用 OpenAI 自动接入，或原生服务暂时不可用。',
+      'agent.credential_required' => '请先连接 OpenAI API。',
+      'agent.credential_cancelled' => '已取消 OpenAI API 密钥输入。',
+      'agent.invalid_request' => '本次协作内容过长、无效或含疑似凭据，已阻止发送。',
+      'agent.invalid_response' => 'OpenAI 返回格式暂不支持，请重试或改用手动助手。',
+      'agent.request_failed' => 'OpenAI 请求未完成，请检查网络和 API 密钥后重试。',
       _ => '操作未完成，请检查当前步骤后重试。',
     };

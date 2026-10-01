@@ -148,6 +148,90 @@ $contextBundle
 ''';
 }
 
+final class ExternalAgentContextException implements Exception {
+  const ExternalAgentContextException();
+
+  String get userMessage => '检测到疑似密码、API 密钥、验证码或私钥，已阻止发送。请先从上下文中移除。';
+
+  @override
+  String toString() => userMessage;
+}
+
+/// Returns the bounded object categories approved for direct online Agent calls.
+///
+/// PersonalAsset and Observation records may contain D3 material such as
+/// health, relationship, location, finance, photos, or imported observations.
+/// They remain available to a user-selected manual handoff, but this direct API
+/// adapter omits them before building the provider request.
+String buildExternalAgentContextBundle(String contextBundle) {
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(contextBundle);
+  } on FormatException {
+    throw const FormatException('Context Bundle must be valid JSON.');
+  }
+  if (decoded is! Map || decoded['objects'] is! List) {
+    throw const FormatException('Context Bundle has an unsupported shape.');
+  }
+
+  const allowedTypes = <String>{
+    'goal',
+    'constraint',
+    'strategy',
+    'plan',
+    'task',
+    'execution',
+    'outcome',
+    'review',
+  };
+  final sanitized = Map<String, Object?>.from(decoded);
+  final records = (decoded['objects'] as List)
+      .whereType<Map>()
+      .map((record) => Map<String, Object?>.from(record))
+      .where((record) {
+    final ref = record['ref'];
+    return ref is Map && allowedTypes.contains(ref['type']);
+  }).toList(growable: false);
+  sanitized['objects'] = records;
+  sanitized
+    ..remove('cursor')
+    ..['has_more'] = false;
+
+  final encoded = jsonEncode(sanitized);
+  if (_containsD4CredentialMaterial(encoded)) {
+    throw const ExternalAgentContextException();
+  }
+
+  final scope = sanitized['scope'];
+  if (scope is Map) {
+    final sanitizedScope = Map<String, Object?>.from(scope);
+    final rawTypes = sanitizedScope['object_types'];
+    if (rawTypes is List) {
+      sanitizedScope['object_types'] = rawTypes
+          .whereType<String>()
+          .where(allowedTypes.contains)
+          .toList(growable: false);
+    }
+    sanitized['scope'] = sanitizedScope;
+  }
+  final result = jsonEncode(sanitized);
+  if (_containsD4CredentialMaterial(result)) {
+    throw const ExternalAgentContextException();
+  }
+  return result;
+}
+
+bool _containsD4CredentialMaterial(String value) {
+  const patterns = <String>[
+    r'sk-[A-Za-z0-9_-]{16,}',
+    r'-----BEGIN (?:OPENSSH |RSA |EC |DSA )?PRIVATE KEY-----',
+    r'\bbearer\s+[A-Za-z0-9._~-]{16,}',
+    r'\b(?:api[_ -]?key|password|passwd|secret|recovery[_ -]?code|otp|verification[_ -]?code|验证码|密码|私钥)\s*[:=：]\s*[^\s,;]{4,}',
+  ];
+  return patterns
+      .any((pattern) => RegExp(pattern, caseSensitive: false).hasMatch(value));
+}
+
 String buildAgentHandoffRepairPrompt({
   required String contextBundle,
   required String rejectedReply,
