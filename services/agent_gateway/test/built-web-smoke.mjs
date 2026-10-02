@@ -116,8 +116,11 @@ try {
         catch { await delay(150); continue; }
         const x = (box.model.content[0] + box.model.content[2]) / 2, y = (box.model.content[1] + box.model.content[5]) / 2;
         if (y > 40 && y < 790) {
-          await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
-          await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+          // Activate the actual accessible DOM button. Flutter's semantic box
+          // can differ from its canvas hit area during an expansion animation.
+          const { object } = await call('DOM.resolveNode', { backendNodeId: node.backendDOMNodeId });
+          await call('Runtime.callFunctionOn', { objectId: object.objectId, functionDeclaration: 'function() { this.click(); }' });
+          await call('Runtime.releaseObject', { objectId: object.objectId });
           return;
         }
       }
