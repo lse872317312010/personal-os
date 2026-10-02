@@ -278,7 +278,7 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
             : agent.provider == 'chatgpt'
                 ? '首次登录一次，以后自动调用'
                 : '检查服务配置，保存后自动调用'),
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        childrenPadding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: <Widget>[
           if (agent.connections.length > 1)
             KeyedSubtree(
