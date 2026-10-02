@@ -266,8 +266,8 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
         ),
       );
   Widget _connection() => Card(
-          key: const Key('automatic-connection'),
-          child: ExpansionTile(
+      key: const Key('automatic-connection'),
+      child: ExpansionTile(
         key: ValueKey('automatic-connection-${agent.connected}'),
         initiallyExpanded: !agent.connected,
         title: Text(agent.connected
