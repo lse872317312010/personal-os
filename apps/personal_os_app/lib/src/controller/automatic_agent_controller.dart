@@ -87,7 +87,10 @@ final class AutomaticAgentController extends ChangeNotifier {
   }
 
   Future<void> checkConnection() async {
-    if (busy || _disposed || !connected || model == null ||
+    if (busy ||
+        _disposed ||
+        !connected ||
+        model == null ||
         strategy.status == StrategyUiStatus.running) {
       return;
     }

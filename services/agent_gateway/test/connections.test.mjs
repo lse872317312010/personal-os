@@ -172,6 +172,10 @@ test('HTTP Agent probe discards replies, preserves history and enforces CSRF, re
   assert.deepEqual(await checked.json(), { ok: true, provider: 'agent-http', model: 'test' });
   assert.equal(JSON.stringify(seen).includes('private-'), false);
   assert.deepEqual(seen[0].context.objects, []);
+  const schema = JSON.parse(await readFile(new URL('../../../schemas/personal-os-context-v0.schema.json', import.meta.url), 'utf8'));
+  for (const field of schema.required) assert.ok(field in seen[0].context, `Probe context missing protocol field ${field}`);
+  assert.deepEqual(seen[0].context.scope, { purpose: 'connection test', object_types: [] });
+  assert.ok(Number.isFinite(Date.parse(seen[0].context.created_at)));
   assert.equal(seen[0].stage, 'proposal');
   assert.deepEqual(await store.read('history'), history);
   await connections.save({ id: body.connection_id, label: 'Updated', kind: 'agent-http', agent_url: `${bridge}/agent`, model: 'test' });

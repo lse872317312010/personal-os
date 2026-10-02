@@ -82,35 +82,44 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('connection probe sends only model identity and acquires CSRF first', () async {
+  test('connection probe sends only model identity and acquires CSRF first',
+      () async {
     final requests = <http.Request>[];
     final gateway = LocalAutomaticAgentGateway(
         origin: Uri.parse('http://127.0.0.1:8787/'),
         client: MockClient((request) async {
           requests.add(request);
           if (request.url.path.endsWith('/status')) {
-            return http.Response('{"csrf":"nonce","connection_id":"one","connection_revision":"revision"}', 200);
+            return http.Response(
+                '{"csrf":"nonce","connection_id":"one","connection_revision":"revision"}',
+                200);
           }
           expect(request.url.path, '/api/agent/check');
           expect(request.headers['X-Personal-OS-CSRF'], 'nonce');
           expect(request.headers.containsKey('Authorization'), false);
           expect(jsonDecode(request.body), <String, Object?>{
-            'model': 'test', 'connection_id': 'one', 'connection_revision': 'revision',
+            'model': 'test',
+            'connection_id': 'one',
+            'connection_revision': 'revision',
           });
           return http.Response('{"ok":true,"model":"test"}', 200);
         }));
     expect((await gateway.checkConnection(model: 'test'))['ok'], true);
-    expect(requests.map((e) => e.url.path), <String>['/api/agent/status', '/api/agent/check']);
+    expect(requests.map((e) => e.url.path),
+        <String>['/api/agent/status', '/api/agent/check']);
     gateway.cancel();
   });
 
-  testWidgets('phone connection test reports success or failure without changing history', (tester) async {
+  testWidgets(
+      'phone connection test reports success or failure without changing history',
+      (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final longName = List<String>.filled(15, 'abcdefghij').join();
-    final gateway = _TestGateway()..modelDisplayName = 'A very long model display name $longName';
+    final gateway = _TestGateway()
+      ..modelDisplayName = 'A very long model display name $longName';
     final store = InMemoryEventStore();
     final app = AppComposition.localAgent(gateway: gateway, eventStore: store);
     addTearDown(app.strategyController.dispose);
@@ -118,7 +127,8 @@ void main() {
     await app.strategyController.savePersonalContext(goal: '连接测试不能改变这个目标');
     await tester.pumpWidget(PersonalOsApp(composition: app));
     await tester.pumpAndSettle();
-    final originalEvents = store.readEvents().map((e) => e.event.eventId).toList();
+    final originalEvents =
+        store.readEvents().map((e) => e.event.eventId).toList();
     final context = app.strategyController.contextBundle;
     await tester.ensureVisible(find.byKey(const Key('automatic-connection')));
     await tester.tap(find.text('使用 test-agent'));
@@ -145,8 +155,10 @@ void main() {
   });
 
   test('reset ignores a late connection check result', () async {
-    final gateway = _TestGateway()..delayedCheck = Completer<Map<String, Object?>>();
-    final app = AppComposition.localAgent(gateway: gateway, eventStore: InMemoryEventStore());
+    final gateway = _TestGateway()
+      ..delayedCheck = Completer<Map<String, Object?>>();
+    final app = AppComposition.localAgent(
+        gateway: gateway, eventStore: InMemoryEventStore());
     final agent = app.automaticAgent!;
     addTearDown(agent.dispose);
     addTearDown(app.strategyController.dispose);
@@ -154,7 +166,8 @@ void main() {
     final pending = agent.checkConnection();
     expect(agent.checkingConnection, true);
     agent.reset();
-    gateway.delayedCheck!.complete(<String, Object?>{'ok': true, 'model': 'test'});
+    gateway.delayedCheck!
+        .complete(<String, Object?>{'ok': true, 'model': 'test'});
     await pending;
     expect(agent.connectionCheckMessage, isNull);
     expect(agent.checkingConnection, false);
@@ -244,14 +257,18 @@ void main() {
     await tester.ensureVisible(savedContext);
     await tester.tap(find.text('已保存的个人资料'));
     await tester.pumpAndSettle();
-    expect(find.descendant(of: savedContext, matching: find.text('晚上只有十分钟')), findsOneWidget);
+    expect(find.descendant(of: savedContext, matching: find.text('晚上只有十分钟')),
+        findsOneWidget);
     final history = find.byKey(const Key('automatic-history'));
     await tester.ensureVisible(history);
     await tester.tap(find.text('行动历史'));
     await tester.pumpAndSettle();
-    expect(find.descendant(of: history, matching: find.text('实际结果')), findsOneWidget);
-    expect(find.descendant(of: history, matching: find.text('完成了十分钟，但二十分钟太长')), findsOneWidget);
-    expect(find.descendant(of: history, matching: find.text('AI 复盘 · 已接受')), findsOneWidget);
+    expect(find.descendant(of: history, matching: find.text('实际结果')),
+        findsOneWidget);
+    expect(find.descendant(of: history, matching: find.text('完成了十分钟，但二十分钟太长')),
+        findsOneWidget);
+    expect(find.descendant(of: history, matching: find.text('AI 复盘 · 已接受')),
+        findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -462,7 +479,10 @@ final class _TestGateway implements AutomaticAgentGateway {
       };
   @override
   Future<List<Map<String, Object?>>> models() async => <Map<String, Object?>>[
-        <String, Object?>{'id': modelId, 'name': modelDisplayName ?? 'Test model'}
+        <String, Object?>{
+          'id': modelId,
+          'name': modelDisplayName ?? 'Test model'
+        }
       ];
   @override
   Future<Map<String, Object?>> checkConnection({required String model}) async {
@@ -471,6 +491,7 @@ final class _TestGateway implements AutomaticAgentGateway {
     if (delayedCheck != null) return delayedCheck!.future;
     return <String, Object?>{'ok': true, 'model': model};
   }
+
   @override
   Future<String> request(
       {required String model,

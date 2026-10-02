@@ -172,9 +172,10 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                                   child: CircularProgressIndicator(
                                       strokeWidth: 2)),
                               const SizedBox(width: 12),
-                              Expanded(child: Text(agent.checkingConnection
-                                  ? '正在测试 AI 是否能够响应…'
-                                  : 'AI 正在结合你的资料和行动历史思考…')),
+                              Expanded(
+                                  child: Text(agent.checkingConnection
+                                      ? '正在测试 AI 是否能够响应…'
+                                      : 'AI 正在结合你的资料和行动历史思考…')),
                             ])),
                       if (agent.error != null ||
                           strategy.status == StrategyUiStatus.failed)
@@ -241,12 +242,17 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                         ],
                       )),
                       if (strategy.contextRecords.any((e) => <String>[
-                        'goal', 'personal_asset', 'constraint'
-                      ].contains((e['ref'] as Map?)?['type'])))
+                            'goal',
+                            'personal_asset',
+                            'constraint'
+                          ].contains((e['ref'] as Map?)?['type'])))
                         _records(history: false),
                       if (strategy.contextRecords.any((e) => <String>[
-                        'strategy', 'execution', 'outcome', 'review'
-                      ].contains((e['ref'] as Map?)?['type'])))
+                            'strategy',
+                            'execution',
+                            'outcome',
+                            'review'
+                          ].contains((e['ref'] as Map?)?['type'])))
                         _records(history: true),
                       if (agent.connected) _connection(),
                       const Padding(
@@ -313,8 +319,8 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                     items: agent.models
                         .map((m) => DropdownMenuItem(
                             value: m['id'] as String,
-                            child: Text(m['name'] as String, maxLines: 1,
-                                overflow: TextOverflow.ellipsis)))
+                            child: Text(m['name'] as String,
+                                maxLines: 1, overflow: TextOverflow.ellipsis)))
                         .toList(),
                     onChanged: busy ? null : agent.selectModel)),
           if (agent.provider == 'chatgpt' && agent.accounts.length > 1)
@@ -326,8 +332,8 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                 items: agent.accounts
                     .map((a) => DropdownMenuItem(
                         value: a['id'] as String,
-                        child: Text(a['label'] as String, maxLines: 1,
-                            overflow: TextOverflow.ellipsis)))
+                        child: Text(a['label'] as String,
+                            maxLines: 1, overflow: TextOverflow.ellipsis)))
                     .toList(),
                 onChanged: busy
                     ? null
@@ -341,7 +347,8 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                 onPressed: busy ? null : agent.checkConnection,
                 icon: const Icon(Icons.network_check),
                 label: const Text('测试 AI 连接')),
-            const Padding(padding: EdgeInsets.only(top: 8),
+            const Padding(
+                padding: EdgeInsets.only(top: 8),
                 child: Text('发送固定测试内容，不读取你的个人资料。服务可能计入用量。',
                     style: TextStyle(fontSize: 12))),
           ],
@@ -385,30 +392,48 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
 
   Widget _records({required bool history}) {
     final labels = history
-        ? <String, String>{'strategy': '行动计划', 'execution': '执行记录',
-          'outcome': '实际结果', 'review': 'AI 复盘'}
-        : <String, String>{'goal': '目标', 'personal_asset': '个人情况',
-          'constraint': '执行限制'};
+        ? <String, String>{
+            'strategy': '行动计划',
+            'execution': '执行记录',
+            'outcome': '实际结果',
+            'review': 'AI 复盘'
+          }
+        : <String, String>{
+            'goal': '目标',
+            'personal_asset': '个人情况',
+            'constraint': '执行限制'
+          };
     final records = <Map<String, Object?>>[
       for (final type in labels.keys)
-        ...strategy.contextRecords.where((e) =>
-            (e['ref'] as Map?)?['type'] == type),
+        ...strategy.contextRecords
+            .where((e) => (e['ref'] as Map?)?['type'] == type),
     ];
-    return Card(child: ExpansionTile(
+    return Card(
+        child: ExpansionTile(
       key: Key(history ? 'automatic-history' : 'automatic-saved-context'),
       title: Text(history ? '行动历史' : '已保存的个人资料'),
-      subtitle: Text(history ? '计划、执行结果和 AI 复盘' : '共 ${records.length} 条目标与个人条件'),
+      subtitle:
+          Text(history ? '计划、执行结果和 AI 复盘' : '共 ${records.length} 条目标与个人条件'),
       children: records.map((record) {
         final type = (record['ref'] as Map)['type'] as String;
         final data = record['data'] as Map;
         final title = data['title'] as String?;
-        final detail = data['observation'] ?? data['summary'] ??
-            data['content'] ?? data['note'] ?? data['rationale'] ??
+        final detail = data['observation'] ??
+            data['summary'] ??
+            data['content'] ??
+            data['note'] ??
+            data['rationale'] ??
             data['statement'];
         final criteria = data['success_criteria'] as List?;
-        final state = <String, String>{'proposed': '待确认', 'draft': '待确认',
-          'accepted': '已接受', 'rejected': '未接受', 'active': '进行中',
-          'completed': '已完成', 'abandoned': '已结束'}[data['state']];
+        final state = <String, String>{
+          'proposed': '待确认',
+          'draft': '待确认',
+          'accepted': '已接受',
+          'rejected': '未接受',
+          'active': '进行中',
+          'completed': '已完成',
+          'abandoned': '已结束'
+        }[data['state']];
         return ListTile(
           title: Text('${labels[type]}${state == null ? '' : ' · $state'}'),
           subtitle: Text(<String>[

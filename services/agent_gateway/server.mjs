@@ -119,7 +119,14 @@ export function createGateway({ auth, providers, connections = null, store, webR
               model: body.model,
               stage: 'proposal',
               prompt: 'This is a Personal OS connection test, not a personal strategy request. No personal data is supplied. Return a short acknowledgement that the selected model can respond.',
-              context: JSON.stringify({ protocol_version: 'personal-os.mcp.v0', session_id: 'personal-os-connection-check', objects: [] }),
+              context: JSON.stringify({
+                protocol_version: 'personal-os.mcp.v0',
+                bundle_id: `connection-check-${randomBytes(16).toString('hex')}`,
+                session_id: `connection-check-${randomBytes(16).toString('hex')}`,
+                created_at: new Date().toISOString(),
+                scope: { purpose: 'connection test', object_types: [] },
+                objects: [], has_more: false,
+              }),
             } : body;
             const reply = await provider.request(input, controller.signal);
             if (checking) {
