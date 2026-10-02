@@ -133,10 +133,60 @@ test('saved compatible APIs use actual streamed Responses and completed Chat Com
     const result = await post('/api/agent/request', { connection_id: id, connection_revision: connections.state.revision, model: 'test-model', prompt: '读取我的目标', stage: 'proposal', context: '{"session_id":"same"}' });
     assert.equal(result.status, 200);
     assert.equal(JSON.parse((await result.json()).reply).session_id, 'same');
+    const checked = await post('/api/agent/check', { connection_id: id, connection_revision: connections.state.revision, model: 'test-model' });
+    assert.equal(checked.status, 200);
+    assert.deepEqual(await checked.json(), { ok: true, provider: kind, model: 'test-model' });
   }
-  assert.deepEqual(seen.map(s => s.path), ['/v1/responses', '/v1/chat/completions']);
+  assert.deepEqual(seen.map(s => s.path), ['/v1/responses', '/v1/responses', '/v1/chat/completions', '/v1/chat/completions']);
   assert.equal(seen[0].value.stream, true); assert.equal(seen[0].value.store, false);
-  assert.equal(seen[1].value.messages[0].content, '读取我的目标');
-  assert.equal(seen[1].value.stream, false);
+  assert.equal(seen[2].value.messages[0].content, '读取我的目标');
+  assert.equal(seen[2].value.stream, false);
+  assert.ok(seen[1].value.input[0].content.includes('No personal data'));
+  assert.ok(seen[3].value.messages[0].content.includes('No personal data'));
   assert.ok(seen.every(s => s.authorization === 'Bearer test-api-key'));
+});
+
+test('HTTP Agent probe discards replies, preserves history and enforces CSRF, revision and request locks', async t => {
+  const { store, auth, connections } = await setup(t);
+  const seen = [], started = Promise.withResolvers(), resume = Promise.withResolvers();
+  let pause = false, fail = false;
+  const bridge = await fixtureServer(t, async (req, res, value) => {
+    seen.push(value);
+    if (pause) { started.resolve(); await resume.promise; }
+    res.setHeader('Content-Type', 'application/json');
+    res.statusCode = fail ? 401 : 200;
+    res.end(JSON.stringify(fail ? { error: { code: 'invalid_api_key', message: 'never show raw secret' } } : { reply: 'fixture response that must never be returned or imported' }));
+  });
+  await connections.save({ label: 'Test bridge', kind: 'agent-http', agent_url: `${bridge}/agent`, model: 'test' });
+  const history = { revision: 3, events: [{ event_id: 'goal', sensitivity: 'd1', goal: 'private-goal-only' }] };
+  await store.write('history', history);
+  const gateway = createGateway({ store, auth, connections, providers: connections.provider }), origin = await gateway.listen();
+  t.after(() => gateway.close());
+  const headers = { 'Content-Type': 'application/json', 'X-Personal-OS': '1' };
+  const body = { model: 'test', connection_id: connections.state.active, connection_revision: connections.state.revision, prompt: 'private-client-prompt', context: 'private-client-context' };
+  const post = (path, value = body) => fetch(`${origin}${path}`, { method: 'POST', headers, body: JSON.stringify(value) });
+  assert.equal((await post('/api/agent/check')).status, 403);
+  headers['X-Personal-OS-CSRF'] = (await (await fetch(`${origin}/api/agent/status`, { headers })).json()).csrf;
+  const checked = await post('/api/agent/check');
+  assert.equal(checked.status, 200);
+  assert.deepEqual(await checked.json(), { ok: true, provider: 'agent-http', model: 'test' });
+  assert.equal(JSON.stringify(seen).includes('private-'), false);
+  assert.deepEqual(seen[0].context.objects, []);
+  assert.equal(seen[0].stage, 'proposal');
+  assert.deepEqual(await store.read('history'), history);
+  await connections.save({ id: body.connection_id, label: 'Updated', kind: 'agent-http', agent_url: `${bridge}/agent`, model: 'test' });
+  assert.equal((await post('/api/agent/check')).status, 409);
+  assert.equal(seen.length, 1);
+  body.connection_revision = connections.state.revision;
+  pause = true;
+  const pending = post('/api/agent/check'); await started.promise;
+  assert.equal((await post('/api/agent/check')).status, 409);
+  assert.equal((await post('/api/agent/request')).status, 409);
+  assert.equal((await post('/api/agent/connections/select', { connection_id: 'chatgpt' })).status, 409);
+  assert.equal((await post('/api/auth/logout', {})).status, 409);
+  resume.resolve(); assert.equal((await pending).status, 200); pause = false;
+  fail = true;
+  const failed = await post('/api/agent/check');
+  assert.equal(failed.status, 502); assert.deepEqual(await failed.json(), { error: 'invalid_api_key' });
+  assert.deepEqual(await store.read('history'), history);
 });

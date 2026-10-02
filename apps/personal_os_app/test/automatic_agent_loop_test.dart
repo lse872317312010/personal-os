@@ -82,6 +82,85 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  test('connection probe sends only model identity and acquires CSRF first', () async {
+    final requests = <http.Request>[];
+    final gateway = LocalAutomaticAgentGateway(
+        origin: Uri.parse('http://127.0.0.1:8787/'),
+        client: MockClient((request) async {
+          requests.add(request);
+          if (request.url.path.endsWith('/status')) {
+            return http.Response('{"csrf":"nonce","connection_id":"one","connection_revision":"revision"}', 200);
+          }
+          expect(request.url.path, '/api/agent/check');
+          expect(request.headers['X-Personal-OS-CSRF'], 'nonce');
+          expect(request.headers.containsKey('Authorization'), false);
+          expect(jsonDecode(request.body), <String, Object?>{
+            'model': 'test', 'connection_id': 'one', 'connection_revision': 'revision',
+          });
+          return http.Response('{"ok":true,"model":"test"}', 200);
+        }));
+    expect((await gateway.checkConnection(model: 'test'))['ok'], true);
+    expect(requests.map((e) => e.url.path), <String>['/api/agent/status', '/api/agent/check']);
+    gateway.cancel();
+  });
+
+  testWidgets('phone connection test reports success or failure without changing history', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final longName = List<String>.filled(15, 'abcdefghij').join();
+    final gateway = _TestGateway()..modelDisplayName = 'A very long model display name $longName';
+    final store = InMemoryEventStore();
+    final app = AppComposition.localAgent(gateway: gateway, eventStore: store);
+    addTearDown(app.strategyController.dispose);
+    addTearDown(app.automaticAgent!.dispose);
+    await app.strategyController.savePersonalContext(goal: '连接测试不能改变这个目标');
+    await tester.pumpWidget(PersonalOsApp(composition: app));
+    await tester.pumpAndSettle();
+    final originalEvents = store.readEvents().map((e) => e.event.eventId).toList();
+    final context = app.strategyController.contextBundle;
+    await tester.ensureVisible(find.byKey(const Key('automatic-connection')));
+    await tester.tap(find.text('使用 test-agent'));
+    await tester.pumpAndSettle();
+    final check = find.byKey(const Key('automatic-check-connection'));
+    await tester.ensureVisible(check);
+    await tester.tap(check);
+    await tester.pumpAndSettle();
+    expect(gateway.checks, 1);
+    expect(find.text('AI 服务已响应。'), findsOneWidget);
+    expect(store.readEvents().map((e) => e.event.eventId), originalEvents);
+    expect(app.strategyController.contextBundle, context);
+    expect(gateway.stages, isEmpty);
+    gateway.checkFailure = const AgentGatewayException('provider_unreachable');
+    await tester.ensureVisible(check);
+    await tester.tap(check);
+    await tester.pumpAndSettle();
+    expect(gateway.checks, 2);
+    expect(app.automaticAgent!.connectionCheckMessage, isNull);
+    expect(app.automaticAgent!.error, contains('无法访问 AI 服务'));
+    expect(app.strategyController.personalGoal, '连接测试不能改变这个目标');
+    expect(store.readEvents().map((e) => e.event.eventId), originalEvents);
+    expect(tester.takeException(), isNull);
+  });
+
+  test('reset ignores a late connection check result', () async {
+    final gateway = _TestGateway()..delayedCheck = Completer<Map<String, Object?>>();
+    final app = AppComposition.localAgent(gateway: gateway, eventStore: InMemoryEventStore());
+    final agent = app.automaticAgent!;
+    addTearDown(agent.dispose);
+    addTearDown(app.strategyController.dispose);
+    await agent.connect();
+    final pending = agent.checkConnection();
+    expect(agent.checkingConnection, true);
+    agent.reset();
+    gateway.delayedCheck!.complete(<String, Object?>{'ok': true, 'model': 'test'});
+    await pending;
+    expect(agent.connectionCheckMessage, isNull);
+    expect(agent.checkingConnection, false);
+    expect(agent.busy, false);
+  });
+
   testWidgets(
       'automatic plan -> human action -> switch Agent -> automatic review -> next plan',
       (tester) async {
@@ -161,6 +240,18 @@ void main() {
     expect(app.strategyController.parentStrategyRef, isNotNull);
     expect(app.strategyController.executionId, isNull);
     expect(gateway.contexts.last, contains('二十分钟太长'));
+    final savedContext = find.byKey(const Key('automatic-saved-context'));
+    await tester.ensureVisible(savedContext);
+    await tester.tap(find.text('已保存的个人资料'));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: savedContext, matching: find.text('晚上只有十分钟')), findsOneWidget);
+    final history = find.byKey(const Key('automatic-history'));
+    await tester.ensureVisible(history);
+    await tester.tap(find.text('行动历史'));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: history, matching: find.text('实际结果')), findsOneWidget);
+    expect(find.descendant(of: history, matching: find.text('完成了十分钟，但二十分钟太长')), findsOneWidget);
+    expect(find.descendant(of: history, matching: find.text('AI 复盘 · 已接受')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -337,6 +428,10 @@ final class _TestGateway implements AutomaticAgentGateway {
   final List<String> stages = <String>[], contexts = <String>[];
   final List<String> providersUsed = <String>[];
   String provider = 'test-agent';
+  String? modelDisplayName;
+  int checks = 0;
+  AgentGatewayException? checkFailure;
+  Completer<Map<String, Object?>>? delayedCheck;
   String? connectionId;
   List<Map<String, Object?>> connections = <Map<String, Object?>>[];
   Map<String, Object?>? lastSetup;
@@ -367,8 +462,15 @@ final class _TestGateway implements AutomaticAgentGateway {
       };
   @override
   Future<List<Map<String, Object?>>> models() async => <Map<String, Object?>>[
-        <String, Object?>{'id': modelId, 'name': 'Test model'}
+        <String, Object?>{'id': modelId, 'name': modelDisplayName ?? 'Test model'}
       ];
+  @override
+  Future<Map<String, Object?>> checkConnection({required String model}) async {
+    checks++;
+    if (checkFailure != null) throw checkFailure!;
+    if (delayedCheck != null) return delayedCheck!.future;
+    return <String, Object?>{'ok': true, 'model': model};
+  }
   @override
   Future<String> request(
       {required String model,

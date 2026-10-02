@@ -6,6 +6,7 @@ abstract interface class AutomaticAgentGateway {
   Uri get signInPage;
   Future<Map<String, Object?>> status();
   Future<List<Map<String, Object?>>> models();
+  Future<Map<String, Object?>> checkConnection({required String model});
   Future<String> request(
       {required String model,
       required String prompt,
@@ -90,6 +91,17 @@ final class LocalAutomaticAgentGateway implements AutomaticAgentGateway {
                     }).toString()))['models'] as List)
           .map((e) => Map<String, Object?>.from(e as Map))
           .toList(growable: false);
+  @override
+  Future<Map<String, Object?>> checkConnection({required String model}) async {
+    if (_csrf == null) await status();
+    return post('/api/agent/check', <String, Object?>{
+      'model': model,
+      if (_connectionId != null) 'connection_id': _connectionId,
+      if (_connectionRevision != null)
+        'connection_revision': _connectionRevision,
+    });
+  }
+
   @override
   Future<String> request(
       {required String model,
