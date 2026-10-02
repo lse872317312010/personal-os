@@ -119,6 +119,8 @@ try {
           // Activate the actual accessible DOM button. Flutter's semantic box
           // can differ from its canvas hit area during an expansion animation.
           const { object } = await call('DOM.resolveNode', { backendNodeId: node.backendDOMNodeId });
+          const diagnostic = await call('Runtime.callFunctionOn', { objectId: object.objectId, functionDeclaration: 'function() { return this.outerHTML; }', returnByValue: true });
+          console.log('Fixture control activation:', JSON.stringify({ label, name: node.name?.value, x, y, html: diagnostic.result.value }));
           await call('Runtime.callFunctionOn', { objectId: object.objectId, functionDeclaration: 'function() { this.click(); }' });
           await call('Runtime.releaseObject', { objectId: object.objectId });
           return;
@@ -127,6 +129,8 @@ try {
       if (attempt > 5) await call('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 195, y: 600, deltaX: 0, deltaY: 300 });
       await delay(150);
     }
+    const unavailable = await call('Accessibility.getFullAXTree');
+    console.log('Fixture controls after failed activation:', JSON.stringify(unavailable.nodes.filter(n => n.role?.value === 'button').map(n => ({ name: n.name?.value, properties: n.properties }))));
     throw Error(`Compiled app button unavailable: ${label}`);
   };
   await clickButton('使用 CI 测试模型');
