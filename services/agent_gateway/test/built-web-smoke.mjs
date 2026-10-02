@@ -4,6 +4,7 @@ import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
 import assert from 'node:assert/strict';
 import { ProtectedStore } from '../protected-store.mjs';
 import { ChatGPTAuth } from '../chatgpt-auth.mjs';
@@ -24,7 +25,7 @@ const browser = spawn(process.env.CHROME_EXECUTABLE || 'google-chrome', [
   '--remote-debugging-port=0', `--user-data-dir=${join(profile, 'browser')}`, origin,
 ], { stdio: 'ignore' });
 const browserExited = new Promise(resolve => browser.once('exit', resolve));
-let socket;
+let socket, fixture, call;
 try {
   let port;
   const deadline = Date.now() + 45_000;
@@ -45,7 +46,7 @@ try {
     if (value.method === 'Network.requestWillBeSent') requests.push(value.params.request.url);
     if (value.id) { const item = pending.get(value.id); if (item) { pending.delete(value.id); value.error ? item.reject(new Error(value.error.message)) : item.resolve(value.result); } }
   });
-  const call = (method, params = {}) => new Promise((resolve, reject) => { const id = ++next; pending.set(id, { resolve, reject }); socket.send(JSON.stringify({ id, method, params })); });
+  call = (method, params = {}) => new Promise((resolve, reject) => { const id = ++next; pending.set(id, { resolve, reject }); socket.send(JSON.stringify({ id, method, params })); });
   await call('Network.enable');
   await call('Page.enable');
   await call('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
@@ -90,12 +91,84 @@ try {
   await delay(250);
   const setupScreenshot = await call('Page.captureScreenshot', { format: 'png' });
   await writeFile('build/automatic-agent-connection.png', Buffer.from(setupScreenshot.data, 'base64'));
-  console.log('Compiled automatic app starts and opens connection setup at phone width with local fonts/renderer and no external startup requests. No account grant or inference was made.');
+  // A second production-browser pass uses an explicit disposable model fixture.
+  // It exercises the actual Web -> gateway -> HTTP Agent probe, never OAuth.
+  const checks = [];
+  fixture = createServer(async (req, res) => {
+    const chunks = []; for await (const chunk of req) chunks.push(chunk);
+    checks.push(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify({ reply: 'CI fixture acknowledgement, not real model inference.' }));
+  });
+  await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));
+  await connections.save({ label: 'CI 测试模型', kind: 'agent-http', model: `ci-test-${'long-model-name-'.repeat(8)}`, agent_url: `http://127.0.0.1:${fixture.address().port}/agent` });
+  const historyBefore = await store.read('history');
+  await call('Page.reload', { ignoreCache: true });
+  const clickButton = async (label, { expand = false } = {}) => {
+    for (let attempt = 0; attempt < 40; attempt++) {
+      await call('Runtime.evaluate', { expression: "document.querySelector('flt-semantics-placeholder')?.click()" });
+      const ax = await call('Accessibility.getFullAXTree');
+      const node = ax.nodes.find(n => n.role?.value === 'button' && n.name?.value?.includes(label)
+        && !(n.properties || []).some(p => p.name === 'disabled' && p.value?.value === true));
+      if (node?.backendDOMNodeId) {
+        let box;
+        try { box = await call('DOM.getBoxModel', { backendNodeId: node.backendDOMNodeId }); }
+        catch { await delay(150); continue; }
+        const x = (box.model.content[0] + box.model.content[2]) / 2, y = (box.model.content[1] + box.model.content[5]) / 2;
+        if (y > 40 && y < 790) {
+          if (expand) {
+            // The connection panel can remain open while startup discovers the
+            // saved profile. Do not toggle an already-expanded panel closed.
+            const { object } = await call('DOM.resolveNode', { backendNodeId: node.backendDOMNodeId });
+            const state = await call('Runtime.callFunctionOn', { objectId: object.objectId, functionDeclaration: 'function() { return this.getAttribute("aria-description"); }', returnByValue: true });
+            await call('Runtime.releaseObject', { objectId: object.objectId });
+            if (state.result.value === 'Expanded') return;
+          }
+          await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+          await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+          return;
+        }
+      }
+      if (attempt > 5) await call('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 195, y: 600, deltaX: 0, deltaY: 300 });
+      await delay(150);
+    }
+    const unavailable = await call('Accessibility.getFullAXTree');
+    console.log('Fixture controls after failed activation:', JSON.stringify(unavailable.nodes.filter(n => n.role?.value === 'button').map(n => ({ name: n.name?.value, properties: n.properties }))));
+    throw Error(`Compiled app button unavailable: ${label}`);
+  };
+  await clickButton('使用 CI 测试模型', { expand: true });
+  await delay(250);
+  await clickButton('测试 AI 连接');
+  let checked = false;
+  for (let attempt = 0; attempt < 50 && !checked; attempt++) {
+    const ax = await call('Accessibility.getFullAXTree');
+    checked = ax.nodes.some(n => n.name?.value?.includes('AI 服务已响应。'));
+    if (!checked) await delay(100);
+  }
+  assert.ok(checked, 'Actual compiled app did not confirm the fixture response');
+  assert.equal(checks.length, 1);
+  assert.deepEqual(checks[0].context.objects, []);
+  assert.deepEqual(await store.read('history'), historyBefore, 'Connection test changed personal history');
+  await delay(250);
+  const checkScreenshot = await call('Page.captureScreenshot', { format: 'png' });
+  await writeFile('build/automatic-agent-check.png', Buffer.from(checkScreenshot.data, 'base64'));
+  console.log('Actual compiled app completed a fixture Agent response check without sharing personal context or changing history.');
+  console.log('Compiled automatic app starts and opens connection setup at phone width with local fonts/renderer and no external startup requests. No account grant or real model inference was made.');
+} catch (error) {
+  if (call) {
+    try {
+      const screenshot = await call('Page.captureScreenshot', { format: 'png' });
+      await mkdir('build', { recursive: true });
+      await writeFile('build/automatic-agent-check-failure.png', Buffer.from(screenshot.data, 'base64'));
+    } catch { /* Preserve the original failure if the disposable browser exited. */ }
+  }
+  throw error;
 } finally {
   socket?.close();
   const forceExit = setTimeout(() => browser.kill('SIGKILL'), 5_000);
   browser.kill('SIGTERM');
   try { await browserExited; } finally { clearTimeout(forceExit); }
   await gateway.close();
+  if (fixture) { fixture.closeAllConnections(); await new Promise(resolve => fixture.close(resolve)); }
   await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

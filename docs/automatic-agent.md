@@ -43,6 +43,21 @@ review. Accept that review: the app automatically requests the next plan.
 Repeated clicks do not create overlapping model requests. Failures preserve
 existing state and provide a retry. Incomplete output is never adopted.
 
+The AI card distinguishes saved configuration from a completed model response.
+Choose **测试 AI 连接** to send one fixed test message to the selected model.
+This explicit action may count toward the provider's usage. It does not read
+personal history, accepts no client-supplied context or prompt, discards the raw
+reply and creates no plan or event. The check uses a 30-second request deadline,
+the same CSRF/connection revision guards and exclusive request lock as normal
+inference. Success confirms a model response, not valid strategy generation;
+formal plans still use the existing bundle validation and user decisions.
+Changing the connection or model, refreshing it, or failing a later test clears
+the previous response status. Check results are not persisted as personal data.
+
+Saved personal facts and goals are shown in **已保存的个人资料**. Suggested plans,
+execution reports, outcomes and reviews are shown separately in **行动历史**.
+Both cards are collapsed by default so the current action stays prominent.
+
 ## Other model or Agent connections
 
 Expand the AI connection card and choose **接入其他 AI**. Select OpenAI-compatible

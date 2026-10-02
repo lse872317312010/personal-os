@@ -12,6 +12,8 @@ final class AutomaticAgentController extends ChangeNotifier {
   final AutomaticAgentGateway gateway;
   bool connected = false;
   bool busy = false;
+  bool checkingConnection = false;
+  String? connectionCheckMessage;
   String provider = 'chatgpt';
   String? model;
   String? account;
@@ -38,6 +40,7 @@ final class AutomaticAgentController extends ChangeNotifier {
     final epoch = _epoch;
     busy = true;
     error = null;
+    connectionCheckMessage = null;
     notifyListeners();
     try {
       final state = await gateway.status();
@@ -78,7 +81,40 @@ final class AutomaticAgentController extends ChangeNotifier {
   void selectModel(String? value) {
     if (!busy && models.any((e) => e['id'] == value)) {
       model = value;
+      connectionCheckMessage = null;
       notifyListeners();
+    }
+  }
+
+  Future<void> checkConnection() async {
+    if (busy ||
+        _disposed ||
+        !connected ||
+        model == null ||
+        strategy.status == StrategyUiStatus.running) {
+      return;
+    }
+    final epoch = _epoch;
+    busy = true;
+    checkingConnection = true;
+    connectionCheckMessage = null;
+    error = null;
+    notifyListeners();
+    try {
+      final result = await gateway.checkConnection(model: model!);
+      if (!_current(epoch)) return;
+      if (result['ok'] != true || result['model'] != model) {
+        throw const AgentGatewayException('invalid_provider_response');
+      }
+      connectionCheckMessage = 'AI 服务已响应。';
+    } on Object catch (failure) {
+      if (_current(epoch)) error = _message(failure);
+    } finally {
+      if (_current(epoch)) {
+        busy = false;
+        checkingConnection = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -165,6 +201,7 @@ final class AutomaticAgentController extends ChangeNotifier {
     final epoch = _epoch;
     busy = true;
     error = null;
+    connectionCheckMessage = null;
     notifyListeners();
     try {
       if (!strategy.hasSession) {
@@ -210,6 +247,7 @@ final class AutomaticAgentController extends ChangeNotifier {
         throw const AgentGatewayException('invalid_agent_bundle');
       }
       _requestFingerprint = fingerprint;
+      connectionCheckMessage = '最近一次 AI 请求已完成。';
     } on Object catch (failure) {
       if (_current(epoch)) error = _message(failure);
     } finally {
@@ -247,6 +285,8 @@ final class AutomaticAgentController extends ChangeNotifier {
     gateway.cancel();
     connected = false;
     busy = false;
+    checkingConnection = false;
+    connectionCheckMessage = null;
     models = [];
     model = null;
     account = null;
@@ -278,6 +318,9 @@ final class AutomaticAgentController extends ChangeNotifier {
         'AI 授权已失效，请在连接设置中重新登录或更新密钥。',
       'invalid_provider_endpoint' =>
         '服务地址需使用 HTTPS；本机服务可使用 http://127.0.0.1。请勿在地址中填写密钥。',
+      'connection_check_timeout' => 'AI 服务在 30 秒内没有完成测试，请检查服务状态后重试。',
+      'provider_unreachable' => '无法访问 AI 服务，请检查地址、网络和服务是否已启动。',
+      'provider_request_failed' => 'AI 服务未能完成请求，请检查模型权限和密钥后重试。',
       'connection_name_required' => '请给这个连接起一个名字。',
       'connection_model_required' => '请填写服务提供的模型名称。',
       'invalid_connection' => '连接配置无效，请检查名称、模型和地址。',

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-02 — Web focus and visible AI response checks
+
+- Prioritized Web usability and real Agent-loop validation ahead of Android device work and synchronization;
+- Added an explicit model-response check that sends fixed test content, discards the reply and never writes personal history;
+- Distinguished configured connections from successful responses, with stale-state, CSRF and concurrent-request guards;
+- Separated saved personal context and action history into readable, collapsed cards, and kept long model/account names within phone layouts;
+- Extended HTTP and Flutter/Chrome coverage; test inference remains a fixture, not real-account acceptance evidence.
+
 ## 2026-10-01 — Saved Agent connections in the app
 
 - Added a compact setup dialog and saved connection selector for Responses, OpenAI-compatible APIs and HTTP Agents;

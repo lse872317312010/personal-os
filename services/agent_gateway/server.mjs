@@ -104,19 +104,43 @@ export function createGateway({ auth, providers, connections = null, store, webR
             const next = { revision: old.revision + 1, events: body.events }; await store.write('history', next); send(response, 200, { revision: next.revision });
           } finally { historyWriting = false; } return;
         }
-        if (url.pathname === '/api/agent/request' && request.method === 'POST') {
+        if (['/api/agent/request', '/api/agent/check'].includes(url.pathname) && request.method === 'POST') {
           if (busy || authBusy || connectionWriting) throw new AgentError('agent_busy', 409);
           if (!provider.connected) throw new AgentError('sign_in_required', 401);
+          const checking = url.pathname === '/api/agent/check';
           busy = controller;
-          const timeout = setTimeout(() => controller.abort(), 180_000);
+          const timeout = setTimeout(() => controller.abort(), checking ? 30_000 : 180_000);
           try {
             const body = await jsonBody(request);
             if (connections && (body.connection_id !== connections.state.active || body.connection_revision !== connections.state.revision)) throw new AgentError('connection_changed', 409);
-            const reply = await provider.request(body, controller.signal);
+            // A user-initiated connectivity probe never reads personal history
+            // or accepts caller-supplied context/prompt. Its response is discarded.
+            const input = checking ? {
+              model: body.model,
+              stage: 'proposal',
+              prompt: 'This is a Personal OS connection test, not a personal strategy request. No personal data is supplied. Return a short acknowledgement that the selected model can respond.',
+              context: JSON.stringify({
+                protocol_version: 'personal-os.mcp.v0',
+                bundle_id: `connection-check-${randomBytes(16).toString('hex')}`,
+                session_id: `connection-check-${randomBytes(16).toString('hex')}`,
+                created_at: new Date().toISOString(),
+                scope: { purpose: 'connection test', object_types: [] },
+                objects: [], has_more: false,
+              }),
+            } : body;
+            const reply = await provider.request(input, controller.signal);
+            if (checking) {
+              if (typeof reply !== 'string' || !reply.trim()) throw new AgentError('invalid_provider_response', 502);
+              send(response, 200, { ok: true, provider: provider.id, model: body.model }); return;
+            }
             let bundle, context;
             try { bundle = JSON.parse(reply); context = JSON.parse(body.context); } catch { throw new AgentError('invalid_agent_bundle', 502); }
             if (bundle.protocol_version !== 'personal-os.mcp.v0' || bundle.session_id !== context.session_id || (body.stage === 'review' ? !bundle.review || bundle.strategy : !bundle.strategy || bundle.review)) throw new AgentError('invalid_agent_bundle', 502);
             send(response, 200, { reply, provider: provider.id, model: body.model });
+          } catch (error) {
+            if (checking && controller.signal.aborted) throw new AgentError('connection_check_timeout', 504);
+            if (checking && !(error instanceof AgentError)) throw new AgentError('provider_unreachable', 502);
+            throw error;
           } finally { clearTimeout(timeout); busy = null; } return;
         }
         throw new AgentError('not_found', 404);

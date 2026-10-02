@@ -93,8 +93,10 @@ jobs:
         with:
           node-version: '22'
       - name: Verify actual app startup without external CDNs
+        id: web_smoke
         run: node services/agent_gateway/test/built-web-smoke.mjs
       - uses: actions/upload-artifact@v4
+        if: always() && (steps.web_smoke.outcome == 'success' || steps.web_smoke.outcome == 'failure')
         with:
           name: personal-os-agent-startup
           path: build/automatic-agent-*.png
@@ -174,6 +176,8 @@ jobs:
           解压 Windows 包后双击 Start-Personal-OS.cmd；Linux 运行 bash start-personal-os.sh。
 
           首次 Continue with ChatGPT 授权，或在应用内“接入其他 AI”中保存兼容 API / HTTP Agent。行动计划、复盘与下一轮自动请求和接收；切换连接保留目标和历史。
+
+          可主动“测试 AI 连接”确认模型是否响应。个人资料与行动历史分别展开，首页继续突出当前行动。
 
           构建来源：https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA
           包内 provenance.json 记录同一 commit。当前发布不代表已完成真实账户推理或 Android 真机验收。
