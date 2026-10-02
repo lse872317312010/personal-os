@@ -104,7 +104,7 @@ try {
   await connections.save({ label: 'CI 测试模型', kind: 'agent-http', model: `ci-test-${'long-model-name-'.repeat(8)}`, agent_url: `http://127.0.0.1:${fixture.address().port}/agent` });
   const historyBefore = await store.read('history');
   await call('Page.reload', { ignoreCache: true });
-  const clickButton = async label => {
+  const clickButton = async (label, { expand = false } = {}) => {
     for (let attempt = 0; attempt < 40; attempt++) {
       await call('Runtime.evaluate', { expression: "document.querySelector('flt-semantics-placeholder')?.click()" });
       const ax = await call('Accessibility.getFullAXTree');
@@ -116,13 +116,16 @@ try {
         catch { await delay(150); continue; }
         const x = (box.model.content[0] + box.model.content[2]) / 2, y = (box.model.content[1] + box.model.content[5]) / 2;
         if (y > 40 && y < 790) {
-          // Activate the actual accessible DOM button. Flutter's semantic box
-          // can differ from its canvas hit area during an expansion animation.
-          const { object } = await call('DOM.resolveNode', { backendNodeId: node.backendDOMNodeId });
-          const diagnostic = await call('Runtime.callFunctionOn', { objectId: object.objectId, functionDeclaration: 'function() { return this.outerHTML; }', returnByValue: true });
-          console.log('Fixture control activation:', JSON.stringify({ label, name: node.name?.value, x, y, html: diagnostic.result.value }));
-          await call('Runtime.callFunctionOn', { objectId: object.objectId, functionDeclaration: 'function() { this.click(); }' });
-          await call('Runtime.releaseObject', { objectId: object.objectId });
+          if (expand) {
+            // The connection panel can remain open while startup discovers the
+            // saved profile. Do not toggle an already-expanded panel closed.
+            const { object } = await call('DOM.resolveNode', { backendNodeId: node.backendDOMNodeId });
+            const state = await call('Runtime.callFunctionOn', { objectId: object.objectId, functionDeclaration: 'function() { return this.getAttribute("aria-description"); }', returnByValue: true });
+            await call('Runtime.releaseObject', { objectId: object.objectId });
+            if (state.result.value === 'Expanded') return;
+          }
+          await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+          await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
           return;
         }
       }
@@ -133,7 +136,7 @@ try {
     console.log('Fixture controls after failed activation:', JSON.stringify(unavailable.nodes.filter(n => n.role?.value === 'button').map(n => ({ name: n.name?.value, properties: n.properties }))));
     throw Error(`Compiled app button unavailable: ${label}`);
   };
-  await clickButton('使用 CI 测试模型');
+  await clickButton('使用 CI 测试模型', { expand: true });
   await delay(250);
   await clickButton('测试 AI 连接');
   let checked = false;
