@@ -130,6 +130,7 @@ void main() {
     final originalEvents =
         store.readEvents().map((e) => e.event.eventId).toList();
     final context = app.strategyController.contextBundle;
+    expect(find.byKey(const Key('automatic-check-connection')), findsNothing);
     await tester.ensureVisible(find.byKey(const Key('automatic-connection')));
     await tester.tap(find.text('使用 test-agent'));
     await tester.pumpAndSettle();
