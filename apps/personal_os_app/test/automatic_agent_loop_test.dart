@@ -257,7 +257,9 @@ void main() {
     await tester.ensureVisible(savedContext);
     await tester.tap(find.text('已保存的个人资料'));
     await tester.pumpAndSettle();
-    expect(find.descendant(of: savedContext, matching: find.textContaining('晚上只有十分钟')),
+    expect(
+        find.descendant(
+            of: savedContext, matching: find.textContaining('晚上只有十分钟')),
         findsOneWidget);
     final history = find.byKey(const Key('automatic-history'));
     await tester.ensureVisible(history);
@@ -265,7 +267,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.descendant(of: history, matching: find.text('实际结果')),
         findsOneWidget);
-    expect(find.descendant(of: history, matching: find.textContaining('完成了十分钟，但二十分钟太长')),
+    expect(
+        find.descendant(
+            of: history, matching: find.textContaining('完成了十分钟，但二十分钟太长')),
         findsOneWidget);
     expect(find.descendant(of: history, matching: find.text('AI 复盘 · 已接受')),
         findsOneWidget);
