@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-03 — Edit saved Web context without duplicate goals
+
+- Filled goal and current-situation inputs from saved context after reload;
+- Added user-authorized, revision-checked edits that retain goal/fact identities and earlier pinned evidence;
+- Preserved accepted actions while saving context, and sent updated facts with the next Agent request;
+- Made unchanged saves no-ops and archived cleared optional situation data;
+- Added reload, history-preservation, next-review and stale/foreign-edit coverage.
+
 ## 2026-10-02 — Web focus and visible AI response checks
 
 - Prioritized Web usability and real Agent-loop validation ahead of Android device work and synchronization;

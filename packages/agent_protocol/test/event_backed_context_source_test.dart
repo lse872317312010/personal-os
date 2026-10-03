@@ -27,6 +27,7 @@ void main() {
     required ObjectRef subject,
     required Map<String, Object?> payload,
     List<ObjectRef> otherSubjects = const <ObjectRef>[],
+    List<ObjectRef> sources = const <ObjectRef>[],
   }) =>
       EventEnvelope(
         eventId: id,
@@ -36,6 +37,7 @@ void main() {
         recordedAt: DateTime.utc(2026, 9, 18),
         actor: actor,
         subjectRefs: <ObjectRef>[subject, ...otherSubjects],
+        sourceRefs: sources,
         correlationId: 'context-test',
         sensitivity: Sensitivity.d2,
         payload: payload,
@@ -135,6 +137,52 @@ void main() {
     expect(goal.ref.revision, Revision(2));
     expect(goal.data['state'], GoalState.active.name);
     expect(goal.data['statement'], 'Improve recovery');
+  });
+
+  test('legacy fact links and edited evidence survive while archived facts leave queries',
+      () async {
+    final goal = ObjectRef(type: 'goal', id: EntityId('goal-1'));
+    final asset = ObjectRef(type: 'personal_asset', id: EntityId('asset-1'));
+    final events = <EventEnvelope>[
+      sessionOpened, goalCreated, goalActivated,
+      event(id: 'goal-edit', type: EventTypes.goalRevised, actor: user,
+        subject: goal, otherSubjects: <ObjectRef>[
+          ObjectRef(type: 'profile', id: profileId)],
+        payload: const <String, Object?>{
+          'expected_revision': 2, 'statement': 'Updated goal'}),
+      event(id: 'asset-create', type: EventTypes.personalAssetRecorded,
+        actor: user, subject: asset, otherSubjects: <ObjectRef>[
+          ObjectRef(type: 'profile', id: profileId)], sources: <ObjectRef>[goal],
+        payload: const <String, Object?>{
+          'expected_revision': 0, 'content': 'Old fact'}),
+      event(id: 'asset-edit', type: EventTypes.personalAssetRevised,
+        actor: user, subject: asset, otherSubjects: <ObjectRef>[
+          ObjectRef(type: 'profile', id: profileId)],
+        payload: const <String, Object?>{
+          'expected_revision': 1, 'content': 'Updated fact'}),
+    ];
+    final source = EventBackedAgentContextSource(
+        eventStore: _EventStore(events), profileId: profileId);
+    final current = await source.query(sessionId: sessionId, purpose: 'review',
+        objectTypes: const <String>{'goal', 'personal_asset'});
+    final fact = current.records.singleWhere((r) => r.ref.type == 'personal_asset');
+    expect(fact.ref.revision, Revision(2));
+    expect(fact.data['content'], 'Updated fact');
+    expect((fact.data['goal_ref'] as Map)['id'], goal.id.value);
+    events.add(event(id: 'asset-clear', type: EventTypes.personalAssetArchived,
+        actor: user, subject: asset, otherSubjects: <ObjectRef>[
+          ObjectRef(type: 'profile', id: profileId)],
+        payload: const <String, Object?>{'expected_revision': 2}));
+    final cleared = await source.query(sessionId: sessionId, purpose: 'review',
+        objectTypes: const <String>{'goal', 'personal_asset'});
+    expect(cleared.records, hasLength(1));
+    expect(cleared.records.single.ref.revision, Revision(3));
+    final old = await source.get(sessionId: sessionId,
+        ref: ObjectRef(type: asset.type, id: asset.id, revision: Revision(1)));
+    expect(old!.data['content'], 'Old fact');
+    final oldGoal = await source.get(sessionId: sessionId,
+        ref: ObjectRef(type: goal.type, id: goal.id, revision: Revision(2)));
+    expect(oldGoal!.data['statement'], 'Improve recovery');
   });
 
   test('get reconstructs the exact requested object revision', () async {

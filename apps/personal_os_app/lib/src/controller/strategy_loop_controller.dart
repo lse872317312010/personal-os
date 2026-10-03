@@ -81,15 +81,38 @@ final class StrategyLoopController extends ChangeNotifier {
   String? get executionId => _executionId?.value;
   String? get outcomeId => _outcomeId?.value;
   String? get contextBundle => _contextBundle;
-  String? get personalGoal {
-    for (final record in contextRecords) {
-      if ((record['ref'] as Map?)?['type'] != 'goal') continue;
-      final data = record['data'] as Map?;
-      final title = data?['title'] ?? data?['statement'];
-      if (title is String && title.isNotEmpty) return title;
+  Map<String, Object?>? get personalGoalRecord {
+    final goals = contextRecords
+        .where((record) => (record['ref'] as Map?)?['type'] == 'goal');
+    for (final record in goals) {
+      if ((record['data'] as Map?)?['state'] == 'active') return record;
     }
-    return _savedGoal;
+    return goals.firstOrNull;
   }
+
+  String? get personalGoal {
+    final data = personalGoalRecord?['data'] as Map?;
+    return (data?['title'] ?? data?['statement']) as String? ?? _savedGoal;
+  }
+
+  Map<String, Object?>? get personalCurrentStateRecord {
+    final goalId = (personalGoalRecord?['ref'] as Map?)?['id'];
+    Map<String, Object?>? legacy;
+    for (final record in contextRecords) {
+      if ((record['ref'] as Map?)?['type'] != 'personal_asset') continue;
+      final data = record['data'] as Map;
+      if (data['state'] != 'active' ||
+          data['source'] != 'user_input' ||
+          data['title'] != '当前情况') continue;
+      final ref = data['goal_ref'];
+      if (ref is Map && ref['id'] == goalId) return record;
+      if (ref == null) legacy ??= record;
+    }
+    return legacy;
+  }
+
+  String get personalCurrentState =>
+      (personalCurrentStateRecord?['data'] as Map?)?['content'] as String? ?? '';
 
   List<Map<String, Object?>> get contextRecords {
     final bundle = _contextBundle;
@@ -156,6 +179,41 @@ final class StrategyLoopController extends ChangeNotifier {
     if (_status == StrategyUiStatus.ready && hasSession) {
       await exportContext();
     }
+  }
+
+  Future<void> updatePersonalContext({
+    required String goal,
+    required String currentState,
+  }) async {
+    final goalRecord = personalGoalRecord;
+    if (goalRecord == null) {
+      await savePersonalContext(goal: goal, currentState: currentState);
+      return;
+    }
+    final stateRecord = personalCurrentStateRecord;
+    await _run((isCurrent) async {
+      await _strategyLoop.updatePersonalContext(
+        UpdatePersonalContextCommand(
+          actor: _user,
+          profileId: _profileId,
+          correlationId: _correlation('personal-context-update'),
+          goalRef: ObjectRef.fromJson(
+            Map<String, Object?>.from(goalRecord['ref'] as Map),
+          ),
+          currentStateRef: stateRecord == null
+              ? null
+              : ObjectRef.fromJson(
+                  Map<String, Object?>.from(stateRecord['ref'] as Map),
+                ),
+          goal: goal,
+          currentState: currentState,
+        ),
+      );
+      if (!isCurrent()) return 'stale';
+      _savedGoal = goal.trim();
+      return 'personal_context_updated';
+    });
+    if (_status == StrategyUiStatus.ready && hasSession) await exportContext();
   }
 
   Future<void> bootstrap() async {

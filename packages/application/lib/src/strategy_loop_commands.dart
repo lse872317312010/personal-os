@@ -53,6 +53,25 @@ final class SubmitStrategyProposalCommand extends StrategyLoopCommand {
 
 enum ProposalDecision { accept, reject }
 
+final class UpdatePersonalContextCommand extends StrategyLoopCommand {
+  UpdatePersonalContextCommand({
+    required super.actor,
+    required super.profileId,
+    required super.correlationId,
+    required this.goalRef,
+    required this.goal,
+    required this.currentState,
+    this.currentStateRef,
+    super.sensitivity,
+    super.consentRefs,
+  });
+
+  final ObjectRef goalRef;
+  final ObjectRef? currentStateRef;
+  final String goal;
+  final String currentState;
+}
+
 final class RecordPersonalContextCommand extends StrategyLoopCommand {
   RecordPersonalContextCommand({
     required super.actor,

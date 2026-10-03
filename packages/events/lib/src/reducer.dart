@@ -255,6 +255,7 @@ String? _transition(EventEnvelope event, String? from) =>
       EventTypes.outcomeRecorded when from == null => 'recorded',
       EventTypes.constraintRecorded when from == null => 'recorded',
       EventTypes.personalAssetRecorded when from == null => 'active',
+      EventTypes.personalAssetRevised when from == 'active' => 'active',
       EventTypes.personalAssetSuperseded when from == 'active' => 'superseded',
       EventTypes.personalAssetArchived
           when from == 'active' || from == 'superseded' =>
@@ -294,6 +295,11 @@ String? _transition(EventEnvelope event, String? from) =>
               from == ClaimState.disputed.name =>
         ClaimState.withdrawn.name,
       EventTypes.goalCreated when from == null => GoalState.draft.name,
+      EventTypes.goalRevised
+          when from == GoalState.draft.name ||
+              from == GoalState.active.name ||
+              from == GoalState.paused.name =>
+        from,
       EventTypes.goalActivated
           when from == GoalState.draft.name || from == GoalState.paused.name =>
         GoalState.active.name,
@@ -381,6 +387,7 @@ const _knownTypes = <String>{
   EventTypes.outcomeRecorded,
   EventTypes.constraintRecorded,
   EventTypes.personalAssetRecorded,
+  EventTypes.personalAssetRevised,
   EventTypes.personalAssetSuperseded,
   EventTypes.personalAssetArchived,
   EventTypes.strategyProposed,
@@ -398,6 +405,7 @@ const _knownTypes = <String>{
   EventTypes.claimExpired,
   EventTypes.claimWithdrawn,
   EventTypes.goalCreated,
+  EventTypes.goalRevised,
   EventTypes.goalActivated,
   EventTypes.goalPaused,
   EventTypes.goalCompleted,

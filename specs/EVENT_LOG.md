@@ -13,7 +13,8 @@
 ## 首批事件类型
 
 - 信息：`source.registered`、`observation.recorded`、`claim.proposed|confirmed|disputed|expired|withdrawn`
-- 目标：`goal.created|activated|paused|completed`、`constraint.recorded`、`preference.recorded|revised`
+- 目标：`goal.created|revised|activated|paused|completed`、`constraint.recorded`、`preference.recorded|revised`
+- 个人事实：`personal_asset.recorded|revised|superseded|archived`
 - 计划：`baseline.created`、`opportunity.identified`、`recommendation.created`、`plan.drafted|approved|activated|paused|completed|stopped`
 - 任务：`task.planned|completed|skipped|failed|stopped`、`execution.recorded`
 - 反馈：`outcome.recorded`、`review.created|accepted|rejected`、`model.revision.proposed|accepted`
@@ -42,6 +43,8 @@
 ## 纠错与删除
 
 纠错使用新事件，不重写历史。删除区分业务不可见、原始内容擦除、最小 tombstone、审计事件和备份传播。具体物理策略留给 M2，但必须满足 `AC-407`。
+
+Web 目标和当前情况的编辑使用 `goal.revised` 与 `personal_asset.revised`：用户触发、引用原对象固定版本、校验所属 profile 和 expected_revision，追加后对象 ID 与状态不变，revision 增加。此前版本继续作为历史证据读取。清空可选的当前情况使用 `personal_asset.archived`，保留历史，不生成空事实。不改变 success_criteria、其他约束或已经接受的策略。新事件为 v1 信封的新增类型，旧客户端无法解释时必须拒绝或隔离，不能当作已经处理。
 
 ## 禁止内容
 

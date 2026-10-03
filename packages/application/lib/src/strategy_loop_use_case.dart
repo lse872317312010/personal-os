@@ -16,6 +16,7 @@ abstract final class StrategyLoopFailureCode {
       'strategy_loop.pinned_reference_required';
   static const d4Forbidden = 'strategy_loop.d4_forbidden';
   static const acceptedReviewRequired = 'strategy.accepted_review_required';
+  static const personalContextChanged = 'personal_context.changed';
 }
 
 final class StrategyLoopFailure implements Exception {
@@ -107,6 +108,8 @@ final class StrategyLoopUseCase {
           'title': '当前情况',
           'content': command.currentState.trim(),
           'source': 'user_input',
+          'context_role': 'current_state',
+          'goal_ref': goalRef.toJson(),
         },
       ));
     }
@@ -133,6 +136,126 @@ final class StrategyLoopUseCase {
     await _eventStore.appendAll(events);
     return StrategyLoopResult(
       objectId: goalId,
+      eventIds: events.map((event) => event.eventId),
+    );
+  }
+
+  /// Updates current user facts while retaining earlier pinned revisions.
+  Future<StrategyLoopResult> updatePersonalContext(
+    UpdatePersonalContextCommand command,
+  ) async {
+    _validateUser(command);
+    final goal = command.goal.trim(), state = command.currentState.trim();
+    final stateRef = command.currentStateRef;
+    if (goal.isEmpty ||
+        command.goal.length > 4000 ||
+        command.currentState.length > 4000 ||
+        command.goalRef.type != 'goal' ||
+        (stateRef != null && stateRef.type != 'personal_asset')) {
+      throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
+    }
+    _requirePinned(<ObjectRef>[
+      command.goalRef,
+      if (stateRef != null) stateRef,
+    ]);
+    final projections = await _profileProjections(command.profileId);
+    ObjectProjection owned(ObjectRef ref) {
+      final value = projections['${ref.type}:${ref.id.value}'];
+      if (value == null || value.revision != ref.revision) {
+        throw const StrategyLoopFailure(
+          StrategyLoopFailureCode.personalContextChanged,
+        );
+      }
+      return value;
+    }
+
+    final oldGoal = owned(command.goalRef);
+    if (!<String>['draft', 'active', 'paused'].contains(oldGoal.state) ||
+        oldGoal.attributes['source'] != 'user_input') {
+      throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
+    }
+    final oldState = stateRef == null ? null : owned(stateRef);
+    Object? stateGoal = oldState?.attributes['goal_ref'];
+    if (oldState != null && stateGoal == null) {
+      final original = await _eventStore.readBySubject(stateRef!);
+      for (final event in original) {
+        if (event.eventType != EventTypes.personalAssetRecorded) continue;
+        final goals = event.sourceRefs.where((ref) => ref.type == 'goal');
+        if (goals.isNotEmpty) stateGoal = goals.first.toJson();
+      }
+    }
+    if (oldState != null &&
+        (oldState.state != 'active' ||
+            oldState.attributes['source'] != 'user_input' ||
+            oldState.attributes['title'] != '当前情况' ||
+            (stateGoal is Map &&
+                stateGoal['id'] != command.goalRef.id.value))) {
+      throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
+    }
+    final events = <EventEnvelope>[];
+    final goalChanged = goal !=
+        (oldGoal.attributes['title'] ?? oldGoal.attributes['statement']);
+    if (goalChanged) {
+      events.add(_event(
+        id: _ids.nextId('event'),
+        type: EventTypes.goalRevised,
+        command: command,
+        subjects: <ObjectRef>[command.goalRef],
+        sources: <ObjectRef>[command.goalRef],
+        payload: <String, Object?>{
+          'expected_revision': command.goalRef.revision!.value,
+          'title': goal,
+          'statement': goal,
+        },
+      ));
+    }
+    final goalRef = ObjectRef(
+      type: 'goal',
+      id: command.goalRef.id,
+      revision: goalChanged
+          ? command.goalRef.revision!.next
+          : command.goalRef.revision,
+    );
+    if (oldState == null && state.isNotEmpty) {
+      events.add(_event(
+        id: _ids.nextId('event'),
+        type: EventTypes.personalAssetRecorded,
+        command: command,
+        subjects: <ObjectRef>[
+          ObjectRef(type: 'personal_asset', id: EntityId(_ids.nextId('asset'))),
+        ],
+        sources: <ObjectRef>[goalRef],
+        payload: <String, Object?>{
+          'expected_revision': 0,
+          'kind': 'fact',
+          'title': '当前情况',
+          'content': state,
+          'source': 'user_input',
+          'context_role': 'current_state',
+          'goal_ref': goalRef.toJson(),
+        },
+      ));
+    } else if (oldState != null && state != oldState.attributes['content']) {
+      final oldStateRef = stateRef!;
+      events.add(_event(
+        id: _ids.nextId('event'),
+        type: state.isEmpty
+            ? EventTypes.personalAssetArchived
+            : EventTypes.personalAssetRevised,
+        command: command,
+        subjects: <ObjectRef>[oldStateRef],
+        sources: <ObjectRef>[oldStateRef, goalRef],
+        payload: <String, Object?>{
+          'expected_revision': oldStateRef.revision!.value,
+          if (state.isNotEmpty) 'content': state,
+          'context_role': 'current_state',
+          'goal_ref': goalRef.toJson(),
+        },
+      ));
+    }
+    if (events.isNotEmpty) await _eventStore.appendAll(events);
+    return StrategyLoopResult(
+      objectId: command.goalRef.id,
       eventIds: events.map((event) => event.eventId),
     );
   }
@@ -368,6 +491,26 @@ final class StrategyLoopUseCase {
     EntityId profileId,
     ObjectRef parent,
   ) async {
+    final projections = await _profileProjections(profileId);
+    final accepted = projections.values.any((projection) {
+      final ref = projection.attributes['strategy_ref'];
+      return projection.objectType == 'review' &&
+          projection.state == 'accepted' &&
+          ref is Map &&
+          ref['type'] == parent.type &&
+          ref['id'] == parent.id.value &&
+          ref['revision'] == parent.revision!.value;
+    });
+    if (!accepted) {
+      throw const StrategyLoopFailure(
+        StrategyLoopFailureCode.acceptedReviewRequired,
+      );
+    }
+  }
+
+  Future<Map<String, ObjectProjection>> _profileProjections(
+    EntityId profileId,
+  ) async {
     final events = _eventStore is CompleteProfileHistoryReader
         ? await (_eventStore as CompleteProfileHistoryReader)
             .readCompleteProfileHistory(profileId)
@@ -386,20 +529,7 @@ final class StrategyLoopUseCase {
       projections = Map<String, ObjectProjection>.of(reduction.projections);
       seen = Set<String>.of(reduction.seenEventIds);
     }
-    final accepted = projections.values.any((projection) {
-      final ref = projection.attributes['strategy_ref'];
-      return projection.objectType == 'review' &&
-          projection.state == 'accepted' &&
-          ref is Map &&
-          ref['type'] == parent.type &&
-          ref['id'] == parent.id.value &&
-          ref['revision'] == parent.revision!.value;
-    });
-    if (!accepted) {
-      throw const StrategyLoopFailure(
-        StrategyLoopFailureCode.acceptedReviewRequired,
-      );
-    }
+    return projections;
   }
 
   void _requirePinned(Iterable<ObjectRef> refs) {

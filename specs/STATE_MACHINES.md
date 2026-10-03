@@ -29,6 +29,7 @@
 - active 前必须有 success_criteria 与 time_horizon；
 - replaced 必须引用 successor Goal；
 - achieved 只能由用户确认或满足已确认的确定性规则触发。
+- draft/active/paused 可以接受用户的 `goal.revised`；状态不变、revision 增加，terminal 目标不接受该编辑。`personal_asset.revised` 只接受 active 个人事实的用户修订。
 
 ## Plan
 
@@ -64,4 +65,3 @@
 - accepted 后才能将 model.revision.proposed 转为 accepted；
 - rejected 保留历史但不得修改当前模型；
 - 自动 Actor 可创建 draft，不能代替用户进入 accepted。
-
