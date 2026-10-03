@@ -112,7 +112,8 @@ final class StrategyLoopController extends ChangeNotifier {
   }
 
   String get personalCurrentState =>
-      (personalCurrentStateRecord?['data'] as Map?)?['content'] as String? ?? '';
+      (personalCurrentStateRecord?['data'] as Map?)?['content'] as String? ??
+      '';
 
   List<Map<String, Object?>> get contextRecords {
     final bundle = _contextBundle;

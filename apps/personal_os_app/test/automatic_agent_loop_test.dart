@@ -155,7 +155,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('saved context edits survive reload and reach the next Agent request',
+  testWidgets(
+      'saved context edits survive reload and reach the next Agent request',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -181,12 +182,13 @@ void main() {
     await tester.ensureVisible(find.text('我的目标与现状'));
     await tester.tap(find.text('我的目标与现状'));
     await tester.pumpAndSettle();
-    String text(String key) => tester.widget<TextField>(
-        find.byKey(Key(key))).controller!.text;
+    String text(String key) =>
+        tester.widget<TextField>(find.byKey(Key(key))).controller!.text;
     expect(text('automatic-goal'), '学习二十分钟');
     expect(text('automatic-conditions'), '平日很累');
     await tester.enterText(find.byKey(const Key('automatic-goal')), '学习十分钟');
-    await tester.enterText(find.byKey(const Key('automatic-conditions')), '周末有时间');
+    await tester.enterText(
+        find.byKey(const Key('automatic-conditions')), '周末有时间');
     final save = find.byKey(const Key('automatic-save-goal'));
     await tester.ensureVisible(save);
     await tester.tap(save);
@@ -205,8 +207,8 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     final restoredStore = LocalAgentEventStore(gateway);
     await restoredStore.load();
-    final restored = AppComposition.localAgent(
-        gateway: gateway, eventStore: restoredStore);
+    final restored =
+        AppComposition.localAgent(gateway: gateway, eventStore: restoredStore);
     addTearDown(restored.strategyController.dispose);
     addTearDown(restored.automaticAgent!.dispose);
     await tester.pumpWidget(PersonalOsApp(composition: restored));
@@ -218,22 +220,31 @@ void main() {
     expect(text('automatic-conditions'), '周末有时间');
     await restored.strategyController.recordExecution(
         actionId: restored.strategyController.strategyActions.first.id,
-        executionStatus: ExecutionStatus.completed, note: '用户实际完成');
+        executionStatus: ExecutionStatus.completed,
+        note: '用户实际完成');
     await restored.automaticAgent!.saveOutcome('完成十分钟');
     final context = jsonDecode(gateway.contexts.last) as Map;
     final objects = (context['objects'] as List).cast<Map>();
-    expect(objects.where((e) => e['ref']['type'] == 'goal').single['data']['title'],
+    expect(
+        objects.where((e) => e['ref']['type'] == 'goal').single['data']
+            ['title'],
         '学习十分钟');
-    expect(objects.where((e) => e['ref']['type'] == 'personal_asset')
-        .single['data']['content'], '周末有时间');
+    expect(
+        objects
+            .where((e) => e['ref']['type'] == 'personal_asset')
+            .single['data']['content'],
+        '周末有时间');
     expect(gateway.stages, <String>['proposal', 'review']);
-    await restored.strategyController.updatePersonalContext(
-        goal: '学习十分钟', currentState: '');
+    await restored.strategyController
+        .updatePersonalContext(goal: '学习十分钟', currentState: '');
     expect(restored.strategyController.personalCurrentState, '');
     await restored.automaticAgent!.decideReview(ReviewDecision.accept);
     final revised = jsonDecode(gateway.contexts.last) as Map;
-    expect((revised['objects'] as List).cast<Map>()
-        .where((e) => e['ref']['type'] == 'personal_asset'), isEmpty);
+    expect(
+        (revised['objects'] as List)
+            .cast<Map>()
+            .where((e) => e['ref']['type'] == 'personal_asset'),
+        isEmpty);
     expect(gateway.stages, <String>['proposal', 'review', 'revision']);
     expect(tester.takeException(), isNull);
   });

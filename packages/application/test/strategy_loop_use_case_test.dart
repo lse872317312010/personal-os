@@ -103,9 +103,9 @@ void main() {
         profileId: EntityId('primary-user'),
         correlationId: 'edit',
         goalRef: ObjectRef(
-          type: 'goal', id: created.objectId, revision: Revision(2)),
-        currentStateRef: ObjectRef(
-          type: asset.type, id: asset.id, revision: Revision(1)),
+            type: 'goal', id: created.objectId, revision: Revision(2)),
+        currentStateRef:
+            ObjectRef(type: asset.type, id: asset.id, revision: Revision(1)),
         goal: 'Study ten minutes',
         currentState: 'Free on weekends',
       ),
@@ -120,38 +120,57 @@ void main() {
     expect(goal.attributes['title'], 'Study ten minutes');
     expect(goal.attributes['success_criteria'], <String>['Three sessions']);
     expect(projections['personal_asset:${asset.id.value}']!.revision.value, 2);
-    expect(projections['personal_asset:${asset.id.value}']!.attributes['content'],
+    expect(
+        projections['personal_asset:${asset.id.value}']!.attributes['content'],
         'Free on weekends');
-    expect(projections.values.where((p) => p.objectType == 'goal'), hasLength(1));
+    expect(
+        projections.values.where((p) => p.objectType == 'goal'), hasLength(1));
     expect(projections.values.where((p) => p.objectType == 'constraint'),
         hasLength(1));
   });
 
-  test('unchanged, stale, foreign and agent context edits never partially write',
+  test(
+      'unchanged, stale, foreign and agent context edits never partially write',
       () async {
     final created = await useCase.recordPersonalContext(
       RecordPersonalContextCommand(
-        actor: user, profileId: EntityId('primary-user'),
-        correlationId: 'create', goal: 'Study', currentState: 'Ten minutes'),
+          actor: user,
+          profileId: EntityId('primary-user'),
+          correlationId: 'create',
+          goal: 'Study',
+          currentState: 'Ten minutes'),
     );
     final asset = store.batches.single[2].subjectRefs.first;
     UpdatePersonalContextCommand edit({
-      ActorRef? actor, String profile = 'primary-user',
-      int? goalRevision = 2, int stateRevision = 1,
-      String goal = 'Study', String state = 'Ten minutes',
-    }) => UpdatePersonalContextCommand(
-      actor: actor ?? user, profileId: EntityId(profile),
-      correlationId: 'edit',
-      goalRef: ObjectRef(type: 'goal', id: created.objectId,
-          revision: goalRevision == null ? null : Revision(goalRevision)),
-      currentStateRef: ObjectRef(type: asset.type, id: asset.id,
-          revision: Revision(stateRevision)), goal: goal, currentState: state,
-    );
+      ActorRef? actor,
+      String profile = 'primary-user',
+      int? goalRevision = 2,
+      int stateRevision = 1,
+      String goal = 'Study',
+      String state = 'Ten minutes',
+    }) =>
+        UpdatePersonalContextCommand(
+          actor: actor ?? user,
+          profileId: EntityId(profile),
+          correlationId: 'edit',
+          goalRef: ObjectRef(
+              type: 'goal',
+              id: created.objectId,
+              revision: goalRevision == null ? null : Revision(goalRevision)),
+          currentStateRef: ObjectRef(
+              type: asset.type,
+              id: asset.id,
+              revision: Revision(stateRevision)),
+          goal: goal,
+          currentState: state,
+        );
     expect((await useCase.updatePersonalContext(edit())).eventIds, isEmpty);
     expect(store.batches, hasLength(1));
     for (final command in <UpdatePersonalContextCommand>[
-      edit(actor: agent), edit(profile: 'someone-else'),
-      edit(goalRevision: null), edit(goalRevision: 1),
+      edit(actor: agent),
+      edit(profile: 'someone-else'),
+      edit(goalRevision: null),
+      edit(goalRevision: 1),
       edit(stateRevision: 0, goal: 'Must not partially change'),
     ]) {
       await expectLater(useCase.updatePersonalContext(command),
@@ -159,38 +178,53 @@ void main() {
     }
     expect(store.batches, hasLength(1));
     await useCase.updatePersonalContext(edit(state: 'Weekends'));
-    await expectLater(useCase.updatePersonalContext(edit(goal: 'Stale edit')),
-        throwsA(isA<StrategyLoopFailure>().having(
-          (e) => e.code, 'code', StrategyLoopFailureCode.personalContextChanged)));
+    await expectLater(
+        useCase.updatePersonalContext(edit(goal: 'Stale edit')),
+        throwsA(isA<StrategyLoopFailure>().having((e) => e.code, 'code',
+            StrategyLoopFailureCode.personalContextChanged)));
     expect(store.batches, hasLength(2));
-    expect(_project(store)['goal:${created.objectId.value}']!.revision.value, 2);
+    expect(
+        _project(store)['goal:${created.objectId.value}']!.revision.value, 2);
   });
 
   test('clearing optional context archives its evidence without blank facts',
       () async {
     final created = await useCase.recordPersonalContext(
       RecordPersonalContextCommand(
-        actor: user, profileId: EntityId('primary-user'),
-        correlationId: 'create', goal: 'Study', currentState: 'Ten minutes'),
+          actor: user,
+          profileId: EntityId('primary-user'),
+          correlationId: 'create',
+          goal: 'Study',
+          currentState: 'Ten minutes'),
     );
     final asset = store.batches.single[2].subjectRefs.first;
-    final ref = ObjectRef(type: 'goal', id: created.objectId,
-        revision: Revision(2));
+    final ref =
+        ObjectRef(type: 'goal', id: created.objectId, revision: Revision(2));
     await useCase.updatePersonalContext(UpdatePersonalContextCommand(
-      actor: user, profileId: EntityId('primary-user'), correlationId: 'clear',
-      goalRef: ref, goal: 'Study', currentState: '',
-      currentStateRef: ObjectRef(type: asset.type, id: asset.id,
-          revision: Revision(1)),
+      actor: user,
+      profileId: EntityId('primary-user'),
+      correlationId: 'clear',
+      goalRef: ref,
+      goal: 'Study',
+      currentState: '',
+      currentStateRef:
+          ObjectRef(type: asset.type, id: asset.id, revision: Revision(1)),
     ));
     final archived = _project(store)['personal_asset:${asset.id.value}']!;
     expect(archived.state, 'archived');
     expect(archived.attributes['content'], 'Ten minutes');
     await useCase.updatePersonalContext(UpdatePersonalContextCommand(
-      actor: user, profileId: EntityId('primary-user'), correlationId: 'new-state',
-      goalRef: ref, goal: 'Study', currentState: 'Weekends',
+      actor: user,
+      profileId: EntityId('primary-user'),
+      correlationId: 'new-state',
+      goalRef: ref,
+      goal: 'Study',
+      currentState: 'Weekends',
     ));
-    expect(_project(store).values.where((p) => p.objectType == 'personal_asset'
-        && p.state == 'active'), hasLength(1));
+    expect(
+        _project(store).values.where(
+            (p) => p.objectType == 'personal_asset' && p.state == 'active'),
+        hasLength(1));
     expect(_project(store).values.where((p) => p.objectType == 'goal'),
         hasLength(1));
   });
@@ -362,8 +396,8 @@ Map<String, ObjectProjection> _project(_Store store) {
   var projections = <String, ObjectProjection>{};
   var seen = <String>{};
   for (final event in store.batches.expand((batch) => batch)) {
-    final result = reduceCore(
-        projections: projections, seenEventIds: seen, event: event);
+    final result =
+        reduceCore(projections: projections, seenEventIds: seen, event: event);
     expect(result.disposition, ReductionDisposition.applied);
     projections = result.projections;
     seen = result.seenEventIds;
@@ -387,8 +421,11 @@ final class _Store implements EventStore {
     ObjectRef subject, {
     int? limit,
   }) async =>
-      batches.expand((batch) => batch).where((event) => event.subjectRefs.any(
-          (ref) => ref.type == subject.type && ref.id == subject.id)).toList();
+      batches
+          .expand((batch) => batch)
+          .where((event) => event.subjectRefs
+              .any((ref) => ref.type == subject.type && ref.id == subject.id))
+          .toList();
 }
 
 final class _Ids implements IdGenerator {

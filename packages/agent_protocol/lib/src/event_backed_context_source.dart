@@ -35,8 +35,10 @@ final class EventBackedAgentContextSource implements AgentContextSource {
         .where((record) =>
             objectTypes.isEmpty || objectTypes.contains(record.ref.type))
         .where((record) => !_unavailableStates.contains(record.data['state']))
-        .where((record) => record.ref.type != 'personal_asset' ||
-            !const <String>{'archived', 'superseded'}.contains(record.data['state']))
+        .where((record) =>
+            record.ref.type != 'personal_asset' ||
+            !const <String>{'archived', 'superseded'}
+                .contains(record.data['state']))
         .toList(growable: false)
       ..sort((left, right) {
         final typeOrder = left.ref.type.compareTo(right.ref.type);
@@ -125,9 +127,12 @@ final class EventBackedAgentContextSource implements AgentContextSource {
         }
       }
     }
-    return projections.values.map((projection) => _record(projection,
-        legacyGoal: projection.objectType == 'personal_asset'
-            ? legacyGoals[projection.id.value] : null)).toList();
+    return projections.values
+        .map((projection) => _record(projection,
+            legacyGoal: projection.objectType == 'personal_asset'
+                ? legacyGoals[projection.id.value]
+                : null))
+        .toList();
   }
 
   Future<void> _requireOpenOwnedSession(EntityId sessionId) async {
@@ -170,7 +175,8 @@ final class EventBackedAgentContextSource implements AgentContextSource {
   }
 }
 
-ContextRecord _record(ObjectProjection projection, {ObjectRef? legacyGoal}) => ContextRecord(
+ContextRecord _record(ObjectProjection projection, {ObjectRef? legacyGoal}) =>
+    ContextRecord(
       ref: ObjectRef(
         type: projection.objectType,
         id: projection.id,
@@ -180,7 +186,8 @@ ContextRecord _record(ObjectProjection projection, {ObjectRef? legacyGoal}) => C
         'state': projection.state,
         'last_event_id': projection.lastEventId,
         ...projection.attributes,
-        if (!projection.attributes.containsKey('goal_ref') && legacyGoal != null)
+        if (!projection.attributes.containsKey('goal_ref') &&
+            legacyGoal != null)
           'goal_ref': legacyGoal.toJson(),
       },
     );

@@ -101,9 +101,8 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
       _contextEdited = false;
       _fillContext();
       if (mounted) {
-        setState(() => _contextNotice = existing
-            ? '资料已保存，下次 AI 请求会使用更新后的内容。'
-            : '目标已保存。');
+        setState(() =>
+            _contextNotice = existing ? '资料已保存，下次 AI 请求会使用更新后的内容。' : '目标已保存。');
       }
       if (!existing && agent.canGenerate) await _generate();
     }
@@ -218,12 +217,13 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: <Widget>[
-                                      Text(agent.error ??
-                                          (strategy.errorCode ==
-                                                  StrategyLoopFailureCode
-                                                      .personalContextChanged
-                                              ? '资料已被更新，请刷新页面后再编辑。'
-                                              : '这次操作未能保存，请检查连接后重试。'),
+                                      Text(
+                                          agent.error ??
+                                              (strategy.errorCode ==
+                                                      StrategyLoopFailureCode
+                                                          .personalContextChanged
+                                                  ? '资料已被更新，请刷新页面后再编辑。'
+                                                  : '这次操作未能保存，请检查连接后重试。'),
                                           key: const Key(
                                               'automatic-agent-error')),
                                       if (agent.canGenerate)
