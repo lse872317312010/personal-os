@@ -103,7 +103,9 @@ final class StrategyLoopController extends ChangeNotifier {
       final data = record['data'] as Map;
       if (data['state'] != 'active' ||
           data['source'] != 'user_input' ||
-          data['title'] != '当前情况') continue;
+          data['title'] != '当前情况') {
+        continue;
+      }
       final ref = data['goal_ref'];
       if (ref is Map && ref['id'] == goalId) return record;
       if (ref == null) legacy ??= record;
