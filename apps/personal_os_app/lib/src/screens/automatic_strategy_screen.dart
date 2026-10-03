@@ -26,6 +26,9 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
   final _conditions = TextEditingController();
   final _result = TextEditingController();
   final _scroll = ScrollController();
+  bool _contextEdited = false;
+  bool _syncingContext = false;
+  String? _contextNotice;
   AutomaticAgentController get agent => widget.agent;
   StrategyLoopController get strategy => agent.strategy;
   bool get busy => agent.busy || strategy.status == StrategyUiStatus.running;
@@ -33,6 +36,8 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _goal.addListener(_editContext);
+    _conditions.addListener(_editContext);
     unawaited(_load());
   }
 
@@ -43,6 +48,24 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
       await strategy.openOfflineSession(agentId: 'automatic-agent-gateway');
     }
     if (strategy.hasSession) await strategy.refreshContextForHandoff();
+    _fillContext();
+  }
+
+  void _editContext() {
+    if (_syncingContext || !mounted) return;
+    setState(() {
+      _contextEdited = true;
+      _contextNotice = null;
+    });
+  }
+
+  void _fillContext() {
+    if (!mounted || _contextEdited) return;
+    _syncingContext = true;
+    _goal.text = strategy.personalGoal ?? '';
+    _conditions.text = strategy.personalCurrentState;
+    _syncingContext = false;
+    setState(() {});
   }
 
   @override
@@ -70,10 +93,18 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
 
   Future<void> _saveGoal() async {
     if (busy || _goal.text.trim().isEmpty) return;
-    await strategy.savePersonalContext(
+    final existing = strategy.personalGoalRecord != null;
+    await strategy.updatePersonalContext(
         goal: _goal.text, currentState: _conditions.text);
+    if (!mounted) return;
     if (strategy.status != StrategyUiStatus.failed) {
-      await _generate();
+      _contextEdited = false;
+      _fillContext();
+      if (mounted) {
+        setState(() =>
+            _contextNotice = existing ? '资料已保存，下次 AI 请求会使用更新后的内容。' : '目标已保存。');
+      }
+      if (!existing && agent.canGenerate) await _generate();
     }
   }
 
@@ -186,7 +217,13 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: <Widget>[
-                                      Text(agent.error ?? '这次操作未能保存，请检查连接后重试。',
+                                      Text(
+                                          agent.error ??
+                                              (strategy.errorCode ==
+                                                      StrategyLoopFailureCode
+                                                          .personalContextChanged
+                                                  ? '资料已被更新，请刷新页面后再编辑。'
+                                                  : '这次操作未能保存，请检查连接后重试。'),
                                           key: const Key(
                                               'automatic-agent-error')),
                                       if (agent.canGenerate)
@@ -236,9 +273,18 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                           const SizedBox(height: 12),
                           FilledButton(
                               key: const Key('automatic-save-goal'),
-                              onPressed: busy ? null : _saveGoal,
-                              child:
-                                  Text(agent.connected ? '保存并生成行动计划' : '保存目标')),
+                              onPressed: busy || _goal.text.trim().isEmpty
+                                  ? null
+                                  : _saveGoal,
+                              child: Text(strategy.personalGoalRecord != null
+                                  ? '保存资料'
+                                  : agent.connected
+                                      ? '保存并生成行动计划'
+                                      : '保存目标')),
+                          if (_contextNotice != null)
+                            Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(_contextNotice!)),
                         ],
                       )),
                       if (strategy.contextRecords.any((e) => <String>[
@@ -433,7 +479,9 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
           'rejected': '未接受',
           'active': '进行中',
           'completed': '已完成',
-          'abandoned': '已结束'
+          'abandoned': '已结束',
+          'archived': '已归档',
+          'superseded': '已替代'
         }[data['state']];
         return ListTile(
           title: Text('${labels[type]}${state == null ? '' : ' · $state'}'),

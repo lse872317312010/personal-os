@@ -6,6 +6,20 @@ the user to copy prompts, paste replies, or import JSON. The model only proposes
 plans and reviews; acceptance, real execution and outcome reports remain human
 actions.
 
+## Edit saved context
+
+The goal and current situation fields are filled from saved context on reload.
+First save still starts automatic planning when an AI is connected. Later saves
+update the same goal and current fact by appending revisions, preserve the
+accepted action and do not trigger an extra model request. The next request or
+review uses the updated context. Unchanged saves append no events. Clearing the
+optional situation archives it; earlier evidence remains available. Archived
+facts are omitted from ordinary Agent context but remain readable by
+their earlier pinned references. Existing fact-to-goal links are recovered from
+their original events without rewriting history. These are
+edits to these two fields, not general asset or constraint management. Upgrade
+clients together: older readers cannot interpret the new revision event types.
+
 ## Run
 
 Download `personal-os-automatic-windows.zip` from the `automatic-agent-web`

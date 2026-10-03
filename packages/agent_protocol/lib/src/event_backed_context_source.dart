@@ -30,12 +30,15 @@ final class EventBackedAgentContextSource implements AgentContextSource {
   }) async {
     await _requireOpenOwnedSession(sessionId);
     final offset = _decodeCursor(cursor);
-    final projections = await _profileProjections();
-    final records = projections.values
-        .where((projection) =>
-            objectTypes.isEmpty || objectTypes.contains(projection.objectType))
-        .where((projection) => !_unavailableStates.contains(projection.state))
-        .map(_record)
+    final current = await _profileRecords();
+    final records = current
+        .where((record) =>
+            objectTypes.isEmpty || objectTypes.contains(record.ref.type))
+        .where((record) => !_unavailableStates.contains(record.data['state']))
+        .where((record) =>
+            record.ref.type != 'personal_asset' ||
+            !const <String>{'archived', 'superseded'}
+                .contains(record.data['state']))
         .toList(growable: false)
       ..sort((left, right) {
         final typeOrder = left.ref.type.compareTo(right.ref.type);
@@ -77,7 +80,12 @@ final class EventBackedAgentContextSource implements AgentContextSource {
     var projections = <String, ObjectProjection>{};
     var seen = <String>{};
     final key = '${ref.type}:${ref.id.value}';
+    ObjectRef? legacyGoal;
     for (final event in events) {
+      if (event.eventType == EventTypes.personalAssetRecorded) {
+        final goals = event.sourceRefs.where((source) => source.type == 'goal');
+        if (goals.isNotEmpty) legacyGoal = goals.first;
+      }
       final reduction = reduceCore(
         projections: projections,
         seenEventIds: seen,
@@ -90,18 +98,19 @@ final class EventBackedAgentContextSource implements AgentContextSource {
       if (projection?.revision == requestedRevision) {
         return _unavailableStates.contains(projection!.state)
             ? null
-            : _record(projection);
+            : _record(projection, legacyGoal: legacyGoal);
       }
     }
     return null;
   }
 
-  Future<Map<String, ObjectProjection>> _profileProjections() async {
+  Future<List<ContextRecord>> _profileRecords() async {
     final events = await _eventStore.readBySubject(
       ObjectRef(type: 'profile', id: _profileId),
     );
     var projections = <String, ObjectProjection>{};
     var seen = <String>{};
+    final legacyGoals = <String, ObjectRef>{};
     for (final event in events) {
       final reduction = reduceCore(
         projections: projections,
@@ -111,8 +120,19 @@ final class EventBackedAgentContextSource implements AgentContextSource {
       if (reduction.disposition != ReductionDisposition.applied) continue;
       projections = Map<String, ObjectProjection>.of(reduction.projections);
       seen = Set<String>.of(reduction.seenEventIds);
+      if (event.eventType == EventTypes.personalAssetRecorded) {
+        final goals = event.sourceRefs.where((source) => source.type == 'goal');
+        if (goals.isNotEmpty) {
+          legacyGoals[event.subjectRefs.first.id.value] = goals.first;
+        }
+      }
     }
-    return projections;
+    return projections.values
+        .map((projection) => _record(projection,
+            legacyGoal: projection.objectType == 'personal_asset'
+                ? legacyGoals[projection.id.value]
+                : null))
+        .toList();
   }
 
   Future<void> _requireOpenOwnedSession(EntityId sessionId) async {
@@ -155,7 +175,8 @@ final class EventBackedAgentContextSource implements AgentContextSource {
   }
 }
 
-ContextRecord _record(ObjectProjection projection) => ContextRecord(
+ContextRecord _record(ObjectProjection projection, {ObjectRef? legacyGoal}) =>
+    ContextRecord(
       ref: ObjectRef(
         type: projection.objectType,
         id: projection.id,
@@ -165,6 +186,9 @@ ContextRecord _record(ObjectProjection projection) => ContextRecord(
         'state': projection.state,
         'last_event_id': projection.lastEventId,
         ...projection.attributes,
+        if (!projection.attributes.containsKey('goal_ref') &&
+            legacyGoal != null)
+          'goal_ref': legacyGoal.toJson(),
       },
     );
 

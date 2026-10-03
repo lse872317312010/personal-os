@@ -155,6 +155,100 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+      'saved context edits survive reload and reach the next Agent request',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final gateway = _TestGateway();
+    final store = LocalAgentEventStore(gateway);
+    await store.load();
+    final app = AppComposition.localAgent(gateway: gateway, eventStore: store);
+    final strategy = app.strategyController, agent = app.automaticAgent!;
+    addTearDown(strategy.dispose);
+    addTearDown(agent.dispose);
+    await strategy.savePersonalContext(goal: '学习二十分钟', currentState: '平日很累');
+    await agent.connect();
+    await agent.generate();
+    await strategy.decideProposal(ProposalDecision.accept);
+    await strategy.activateStrategy();
+    final strategyId = strategy.strategyId;
+    final oldGoal = Map.of(strategy.personalGoalRecord!['ref'] as Map);
+    final oldEvents = jsonEncode(gateway.events);
+    await tester.pumpWidget(PersonalOsApp(composition: app));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('我的目标与现状'));
+    await tester.tap(find.text('我的目标与现状'));
+    await tester.pumpAndSettle();
+    String text(String key) =>
+        tester.widget<TextField>(find.byKey(Key(key))).controller!.text;
+    expect(text('automatic-goal'), '学习二十分钟');
+    expect(text('automatic-conditions'), '平日很累');
+    await tester.enterText(find.byKey(const Key('automatic-goal')), '学习十分钟');
+    await tester.enterText(
+        find.byKey(const Key('automatic-conditions')), '周末有时间');
+    final save = find.byKey(const Key('automatic-save-goal'));
+    await tester.ensureVisible(save);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(strategy.strategyId, strategyId);
+    expect(strategy.strategyState, 'active');
+    expect(strategy.personalGoalRecord!['ref'],
+        <String, Object?>{...oldGoal.cast<String, Object?>(), 'revision': 3});
+    expect(gateway.stages, <String>['proposal']);
+    final originalCount = (jsonDecode(oldEvents) as List).length;
+    expect(jsonEncode(gateway.events.take(originalCount).toList()), oldEvents);
+    final updatedEvents = jsonEncode(gateway.events);
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(jsonEncode(gateway.events), updatedEvents);
+    await tester.pumpWidget(const SizedBox.shrink());
+    final restoredStore = LocalAgentEventStore(gateway);
+    await restoredStore.load();
+    final restored =
+        AppComposition.localAgent(gateway: gateway, eventStore: restoredStore);
+    addTearDown(restored.strategyController.dispose);
+    addTearDown(restored.automaticAgent!.dispose);
+    await tester.pumpWidget(PersonalOsApp(composition: restored));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('我的目标与现状'));
+    await tester.tap(find.text('我的目标与现状'));
+    await tester.pumpAndSettle();
+    expect(text('automatic-goal'), '学习十分钟');
+    expect(text('automatic-conditions'), '周末有时间');
+    await restored.strategyController.recordExecution(
+        actionId: restored.strategyController.strategyActions.first.id,
+        executionStatus: ExecutionStatus.completed,
+        note: '用户实际完成');
+    await restored.automaticAgent!.saveOutcome('完成十分钟');
+    final context = jsonDecode(gateway.contexts.last) as Map;
+    final objects = (context['objects'] as List).cast<Map>();
+    expect(
+        objects.where((e) => e['ref']['type'] == 'goal').single['data']
+            ['title'],
+        '学习十分钟');
+    expect(
+        objects
+            .where((e) => e['ref']['type'] == 'personal_asset')
+            .single['data']['content'],
+        '周末有时间');
+    expect(gateway.stages, <String>['proposal', 'review']);
+    await restored.strategyController
+        .updatePersonalContext(goal: '学习十分钟', currentState: '');
+    expect(restored.strategyController.personalCurrentState, '');
+    await restored.automaticAgent!.decideReview(ReviewDecision.accept);
+    final revised = jsonDecode(gateway.contexts.last) as Map;
+    expect(
+        (revised['objects'] as List)
+            .cast<Map>()
+            .where((e) => e['ref']['type'] == 'personal_asset'),
+        isEmpty);
+    expect(gateway.stages, <String>['proposal', 'review', 'revision']);
+    expect(tester.takeException(), isNull);
+  });
+
   test('reset ignores a late connection check result', () async {
     final gateway = _TestGateway()
       ..delayedCheck = Completer<Map<String, Object?>>();

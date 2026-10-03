@@ -9,6 +9,7 @@ abstract final class EventTypes {
   static const constraintRecorded = 'constraint.recorded';
 
   static const personalAssetRecorded = 'personal_asset.recorded';
+  static const personalAssetRevised = 'personal_asset.revised';
   static const personalAssetSuperseded = 'personal_asset.superseded';
   static const personalAssetArchived = 'personal_asset.archived';
 
@@ -31,6 +32,7 @@ abstract final class EventTypes {
   static const claimWithdrawn = 'claim.withdrawn';
 
   static const goalCreated = 'goal.created';
+  static const goalRevised = 'goal.revised';
   static const goalActivated = 'goal.activated';
   static const goalPaused = 'goal.paused';
   static const goalCompleted = 'goal.completed';
