@@ -487,7 +487,6 @@ final class StrategyLoopUseCase {
           'strategy_ref': command.strategyRef.toJson(),
           'action_id': command.actionId.value,
           'status': command.status.name,
-          if (note.isNotEmpty) 'note': note,
         },
       ),
       _event(
