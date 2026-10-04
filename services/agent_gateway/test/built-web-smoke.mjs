@@ -94,6 +94,7 @@ try {
   // A second production-browser pass uses an explicit disposable model fixture.
   // It exercises the actual Web -> gateway -> HTTP Agent probe, never OAuth.
   const checks = [];
+  let revisionFailed = false;
   fixture = createServer(async (req, res) => {
     const chunks = []; for await (const chunk of req) chunks.push(chunk);
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
@@ -110,8 +111,17 @@ try {
           feedback_refs: [], keep: [], change: [], unknowns: ['CI fixture, not real inference'],
         } });
       } else {
-        Object.assign(bundle, { proposal_id: 'ci-quick-feedback-plan', strategy: {
-          title: 'CI 行动计划', rationale: 'CI fixture, not real inference', goal_refs: refs('goal'), asset_refs: refs('personal_asset'),
+        const revision = body.stage === 'revision';
+        if (revision && !revisionFailed) {
+          revisionFailed = true;
+          res.statusCode = 503;
+          res.end(JSON.stringify({ error: 'disposable_fixture_unavailable' }));
+          return;
+        }
+        const acceptedReview = body.context.objects.find(o => o.ref.type === 'review' && o.data.state === 'accepted');
+        Object.assign(bundle, { proposal_id: revision ? 'ci-resume-plan' : 'ci-quick-feedback-plan', strategy: {
+          title: revision ? 'CI 下一轮行动' : 'CI 行动计划', rationale: 'CI fixture, not real inference', goal_refs: refs('goal'), asset_refs: refs('personal_asset'),
+          ...(revision ? { parent_strategy: acceptedReview.data.strategy_ref } : {}),
           actions: [{ id: 'ci-action', instruction: '用十分钟复习一个知识点。', success_measure: '记录完成情况。' }],
           assumptions: ['Disposable fixture; no real human action is claimed'],
         } });
@@ -223,6 +233,41 @@ try {
   const reviewScreenshot = await call('Page.captureScreenshot', { format: 'png' });
   await writeFile('build/automatic-agent-feedback-review.png', Buffer.from(reviewScreenshot.data, 'base64'));
   console.log('Compiled Web -> real local gateway -> fixture Agent quick-feedback review passed with one skipped execution and one neutral outcome.');
+  // Persist acceptance, fail the first next-plan request, then reopen. Startup
+  // must resume only the pending revision and leave the new proposal for the user.
+  await clickButton('确认复盘，准备下一轮');
+  for (let attempt = 0; attempt < 80 && !revisionFailed; attempt++) await delay(100);
+  assert.ok(revisionFailed, 'Accepted review did not request the next plan');
+  let failed = false;
+  for (let attempt = 0; attempt < 80 && !failed; attempt++) {
+    const ax = await call('Accessibility.getFullAXTree');
+    failed = ax.nodes.some(n => n.name?.value?.includes('AI 服务未能完成请求'));
+    if (!failed) await delay(100);
+  }
+  assert.ok(failed, 'Compiled app did not finish the failed next-plan request');
+  const beforeReload = await store.read('history');
+  await call('Page.reload', { ignoreCache: true });
+  let resumed = false;
+  for (let attempt = 0; attempt < 100 && !resumed; attempt++) {
+    await call('Runtime.evaluate', { expression: "document.querySelector('flt-semantics-placeholder')?.click()" });
+    const ax = await call('Accessibility.getFullAXTree');
+    resumed = ax.nodes.some(n => n.name?.value?.includes('CI 下一轮行动'))
+      && ax.nodes.some(n => n.role?.value === 'button' && n.name?.value?.includes('就按这个计划开始'));
+    if (!resumed) await delay(100);
+  }
+  assert.ok(resumed, 'Reopening did not resume the accepted review into a draft next plan');
+  assert.deepEqual(checks.map(c => c.stage), ['proposal', 'proposal', 'review', 'revision', 'revision']);
+  const afterResume = await store.read('history');
+  assert.deepEqual(afterResume.events.slice(0, beforeReload.events.length), beforeReload.events, 'Resume changed existing history');
+  assert.equal(afterResume.events.filter(e => e.event_type === 'execution.recorded').length, 1);
+  assert.equal(afterResume.events.filter(e => e.event_type === 'outcome.recorded').length, 1);
+  const nextPlan = afterResume.events.filter(e => e.event_type === 'strategy.proposed').at(-1);
+  assert.ok(nextPlan.payload.parent_strategy);
+  assert.equal(afterResume.events.filter(e => e.event_type === 'strategy.accepted').length, 1, 'Resume accepted a plan without the user');
+  await delay(250);
+  const resumeScreenshot = await call('Page.captureScreenshot', { format: 'png' });
+  await writeFile('build/automatic-agent-resume.png', Buffer.from(resumeScreenshot.data, 'base64'));
+  console.log('Compiled app resumed a saved accepted review after reload, preserved evidence and left the next plan awaiting the user.');
   console.log('Compiled automatic app starts and opens connection setup at phone width with local fonts/renderer and no external startup requests. No account grant or real model inference was made.');
 } catch (error) {
   if (call) {

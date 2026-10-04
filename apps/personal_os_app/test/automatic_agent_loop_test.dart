@@ -189,10 +189,7 @@ void main() {
     await tester.pumpWidget(PersonalOsApp(composition: restored));
     await tester.pumpAndSettle();
     expect(restored.strategyController.outcomeId, isNotNull);
-    final retry = find.byKey(const Key('ask-agent-next'));
-    await tester.ensureVisible(retry);
-    await tester.tap(retry);
-    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('ask-agent-next')), findsNothing);
     expect(_eventPayloads(gateway, 'execution.recorded'), hasLength(1));
     expect(_eventPayloads(gateway, 'outcome.recorded'), hasLength(1));
     expect(gateway.stages, <String>['proposal', 'review', 'review']);
@@ -240,6 +237,173 @@ void main() {
     expect(agent.busy, false);
   });
 
+  testWidgets('reopening resumes saved feedback and then an accepted review',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final gateway = _TestGateway();
+    final first = await _pendingReviewApp(gateway);
+    final evidence = jsonEncode(gateway.events);
+    first.strategyController.dispose();
+    first.automaticAgent!.dispose();
+    Future<AppComposition> reopen() async {
+      final store = LocalAgentEventStore(gateway);
+      await store.load();
+      final app = AppComposition.localAgent(gateway: gateway, eventStore: store);
+      addTearDown(app.strategyController.dispose);
+      addTearDown(app.automaticAgent!.dispose);
+      await tester.pumpWidget(PersonalOsApp(composition: app));
+      await tester.pumpAndSettle();
+      return app;
+    }
+    final review = await reopen();
+    expect(gateway.stages, <String>['proposal', 'review']);
+    expect(review.strategyController.reviewState, 'draft');
+    expect(find.byKey(const Key('accept-review')), findsOneWidget);
+    final evidenceCount = (jsonDecode(evidence) as List).length;
+    expect(jsonEncode(gateway.events.take(evidenceCount).toList()), evidence);
+    await review.strategyController.decideReview(ReviewDecision.accept);
+    await tester.pumpWidget(const SizedBox.shrink());
+    final next = await reopen();
+    expect(gateway.stages, <String>['proposal', 'review', 'revision']);
+    expect(next.strategyController.hasPendingProposal, true);
+    expect(next.strategyController.parentStrategyRef, isNotNull);
+    expect(find.byKey(const Key('accept-proposal')), findsOneWidget);
+    expect(_eventPayloads(gateway, 'execution.recorded'), hasLength(1));
+    expect(_eventPayloads(gateway, 'outcome.recorded'), hasLength(1));
+    expect(gateway.contexts.last, contains('已保存的反馈'));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('saving a connection continues an offline goal after closing setup',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final gateway = _TestGateway()..connected = false;
+    final store = LocalAgentEventStore(gateway);
+    await store.load();
+    final app = AppComposition.localAgent(gateway: gateway, eventStore: store);
+    addTearDown(app.strategyController.dispose);
+    addTearDown(app.automaticAgent!.dispose);
+    await tester.pumpWidget(PersonalOsApp(composition: app));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('automatic-goal')), '离线先保存目标');
+    final saveGoal = find.byKey(const Key('automatic-save-goal'));
+    await tester.ensureVisible(saveGoal);
+    await tester.tap(saveGoal);
+    await tester.pumpAndSettle();
+    expect(gateway.stages, isEmpty);
+    expect(find.text('资料已保存，连接后会自动继续计划或复盘'), findsOneWidget);
+    final setup = find.byKey(const Key('add-agent-connection'));
+    await tester.ensureVisible(setup);
+    await tester.tap(setup);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('connection-name')), '续接模型');
+    await tester.ensureVisible(find.byKey(const Key('connection-url')));
+    await tester.enterText(find.byKey(const Key('connection-url')), 'http://127.0.0.1:9000/v1');
+    await tester.ensureVisible(find.byKey(const Key('connection-model')));
+    await tester.enterText(find.byKey(const Key('connection-model')), 'resume-model');
+    gateway.connected = true;
+    final saveConnection = find.byKey(const Key('save-agent-connection'));
+    await tester.ensureVisible(saveConnection);
+    await tester.tap(saveConnection);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('connection-name')), findsNothing);
+    expect(gateway.stages, <String>['proposal']);
+    expect(gateway.providersUsed, <String>['responses']);
+    expect(app.strategyController.hasPendingProposal, true);
+    expect(_eventPayloads(gateway, 'goal.created'), hasLength(1));
+    expect(_eventPayloads(gateway, 'execution.recorded'), isEmpty);
+    expect(tester.getBottomRight(find.byKey(const Key('accept-proposal'))).dy,
+        lessThan(784));
+    expect(tester.takeException(), isNull);
+  });
+
+  test('automatic continuation attempts once and keeps failure until explicit retry',
+      () async {
+    final gateway = _TestGateway();
+    final app = await _pendingReviewApp(gateway);
+    addTearDown(app.strategyController.dispose);
+    addTearDown(app.automaticAgent!.dispose);
+    final agent = app.automaticAgent!;
+    gateway.failure = const AgentGatewayException('provider_unreachable');
+    expect(await agent.resumePending(), true);
+    final failure = agent.error;
+    final facts = jsonEncode(gateway.events);
+    expect(gateway.stages, <String>['proposal', 'review']);
+    expect(await agent.resumePending(), false);
+    expect(await agent.reconnectAndResume(), false);
+    expect(agent.error, failure);
+    expect(gateway.stages, <String>['proposal', 'review']);
+    gateway.connectionRevision = 'test-revision-2';
+    expect(await agent.reconnectAndResume(), true);
+    expect(await agent.reconnectAndResume(), false);
+    expect(agent.error, failure);
+    expect(jsonEncode(gateway.events), facts);
+    gateway.failure = null;
+    expect(await agent.reconnectAndResume(retryPending: true), true);
+    expect(gateway.stages, <String>['proposal', 'review', 'review', 'review']);
+    expect(app.strategyController.hasPendingReview, true);
+    expect(_eventPayloads(gateway, 'execution.recorded'), hasLength(1));
+    expect(_eventPayloads(gateway, 'outcome.recorded'), hasLength(1));
+  });
+
+  test('automatic continuation respects drafts, activation and rejected decisions',
+      () async {
+    final gateway = _TestGateway();
+    final app = AppComposition.localAgent(gateway: gateway, eventStore: InMemoryEventStore());
+    addTearDown(app.strategyController.dispose);
+    addTearDown(app.automaticAgent!.dispose);
+    final strategy = app.strategyController, agent = app.automaticAgent!;
+    await strategy.savePersonalContext(goal: '决定由我确认');
+    await agent.connect();
+    await agent.generate();
+    expect(await agent.resumePending(), false);
+    await strategy.decideProposal(ProposalDecision.reject);
+    expect(await agent.reconnectAndResume(), false);
+    expect(gateway.stages, <String>['proposal']);
+    await agent.generate();
+    await strategy.decideProposal(ProposalDecision.accept);
+    expect(await agent.resumePending(), false);
+    expect(strategy.strategyState, 'accepted');
+    await strategy.activateStrategy();
+    expect(await agent.resumePending(), false);
+    expect(strategy.executionId, isNull);
+    await strategy.recordFeedback(executionStatus: ExecutionStatus.skipped);
+    await agent.generate();
+    expect(await agent.resumePending(), false);
+    expect(strategy.reviewState, 'draft');
+    await strategy.decideReview(ReviewDecision.reject);
+    expect(await agent.reconnectAndResume(), false);
+    expect(strategy.reviewState, 'rejected');
+    expect(gateway.stages, <String>['proposal', 'proposal', 'review']);
+  });
+
+  test('reset during automatic continuation discards the late reply', () async {
+    final gateway = _TestGateway();
+    final app = await _pendingReviewApp(gateway);
+    addTearDown(app.strategyController.dispose);
+    addTearDown(app.automaticAgent!.dispose);
+    final agent = app.automaticAgent!, strategy = app.strategyController;
+    gateway.delayed = Completer<String>();
+    gateway.nextRequestStarted = Completer<void>();
+    final pending = agent.resumePending();
+    await gateway.nextRequestStarted!.future.timeout(const Duration(seconds: 5));
+    final reply = buildDemoAgentReply(gateway.contexts.last);
+    final events = jsonEncode(gateway.events);
+    agent.reset();
+    strategy.reset();
+    gateway.delayed!.complete(reply);
+    expect(await pending, false);
+    expect(jsonEncode(gateway.events), events);
+    expect(strategy.reviewId, isNull);
+    expect(agent.busy, false);
+  });
+
   test('connection probe sends only model identity and acquires CSRF first',
       () async {
     final requests = <http.Request>[];
@@ -283,6 +447,8 @@ void main() {
     addTearDown(app.strategyController.dispose);
     addTearDown(app.automaticAgent!.dispose);
     await app.strategyController.savePersonalContext(goal: '连接测试不能改变这个目标');
+    await app.automaticAgent!.connect();
+    await app.automaticAgent!.generate();
     await tester.pumpWidget(PersonalOsApp(composition: app));
     await tester.pumpAndSettle();
     final originalEvents =
@@ -300,7 +466,7 @@ void main() {
     expect(find.text('AI 服务已响应。'), findsOneWidget);
     expect(store.readEvents().map((e) => e.event.eventId), originalEvents);
     expect(app.strategyController.contextBundle, context);
-    expect(gateway.stages, isEmpty);
+    expect(gateway.stages, <String>['proposal']);
     gateway.checkFailure = const AgentGatewayException('provider_unreachable');
     await tester.ensureVisible(check);
     await tester.tap(check);
@@ -696,6 +862,21 @@ void main() {
 }
 
 // Test-only inference. Production localAgent composition has no fixture model.
+Future<AppComposition> _pendingReviewApp(_TestGateway gateway) async {
+  final store = LocalAgentEventStore(gateway);
+  await store.load();
+  final app = AppComposition.localAgent(gateway: gateway, eventStore: store);
+  final strategy = app.strategyController, agent = app.automaticAgent!;
+  await strategy.savePersonalContext(goal: '续接闭环');
+  await agent.connect();
+  await agent.generate();
+  await strategy.decideProposal(ProposalDecision.accept);
+  await strategy.activateStrategy();
+  await strategy.recordFeedback(executionStatus: ExecutionStatus.completed,
+      note: '已保存的反馈');
+  return app;
+}
+
 List<Map> _eventPayloads(_TestGateway gateway, String type) => gateway.events
     .cast<Map>()
     .where((event) => event['event_type'] == type)
@@ -704,6 +885,7 @@ List<Map> _eventPayloads(_TestGateway gateway, String type) => gateway.events
 
 final class _TestGateway implements AutomaticAgentGateway {
   bool connected = true;
+  String connectionRevision = 'test-revision-1';
   bool rejectNextHistoryWrite = false;
   int historyWrites = 0;
   final List<String> stages = <String>[], contexts = <String>[];
@@ -737,6 +919,7 @@ final class _TestGateway implements AutomaticAgentGateway {
         'connected': connected,
         'provider': provider,
         'connection_id': connectionId,
+        'connection_revision': connectionRevision,
         'connection_name': currentConnection?['label'],
         'connections': connections,
         'account': null,

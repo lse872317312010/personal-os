@@ -26,6 +26,50 @@ final class AutomaticAgentController extends ChangeNotifier {
   int _epoch = 0;
   bool _disposed = false;
   String? _requestFingerprint;
+  String? _resumeAttemptKey;
+  String? _connectionRevision;
+  bool get hasPendingContinuation =>
+      strategy.hasSession &&
+      strategy.personalGoal != null &&
+      (strategy.strategyId == null ||
+          (strategy.strategyState == 'active' &&
+              strategy.outcomeId != null &&
+              (strategy.reviewState == null || strategy.reviewState == 'accepted')));
+
+  String? get _pendingResumeKey {
+    if (!hasPendingContinuation || strategy.contextBundle == null) return null;
+    final refs = strategy.contextRecords.map((record) => '${record['ref']}').toList()
+      ..sort();
+    return '${strategy.sessionId}:${strategy.strategyId}:${strategy.outcomeId}:'
+        '${strategy.reviewState}:$provider:$connectionId:$_connectionRevision:$account:$model:$refs';
+  }
+
+  /// One automatic attempt per pending state and connection in this app instance.
+  /// User decisions are never inferred from a restored draft or rejection.
+  Future<bool> resumePending() async {
+    if (_disposed || !canGenerate) return false;
+    final key = _pendingResumeKey;
+    if (key == null || key == _resumeAttemptKey) return false;
+    return _generate(automatic: true);
+  }
+
+  Future<bool> reconnectAndResume({bool retryPending = false}) async {
+    if (busy || _disposed || strategy.status == StrategyUiStatus.running) {
+      return false;
+    }
+    final epoch = _epoch;
+    final previousKey = _pendingResumeKey, previousError = error;
+    await connect();
+    if (!_current(epoch)) return false;
+    if (retryPending) _resumeAttemptKey = null;
+    final attempted = await resumePending();
+    if (_current(epoch) && !attempted && previousKey != null &&
+        previousKey == _pendingResumeKey && error == null && previousError != null) {
+      error = previousError;
+      notifyListeners();
+    }
+    return attempted;
+  }
   bool get canGenerate =>
       connected &&
       model != null &&
@@ -56,6 +100,7 @@ final class AutomaticAgentController extends ChangeNotifier {
           .map((e) => Map<String, Object?>.from(e as Map))
           .toList();
       connectionId = state['connection_id'] as String?;
+      _connectionRevision = state['connection_revision'] as String?;
       connectionName = state['connection_name'] as String?;
       final catalog =
           connected ? await gateway.models() : <Map<String, Object?>>[];
@@ -81,6 +126,7 @@ final class AutomaticAgentController extends ChangeNotifier {
 
   void selectModel(String? value) {
     if (!busy && models.any((e) => e['id'] == value)) {
+      if (model != value) _resumeAttemptKey = null;
       model = value;
       connectionCheckMessage = null;
       notifyListeners();
@@ -138,6 +184,7 @@ final class AutomaticAgentController extends ChangeNotifier {
       await gateway.post(path, value);
       if (!_current(epoch)) return false;
       _requestFingerprint = null;
+      _resumeAttemptKey = null;
       busy = false;
       await connect();
       return _current(epoch);
@@ -161,6 +208,7 @@ final class AutomaticAgentController extends ChangeNotifier {
       await gateway
           .post('/api/auth/select', <String, Object?>{'account_id': id});
       if (!_current(epoch)) return;
+      _resumeAttemptKey = null;
       busy = false;
       await connect();
     } on Object catch (failure) {
@@ -198,8 +246,14 @@ final class AutomaticAgentController extends ChangeNotifier {
   }
 
   Future<void> generate() async {
-    if (!canGenerate || _disposed) return;
+    await _generate();
+  }
+
+  Future<bool> _generate({bool automatic = false}) async {
+    if (!canGenerate || _disposed) return false;
     final epoch = _epoch;
+    final previousError = error;
+    var requested = false;
     busy = true;
     error = null;
     connectionCheckMessage = null;
@@ -208,9 +262,9 @@ final class AutomaticAgentController extends ChangeNotifier {
       if (!strategy.hasSession) {
         await strategy.openOfflineSession(agentId: 'automatic-agent-gateway');
       }
-      if (!_current(epoch)) return;
+      if (!_current(epoch)) return false;
       await strategy.refreshContextForHandoff();
-      if (!_current(epoch)) return;
+      if (!_current(epoch)) return false;
       if (strategy.status == StrategyUiStatus.failed ||
           strategy.contextBundle == null) {
         throw const AgentGatewayException('context_unavailable');
@@ -219,9 +273,18 @@ final class AutomaticAgentController extends ChangeNotifier {
           session = strategy.sessionId,
           strategyId = strategy.strategyId;
       final stage = agentHandoffStage(context, strategyId: strategyId);
+      if (automatic) {
+        final key = _pendingResumeKey;
+        if (key == null || key == _resumeAttemptKey) {
+          error = previousError;
+          return false;
+        }
+        _resumeAttemptKey = key;
+      }
       final fingerprint =
           '$session:$strategyId:${strategy.outcomeId}:${strategy.reviewState}:$stage';
-      if (_requestFingerprint == fingerprint) return;
+      if (_requestFingerprint == fingerprint) return false;
+      requested = true;
       final reply = await gateway.request(
           model: model!,
           prompt: buildAgentHandoffPrompt(context, strategyId: strategyId),
@@ -231,7 +294,7 @@ final class AutomaticAgentController extends ChangeNotifier {
           strategy.sessionId != session ||
           strategy.strategyId != strategyId ||
           strategy.contextBundle != context) {
-        return;
+        return false;
       }
       final parsed = parseAgentHandoffReply(reply);
       if ((stage == AgentHandoffStage.review) !=
@@ -243,7 +306,7 @@ final class AutomaticAgentController extends ChangeNotifier {
       } else {
         await strategy.importProposal(parsed.bundleJson);
       }
-      if (!_current(epoch)) return;
+      if (!_current(epoch)) return false;
       if (strategy.status == StrategyUiStatus.failed) {
         throw const AgentGatewayException('invalid_agent_bundle');
       }
@@ -257,6 +320,7 @@ final class AutomaticAgentController extends ChangeNotifier {
         notifyListeners();
       }
     }
+    return requested && _current(epoch);
   }
 
   Future<void> saveFeedback(ExecutionStatus status, {String note = ''}) async {
@@ -328,6 +392,8 @@ final class AutomaticAgentController extends ChangeNotifier {
     connectionName = null;
     error = null;
     _requestFingerprint = null;
+    _resumeAttemptKey = null;
+    _connectionRevision = null;
     if (!_disposed) notifyListeners();
   }
 

@@ -184,6 +184,8 @@ jobs:
 
           行动卡可直接反馈“完成了 / 这次没做”，说明可选；保存执行与结果后自动复盘，失败重试不重复记录行动。
 
+          重新打开或连接 AI 后，会自动继续已保存的目标、反馈和已确认复盘；新计划仍待你确认，同一页面不会因反复切回而不断重试。
+
           构建来源：https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA
           包内 provenance.json 记录同一 commit。当前发布不代表已完成真实账户推理或 Android 真机验收。
           EOF

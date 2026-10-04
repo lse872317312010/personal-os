@@ -43,12 +43,50 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
 
   Future<void> _load() async {
     await strategy.bootstrap();
+    if (!mounted) return;
     await agent.connect();
+    if (!mounted) return;
     if (!strategy.hasSession) {
       await strategy.openOfflineSession(agentId: 'automatic-agent-gateway');
     }
     if (strategy.hasSession) await strategy.refreshContextForHandoff();
     _fillContext();
+    await _resume();
+  }
+
+  Future<void> _resume() async {
+    if (!mounted) return;
+    if (await agent.resumePending()) {
+      await _focusAction();
+    }
+  }
+
+  Future<void> _reconnect({bool retryPending = false}) async {
+    if (!mounted) return;
+    if (await agent.reconnectAndResume(retryPending: retryPending)) {
+      await _focusAction();
+    }
+  }
+
+  Future<void> _chooseConnection(String id) async {
+    if (await agent.selectConnection(id) && mounted) {
+      await _resume();
+    }
+  }
+
+  Future<void> _chooseAccount(String id) async {
+    await agent.selectAccount(id);
+    if (mounted && agent.error == null) {
+      await _resume();
+    }
+  }
+
+  Future<void> _editConnection({Map<String, Object?>? connection}) async {
+    final changed = await showDialog<bool>(context: context,
+        builder: (_) => AgentConnectionDialog(agent: agent, connection: connection));
+    if (mounted && changed == true) {
+      await _resume();
+    }
   }
 
   void _editContext() {
@@ -70,7 +108,7 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) unawaited(agent.connect());
+    if (state == AppLifecycleState.resumed) unawaited(_reconnect());
   }
 
   @override
@@ -317,7 +355,9 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
         title: Text(agent.connected
             ? '使用 ${agent.connectionName ?? agent.provider}'
             : '连接你的 AI'),
-        subtitle: Text(agent.connected
+        subtitle: Text(agent.hasPendingContinuation && !agent.connected
+            ? '资料已保存，连接后会自动继续计划或复盘'
+            : agent.connected
             ? agent.connectionCheckMessage ?? '已配置，可生成计划或测试 AI 响应'
             : agent.provider == 'chatgpt'
                 ? '首次登录一次，以后自动调用'
@@ -341,7 +381,7 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                   onChanged: busy
                       ? null
                       : (id) {
-                          if (id != null) unawaited(agent.selectConnection(id));
+                          if (id != null) unawaited(_chooseConnection(id));
                         },
                 )),
           if (!agent.connected && agent.provider == 'chatgpt')
@@ -367,7 +407,10 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                             child: Text(m['name'] as String,
                                 maxLines: 1, overflow: TextOverflow.ellipsis)))
                         .toList(),
-                    onChanged: busy ? null : agent.selectModel)),
+                    onChanged: busy ? null : (value) {
+                      agent.selectModel(value);
+                      unawaited(_resume());
+                    })),
           if (agent.provider == 'chatgpt' && agent.accounts.length > 1)
             DropdownButtonFormField<String>(
                 initialValue: agent.account,
@@ -383,7 +426,7 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                 onChanged: busy
                     ? null
                     : (id) {
-                        if (id != null) unawaited(agent.selectAccount(id));
+                        if (id != null) unawaited(_chooseAccount(id));
                       }),
           if (agent.connected && agent.model != null) ...<Widget>[
             const SizedBox(height: 12),
@@ -402,24 +445,18 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                 key: const Key('add-agent-connection'),
                 onPressed: busy
                     ? null
-                    : () => showDialog<void>(
-                        context: context,
-                        builder: (_) => AgentConnectionDialog(agent: agent)),
+                    : () => _editConnection(),
                 child: const Text('接入其他 AI')),
             if (agent.connectionId != null && agent.connectionId != 'chatgpt')
               TextButton(
                   onPressed: busy
                       ? null
-                      : () => showDialog<void>(
-                          context: context,
-                          builder: (_) => AgentConnectionDialog(
-                              agent: agent,
-                              connection: agent.connections.firstWhere(
-                                  (c) => c['id'] == agent.connectionId))),
+                      : () => _editConnection(connection: agent.connections.firstWhere(
+                                  (c) => c['id'] == agent.connectionId)),
                   child: const Text('编辑此连接')),
             TextButton(
                 key: const Key('automatic-refresh-connection'),
-                onPressed: busy ? null : agent.connect,
+                onPressed: busy ? null : () => _reconnect(retryPending: true),
                 child: const Text('刷新连接')),
             if (agent.provider == 'chatgpt')
               Link(
