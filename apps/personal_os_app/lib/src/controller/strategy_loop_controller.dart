@@ -643,8 +643,11 @@ final class StrategyLoopController extends ChangeNotifier {
   }) async {
     final strategyId = _strategyId;
     final action = selectedAction ?? _strategyActions.firstOrNull;
-    if (strategyId == null || _strategyState != 'active' || action == null ||
-        _executionId != null || _outcomeId != null) {
+    if (strategyId == null ||
+        _strategyState != 'active' ||
+        action == null ||
+        _executionId != null ||
+        _outcomeId != null) {
       _fail('strategy.feedback_not_available');
       return;
     }
@@ -655,7 +658,8 @@ final class StrategyLoopController extends ChangeNotifier {
           profileId: _profileId,
           correlationId: _correlation('feedback'),
           strategyRef: ObjectRef(
-            type: 'strategy', id: strategyId,
+            type: 'strategy',
+            id: strategyId,
             revision: Revision(_strategyRevision),
           ),
           actionId: EntityId(action.id),

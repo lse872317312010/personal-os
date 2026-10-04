@@ -89,12 +89,14 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     for (final status in <ExecutionStatus>[
-      ExecutionStatus.completed, ExecutionStatus.skipped,
+      ExecutionStatus.completed,
+      ExecutionStatus.skipped,
     ]) {
       final gateway = _TestGateway();
       final store = LocalAgentEventStore(gateway);
       await store.load();
-      final app = AppComposition.localAgent(gateway: gateway, eventStore: store);
+      final app =
+          AppComposition.localAgent(gateway: gateway, eventStore: store);
       addTearDown(app.strategyController.dispose);
       addTearDown(app.automaticAgent!.dispose);
       await app.strategyController.savePersonalContext(goal: '每天学十分钟');
@@ -107,7 +109,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(_eventPayloads(gateway, 'execution.recorded'), isEmpty);
       final button = find.byKey(Key(status == ExecutionStatus.completed
-          ? 'feedback-completed' : 'feedback-skipped'));
+          ? 'feedback-completed'
+          : 'feedback-skipped'));
       expect(tester.getBottomRight(button).dy, lessThan(784));
       expect(find.byKey(const Key('record-execution')), findsNothing);
       expect(find.byKey(const Key('record-outcome')), findsNothing);
@@ -122,10 +125,13 @@ void main() {
       expect(execution['status'], status.name);
       expect(outcome['valence'], 'neutral');
       expect(outcome['metrics'], isEmpty);
-      expect(outcome['observation'], status == ExecutionStatus.completed
-          ? '用户反馈：这一步已完成。 补充：有点累'
-          : '用户反馈：这次没有执行这一步。');
-      expect(gateway.historyWrites, writes + 2); // feedback batch, then AI review
+      expect(
+          outcome['observation'],
+          status == ExecutionStatus.completed
+              ? '用户反馈：这一步已完成。 补充：有点累'
+              : '用户反馈：这次没有执行这一步。');
+      expect(
+          gateway.historyWrites, writes + 2); // feedback batch, then AI review
       expect(gateway.stages, <String>['proposal', 'review']);
       expect(app.strategyController.hasPendingReview, true);
       expect(gateway.contexts.last, contains(status.name));
@@ -161,8 +167,7 @@ void main() {
     expect(app.strategyController.outcomeId, isNull);
     expect(_eventPayloads(gateway, 'execution.recorded'), isEmpty);
     expect(_eventPayloads(gateway, 'outcome.recorded'), isEmpty);
-    expect(tester.widget<TextField>(note).controller!.text,
-        '完成十分钟，需要再简化');
+    expect(tester.widget<TextField>(note).controller!.text, '完成十分钟，需要再简化');
     expect(gateway.stages, <String>['proposal']);
     gateway.failure = const AgentGatewayException('provider_unreachable');
     await tester.tap(feedback);
@@ -177,8 +182,8 @@ void main() {
     gateway.failure = null;
     final restoredStore = LocalAgentEventStore(gateway);
     await restoredStore.load();
-    final restored = AppComposition.localAgent(
-        gateway: gateway, eventStore: restoredStore);
+    final restored =
+        AppComposition.localAgent(gateway: gateway, eventStore: restoredStore);
     addTearDown(restored.strategyController.dispose);
     addTearDown(restored.automaticAgent!.dispose);
     await tester.pumpWidget(PersonalOsApp(composition: restored));
@@ -220,7 +225,8 @@ void main() {
     gateway.delayed = Completer<String>();
     gateway.nextRequestStarted = Completer<void>();
     final review = agent.generate();
-    await gateway.nextRequestStarted!.future.timeout(const Duration(seconds: 5));
+    await gateway.nextRequestStarted!.future
+        .timeout(const Duration(seconds: 5));
     expect(agent.busy, true);
     final events = jsonEncode(gateway.events);
     await agent.saveFeedback(ExecutionStatus.completed, note: '重复点击');
@@ -229,7 +235,8 @@ void main() {
     gateway.delayed!.complete(buildDemoAgentReply(gateway.contexts.last));
     await review;
     expect(strategy.hasPendingReview, true);
-    expect(_eventPayloads(gateway, 'execution.recorded').single['status'], 'skipped');
+    expect(_eventPayloads(gateway, 'execution.recorded').single['status'],
+        'skipped');
     expect(agent.busy, false);
   });
 
@@ -690,8 +697,10 @@ void main() {
 
 // Test-only inference. Production localAgent composition has no fixture model.
 List<Map> _eventPayloads(_TestGateway gateway, String type) => gateway.events
-    .cast<Map>().where((event) => event['event_type'] == type)
-    .map((event) => event['payload'] as Map).toList();
+    .cast<Map>()
+    .where((event) => event['event_type'] == type)
+    .map((event) => event['payload'] as Map)
+    .toList();
 
 final class _TestGateway implements AutomaticAgentGateway {
   bool connected = true;

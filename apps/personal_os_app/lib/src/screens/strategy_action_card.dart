@@ -38,7 +38,8 @@ final class StrategyActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final busy = interactionBlocked || controller.status == StrategyUiStatus.running;
+    final busy =
+        interactionBlocked || controller.status == StrategyUiStatus.running;
     final actions = controller.strategyActions;
     final action =
         controller.selectedAction ?? (actions.isEmpty ? null : actions.first);
@@ -207,7 +208,8 @@ final class StrategyActionCard extends StatelessWidget {
                   onPressed: busy ? null : onStart,
                 )
               else if (controller.canRecordExecution &&
-                  controller.executionId == null && onFeedback != null) ...<Widget>[
+                  controller.executionId == null &&
+                  onFeedback != null) ...<Widget>[
                 const Text('这一步做得怎么样？'),
                 const SizedBox(height: 10),
                 TextField(
@@ -229,13 +231,15 @@ final class StrategyActionCard extends StatelessWidget {
                 _button(
                   key: const Key('feedback-completed'),
                   label: '完成了',
-                  onPressed: busy ? null :
-                      () => onFeedback?.call(ExecutionStatus.completed),
+                  onPressed: busy
+                      ? null
+                      : () => onFeedback?.call(ExecutionStatus.completed),
                 ),
                 TextButton(
                   key: const Key('feedback-skipped'),
-                  onPressed: busy ? null :
-                      () => onFeedback?.call(ExecutionStatus.skipped),
+                  onPressed: busy
+                      ? null
+                      : () => onFeedback?.call(ExecutionStatus.skipped),
                   child: const Text('这次没做', style: TextStyle(color: _accent)),
                 ),
                 const Text('点击即保存反馈，并让 AI 自动复盘。',

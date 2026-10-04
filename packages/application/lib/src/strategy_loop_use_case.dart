@@ -465,7 +465,9 @@ final class StrategyLoopUseCase {
     final executionEventId = _ids.nextId('event');
     final outcomeEventId = _ids.nextId('event');
     final executionRef = ObjectRef(
-      type: 'execution', id: executionId, revision: Revision(1),
+      type: 'execution',
+      id: executionId,
+      revision: Revision(1),
     );
     final feedback = switch (command.status) {
       ExecutionStatus.completed => '用户反馈：这一步已完成。',

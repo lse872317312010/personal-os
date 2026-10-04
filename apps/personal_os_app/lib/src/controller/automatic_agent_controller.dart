@@ -260,8 +260,11 @@ final class AutomaticAgentController extends ChangeNotifier {
   }
 
   Future<void> saveFeedback(ExecutionStatus status, {String note = ''}) async {
-    if (busy || _disposed || strategy.status == StrategyUiStatus.running ||
-        !strategy.canRecordExecution || strategy.executionId != null ||
+    if (busy ||
+        _disposed ||
+        strategy.status == StrategyUiStatus.running ||
+        !strategy.canRecordExecution ||
+        strategy.executionId != null ||
         strategy.outcomeId != null) {
       return;
     }
@@ -279,7 +282,8 @@ final class AutomaticAgentController extends ChangeNotifier {
         notifyListeners();
       }
     }
-    if (_current(epoch) && strategy.status != StrategyUiStatus.failed &&
+    if (_current(epoch) &&
+        strategy.status != StrategyUiStatus.failed &&
         strategy.outcomeId != null) {
       await generate();
     }
