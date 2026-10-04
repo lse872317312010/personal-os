@@ -85,6 +85,10 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
 
   Future<void> _generate() async {
     await agent.generate();
+    await _focusAction();
+  }
+
+  Future<void> _focusAction() async {
     if (mounted && _scroll.hasClients) {
       await _scroll.animateTo(0,
           duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
@@ -116,14 +120,13 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
     if (strategy.canActivate) await strategy.activateStrategy();
   }
 
-  Future<void> _record() async {
+  Future<void> _feedback(ExecutionStatus status) async {
     if (busy) return;
-    final action = strategy.selectedAction ?? strategy.strategyActions.first;
-    strategy.selectAction(action.id);
-    await strategy.recordExecution(
-        actionId: action.id,
-        executionStatus: ExecutionStatus.completed,
-        note: '用户在行动卡确认这一步已完成');
+    await agent.saveFeedback(status, note: _result.text);
+    if (mounted && strategy.outcomeId != null) {
+      _result.clear();
+      await _focusAction();
+    }
   }
 
   Future<void> _saveResult() async {
@@ -147,12 +150,13 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                       if (strategy.strategyId != null)
                         StrategyActionCard(
                           controller: strategy,
+                          interactionBlocked: busy,
                           onStart: busy ? null : _start,
                           onReject: busy
                               ? null
                               : () => strategy
                                   .decideProposal(ProposalDecision.reject),
-                          onRecord: busy ? null : _record,
+                          onFeedback: _feedback,
                           onSaveOutcome: busy ? null : _saveResult,
                           onAskAgent: agent.canGenerate ? _generate : null,
                           onReview: busy
@@ -206,7 +210,9 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                               Expanded(
                                   child: Text(agent.checkingConnection
                                       ? '正在测试 AI 是否能够响应…'
-                                      : 'AI 正在结合你的资料和行动历史思考…')),
+                                      : agent.savingFeedback
+                                          ? '正在保存你的行动反馈…'
+                                          : 'AI 正在结合你的资料和行动历史思考…')),
                             ])),
                       if (agent.error != null ||
                           strategy.status == StrategyUiStatus.failed)
@@ -231,14 +237,6 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                                             onPressed: _generate,
                                             child: const Text('重试 AI 请求')),
                                     ]))),
-                      if (strategy.outcomeId != null &&
-                          !strategy.hasPendingReview &&
-                          agent.canGenerate &&
-                          !agent.busy)
-                        TextButton.icon(
-                            onPressed: _generate,
-                            icon: const Icon(Icons.refresh),
-                            label: const Text('继续自动复盘 / 下一轮')),
                       if (!agent.connected) _connection(),
                       Card(
                           child: ExpansionTile(

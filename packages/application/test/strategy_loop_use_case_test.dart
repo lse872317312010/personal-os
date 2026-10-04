@@ -362,6 +362,80 @@ void main() {
     );
   });
 
+  test('explicit feedback atomically pins execution and a neutral observation',
+      () async {
+    await _activeStrategy(store, user, agent);
+    for (final status in <ExecutionStatus>[
+      ExecutionStatus.completed, ExecutionStatus.skipped,
+    ]) {
+      final result = await useCase.recordFeedback(
+        RecordStrategyFeedbackCommand(
+          actor: user, profileId: EntityId('primary-user'),
+          correlationId: 'feedback-${status.name}',
+          strategyRef: ObjectRef(type: 'strategy', id: EntityId('strategy-1'),
+              revision: Revision(3)),
+          actionId: EntityId('action-1'), status: status,
+          note: status == ExecutionStatus.completed ? ' 十分钟有点累 ' : '',
+        ),
+      );
+      final batch = store.batches.last;
+      expect(batch.map((event) => event.eventType), <String>[
+        EventTypes.executionRecorded, EventTypes.outcomeRecorded,
+      ]);
+      expect(result.eventIds, batch.map((event) => event.eventId));
+      expect(batch.first.payload['status'], status.name);
+      expect(batch.last.payload['valence'], 'neutral');
+      expect(batch.last.payload['metrics'], isEmpty);
+      expect(batch.last.payload['observation'], status == ExecutionStatus.completed
+          ? '用户反馈：这一步已完成。 补充：十分钟有点累'
+          : '用户反馈：这次没有执行这一步。');
+      expect(batch.last.causationId, batch.first.eventId);
+      expect(batch.last.sourceRefs.single.toJson(), <String, Object?>{
+        'type': 'execution', 'id': result.executionId.value, 'revision': 1,
+      });
+      final projections = _project(store);
+      expect(projections['execution:${result.executionId.value}']!.state,
+          'recorded');
+      expect(projections['outcome:${result.outcomeId.value}']!.state, 'recorded');
+    }
+  });
+
+  test('feedback rejects authority, stale facts and invalid action before writes',
+      () async {
+    await _activeStrategy(store, user, agent);
+    RecordStrategyFeedbackCommand feedback({ActorRef? actor,
+      String profile = 'primary-user', String action = 'action-1',
+      int? revision = 3, ExecutionStatus status = ExecutionStatus.completed,
+      Sensitivity sensitivity = Sensitivity.d1, String note = '',
+    }) => RecordStrategyFeedbackCommand(
+      actor: actor ?? user, profileId: EntityId(profile), correlationId: 'feedback',
+      strategyRef: ObjectRef(type: 'strategy', id: EntityId('strategy-1'),
+          revision: revision == null ? null : Revision(revision)),
+      actionId: EntityId(action), status: status, note: note,
+      sensitivity: sensitivity,
+    );
+    final count = store.batches.length;
+    for (final command in <RecordStrategyFeedbackCommand>[
+      feedback(actor: agent), feedback(revision: null), feedback(revision: 2),
+      feedback(profile: 'other-user'), feedback(action: 'unknown'),
+      feedback(status: ExecutionStatus.started),
+      feedback(sensitivity: Sensitivity.d4),
+      feedback(note: List<String>.filled(4001, 'a').join()),
+    ]) {
+      await expectLater(useCase.recordFeedback(command),
+          throwsA(isA<StrategyLoopFailure>()));
+      expect(store.batches, hasLength(count));
+    }
+    store.rejectNextWrite = true;
+    await expectLater(useCase.recordFeedback(feedback()),
+        throwsA(isA<PersistenceException>()));
+    expect(store.batches, hasLength(count));
+    expect(_project(store).values.where((p) => p.objectType == 'execution'), isEmpty);
+    await useCase.recordFeedback(feedback());
+    expect(store.batches, hasLength(count + 1));
+    expect(store.batches.last, hasLength(2));
+  });
+
   test('proposal context references must be pinned', () async {
     await expectLater(
       useCase.submitProposal(
@@ -392,6 +466,34 @@ void main() {
   });
 }
 
+Future<void> _activeStrategy(_Store store, ActorRef user, ActorRef agent) async {
+  for (final type in <String>[
+    EventTypes.strategyProposed, EventTypes.strategyAccepted,
+    EventTypes.strategyActivated,
+  ]) {
+    final revision = store.batches.length;
+    await store.appendAll(<EventEnvelope>[
+      EventEnvelope(
+        eventId: 'setup-${revision + 1}', eventType: type, eventVersion: 1,
+        occurredAt: DateTime.utc(2026, 10, 4), recordedAt: DateTime.utc(2026, 10, 4),
+        actor: revision == 0 ? agent : user,
+        subjectRefs: <ObjectRef>[
+          ObjectRef(type: 'strategy', id: EntityId('strategy-1')),
+          ObjectRef(type: 'profile', id: EntityId('primary-user')),
+        ],
+        correlationId: 'setup',
+        sensitivity: Sensitivity.d1,
+        payload: <String, Object?>{
+          'expected_revision': revision,
+          if (revision == 0) 'actions': <Object?>[
+            <String, Object?>{'id': 'action-1', 'instruction': 'Study ten minutes'},
+          ],
+        },
+      ),
+    ]);
+  }
+}
+
 Map<String, ObjectProjection> _project(_Store store) {
   var projections = <String, ObjectProjection>{};
   var seen = <String>{};
@@ -407,9 +509,14 @@ Map<String, ObjectProjection> _project(_Store store) {
 
 final class _Store implements EventStore {
   final List<List<EventEnvelope>> batches = <List<EventEnvelope>>[];
+  bool rejectNextWrite = false;
 
   @override
   Future<void> appendAll(List<EventEnvelope> events) async {
+    if (rejectNextWrite) {
+      rejectNextWrite = false;
+      throw const PersistenceException.writeFailed();
+    }
     batches.add(List<EventEnvelope>.unmodifiable(events));
   }
 

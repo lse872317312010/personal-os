@@ -1,5 +1,5 @@
 // Production-build smoke test in a disposable CI browser/profile. It makes no
-// model inference and has no user credentials. External hosts cannot resolve.
+// real model inference and has no user credentials. External hosts cannot resolve.
 import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -96,9 +96,29 @@ try {
   const checks = [];
   fixture = createServer(async (req, res) => {
     const chunks = []; for await (const chunk of req) chunks.push(chunk);
-    checks.push(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    checks.push(body);
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ reply: 'CI fixture acknowledgement, not real model inference.' }));
+    const refs = type => body.context.objects.filter(o => o.ref.type === type).map(o => o.ref);
+    let reply = 'CI fixture acknowledgement, not real model inference.';
+    if (refs('goal').length) {
+      const bundle = { protocol_version: 'personal-os.mcp.v0', session_id: body.context.session_id, created_at: new Date().toISOString() };
+      if (body.stage === 'review') {
+        Object.assign(bundle, { review_id: 'ci-quick-feedback-review', review: {
+          strategy_ref: refs('strategy').at(-1), summary: 'CI 复盘：只验证用户反馈进入闭环，不判断真实效果。',
+          conclusion: 'inconclusive', execution_refs: refs('execution'), outcome_refs: refs('outcome'),
+          feedback_refs: [], keep: [], change: [], unknowns: ['CI fixture, not real inference'],
+        } });
+      } else {
+        Object.assign(bundle, { proposal_id: 'ci-quick-feedback-plan', strategy: {
+          title: 'CI 行动计划', rationale: 'CI fixture, not real inference', goal_refs: refs('goal'), asset_refs: refs('personal_asset'),
+          actions: [{ id: 'ci-action', instruction: '用十分钟复习一个知识点。', success_measure: '记录完成情况。' }],
+          assumptions: ['Disposable fixture; no real human action is claimed'],
+        } });
+      }
+      reply = JSON.stringify(bundle);
+    }
+    res.end(JSON.stringify({ reply }));
   });
   await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));
   await connections.save({ label: 'CI 测试模型', kind: 'agent-http', model: `ci-test-${'long-model-name-'.repeat(8)}`, agent_url: `http://127.0.0.1:${fixture.address().port}/agent` });
@@ -153,6 +173,56 @@ try {
   const checkScreenshot = await call('Page.captureScreenshot', { format: 'png' });
   await writeFile('build/automatic-agent-check.png', Buffer.from(checkScreenshot.data, 'base64'));
   console.log('Actual compiled app completed a fixture Agent response check without sharing personal context or changing history.');
+  // Complete the new feedback interaction in the compiled app itself. Input is
+  // disposable CI data; choosing "没做" explicitly avoids claiming execution.
+  await call('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 195, y: 500, deltaX: 0, deltaY: -1600 });
+  await delay(300);
+  const goalDeadline = Date.now() + 15_000;
+  let filledGoal = false;
+  while (Date.now() < goalDeadline && !filledGoal) {
+    const ax = await call('Accessibility.getFullAXTree');
+    const goal = ax.nodes.find(n => n.role?.value === 'textbox' && n.name?.value?.startsWith('目标'));
+    if (goal?.backendDOMNodeId) {
+      const { model } = await call('DOM.getBoxModel', { backendNodeId: goal.backendDOMNodeId });
+      const x = (model.content[0] + model.content[2]) / 2, y = (model.content[1] + model.content[5]) / 2;
+      if (y > 40 && y < 790) {
+        await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+        await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+        await call('Input.insertText', { text: 'CI 目标：验证一键反馈' });
+        filledGoal = true;
+      }
+    }
+    if (!filledGoal) await delay(150);
+  }
+  assert.ok(filledGoal, 'Compiled app goal input was unavailable');
+  await clickButton('保存并生成行动计划');
+  await clickButton('就按这个计划开始');
+  await delay(250);
+  const feedbackScreenshot = await call('Page.captureScreenshot', { format: 'png' });
+  await writeFile('build/automatic-agent-feedback.png', Buffer.from(feedbackScreenshot.data, 'base64'));
+  await clickButton('这次没做');
+  let reviewed = false;
+  for (let attempt = 0; attempt < 80 && !reviewed; attempt++) {
+    const ax = await call('Accessibility.getFullAXTree');
+    reviewed = ax.nodes.some(n => n.role?.value === 'button' && n.name?.value?.includes('确认复盘，准备下一轮'));
+    if (!reviewed) await delay(100);
+  }
+  assert.ok(reviewed, 'Compiled app did not automatically review quick feedback');
+  assert.deepEqual(checks.map(c => c.stage), ['proposal', 'proposal', 'review']);
+  const historyAfter = await store.read('history');
+  const executions = historyAfter.events.filter(e => e.event_type === 'execution.recorded');
+  const outcomes = historyAfter.events.filter(e => e.event_type === 'outcome.recorded');
+  assert.equal(executions.length, 1);
+  assert.equal(executions[0].payload.status, 'skipped');
+  assert.equal(outcomes.length, 1);
+  assert.equal(outcomes[0].payload.valence, 'neutral');
+  assert.equal(outcomes[0].payload.observation, '用户反馈：这次没有执行这一步。');
+  assert.equal(outcomes[0].payload.execution_ref.id, executions[0].subject_refs[0].id);
+  assert.equal(checks.at(-1).context.objects.filter(o => o.ref.type === 'execution').length, 1);
+  await delay(250);
+  const reviewScreenshot = await call('Page.captureScreenshot', { format: 'png' });
+  await writeFile('build/automatic-agent-feedback-review.png', Buffer.from(reviewScreenshot.data, 'base64'));
+  console.log('Compiled Web -> real local gateway -> fixture Agent quick-feedback review passed with one skipped execution and one neutral outcome.');
   console.log('Compiled automatic app starts and opens connection setup at phone width with local fonts/renderer and no external startup requests. No account grant or real model inference was made.');
 } catch (error) {
   if (call) {

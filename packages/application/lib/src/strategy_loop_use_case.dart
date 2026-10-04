@@ -37,6 +37,18 @@ final class StrategyLoopResult {
   final List<String> eventIds;
 }
 
+final class StrategyFeedbackResult {
+  StrategyFeedbackResult({
+    required this.executionId,
+    required this.outcomeId,
+    required Iterable<String> eventIds,
+  }) : eventIds = List<String>.unmodifiable(eventIds);
+
+  final EntityId executionId;
+  final EntityId outcomeId;
+  final List<String> eventIds;
+}
+
 /// Application authority boundary for the external-Agent strategy loop.
 final class StrategyLoopUseCase {
   const StrategyLoopUseCase({
@@ -418,6 +430,85 @@ final class StrategyLoopUseCase {
     return StrategyLoopResult(
       objectId: executionId,
       eventIds: <String>[eventId],
+    );
+  }
+
+  /// Completion describes execution only, never whether a plan was effective.
+  Future<StrategyFeedbackResult> recordFeedback(
+    RecordStrategyFeedbackCommand command,
+  ) async {
+    _validateUser(command);
+    _requirePinned(<ObjectRef>[command.strategyRef]);
+    if (command.strategyRef.type != 'strategy' ||
+        command.actionId.value.trim().isEmpty ||
+        command.note.length > 4000 ||
+        !<ExecutionStatus>{
+          ExecutionStatus.completed,
+          ExecutionStatus.skipped,
+          ExecutionStatus.failed,
+        }.contains(command.status)) {
+      throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
+    }
+    final projections = await _profileProjections(command.profileId);
+    final strategy = projections['strategy:${command.strategyRef.id.value}'];
+    final actions = strategy?.attributes['actions'];
+    if (strategy == null ||
+        strategy.state != 'active' ||
+        strategy.revision != command.strategyRef.revision ||
+        actions is! List ||
+        !actions.any((action) =>
+            action is Map && action['id'] == command.actionId.value)) {
+      throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
+    }
+    final executionId = EntityId(_ids.nextId('execution'));
+    final outcomeId = EntityId(_ids.nextId('outcome'));
+    final executionEventId = _ids.nextId('event');
+    final outcomeEventId = _ids.nextId('event');
+    final executionRef = ObjectRef(
+      type: 'execution', id: executionId, revision: Revision(1),
+    );
+    final feedback = switch (command.status) {
+      ExecutionStatus.completed => '用户反馈：这一步已完成。',
+      ExecutionStatus.skipped => '用户反馈：这次没有执行这一步。',
+      _ => '用户反馈：这一步未完成。',
+    };
+    final note = command.note.trim();
+    await _eventStore.appendAll(<EventEnvelope>[
+      _event(
+        id: executionEventId,
+        type: EventTypes.executionRecorded,
+        command: command,
+        subjects: <ObjectRef>[ObjectRef(type: 'execution', id: executionId)],
+        sources: <ObjectRef>[command.strategyRef],
+        payload: <String, Object?>{
+          'expected_revision': 0,
+          'strategy_ref': command.strategyRef.toJson(),
+          'action_id': command.actionId.value,
+          'status': command.status.name,
+          if (note.isNotEmpty) 'note': note,
+        },
+      ),
+      _event(
+        id: outcomeEventId,
+        type: EventTypes.outcomeRecorded,
+        command: command,
+        subjects: <ObjectRef>[ObjectRef(type: 'outcome', id: outcomeId)],
+        sources: <ObjectRef>[executionRef],
+        causationId: executionEventId,
+        payload: <String, Object?>{
+          'expected_revision': 0,
+          'execution_ref': executionRef.toJson(),
+          'observation': note.isEmpty ? feedback : '$feedback 补充：$note',
+          'valence': OutcomeValence.neutral.name,
+          'metrics': const <String, num>{},
+          'evidence_refs': const <Object?>[],
+        },
+      ),
+    ]);
+    return StrategyFeedbackResult(
+      executionId: executionId,
+      outcomeId: outcomeId,
+      eventIds: <String>[executionEventId, outcomeEventId],
     );
   }
 

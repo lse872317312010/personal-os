@@ -13,6 +13,7 @@ final class AutomaticAgentController extends ChangeNotifier {
   bool connected = false;
   bool busy = false;
   bool checkingConnection = false;
+  bool savingFeedback = false;
   String? connectionCheckMessage;
   String provider = 'chatgpt';
   String? model;
@@ -258,6 +259,32 @@ final class AutomaticAgentController extends ChangeNotifier {
     }
   }
 
+  Future<void> saveFeedback(ExecutionStatus status, {String note = ''}) async {
+    if (busy || _disposed || strategy.status == StrategyUiStatus.running ||
+        !strategy.canRecordExecution || strategy.executionId != null ||
+        strategy.outcomeId != null) {
+      return;
+    }
+    final epoch = _epoch;
+    busy = true;
+    savingFeedback = true;
+    error = null;
+    notifyListeners();
+    try {
+      await strategy.recordFeedback(executionStatus: status, note: note);
+    } finally {
+      if (_current(epoch)) {
+        busy = false;
+        savingFeedback = false;
+        notifyListeners();
+      }
+    }
+    if (_current(epoch) && strategy.status != StrategyUiStatus.failed &&
+        strategy.outcomeId != null) {
+      await generate();
+    }
+  }
+
   Future<void> saveOutcome(String observation) async {
     if (busy || observation.trim().isEmpty) return;
     final epoch = _epoch;
@@ -286,6 +313,7 @@ final class AutomaticAgentController extends ChangeNotifier {
     connected = false;
     busy = false;
     checkingConnection = false;
+    savingFeedback = false;
     connectionCheckMessage = null;
     models = [];
     model = null;
