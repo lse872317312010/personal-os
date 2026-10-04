@@ -251,13 +251,15 @@ void main() {
     Future<AppComposition> reopen() async {
       final store = LocalAgentEventStore(gateway);
       await store.load();
-      final app = AppComposition.localAgent(gateway: gateway, eventStore: store);
+      final app =
+          AppComposition.localAgent(gateway: gateway, eventStore: store);
       addTearDown(app.strategyController.dispose);
       addTearDown(app.automaticAgent!.dispose);
       await tester.pumpWidget(PersonalOsApp(composition: app));
       await tester.pumpAndSettle();
       return app;
     }
+
     final review = await reopen();
     expect(gateway.stages, <String>['proposal', 'review']);
     expect(review.strategyController.reviewState, 'draft');
@@ -277,7 +279,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('saving a connection continues an offline goal after closing setup',
+  testWidgets(
+      'saving a connection continues an offline goal after closing setup',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -304,9 +307,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('connection-name')), '续接模型');
     await tester.ensureVisible(find.byKey(const Key('connection-url')));
-    await tester.enterText(find.byKey(const Key('connection-url')), 'http://127.0.0.1:9000/v1');
+    await tester.enterText(
+        find.byKey(const Key('connection-url')), 'http://127.0.0.1:9000/v1');
     await tester.ensureVisible(find.byKey(const Key('connection-model')));
-    await tester.enterText(find.byKey(const Key('connection-model')), 'resume-model');
+    await tester.enterText(
+        find.byKey(const Key('connection-model')), 'resume-model');
     gateway.connected = true;
     final saveConnection = find.byKey(const Key('save-agent-connection'));
     await tester.ensureVisible(saveConnection);
@@ -323,7 +328,8 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  test('automatic continuation attempts once and keeps failure until explicit retry',
+  test(
+      'automatic continuation attempts once and keeps failure until explicit retry',
       () async {
     final gateway = _TestGateway();
     final app = await _pendingReviewApp(gateway);
@@ -352,10 +358,12 @@ void main() {
     expect(_eventPayloads(gateway, 'outcome.recorded'), hasLength(1));
   });
 
-  test('automatic continuation respects drafts, activation and rejected decisions',
+  test(
+      'automatic continuation respects drafts, activation and rejected decisions',
       () async {
     final gateway = _TestGateway();
-    final app = AppComposition.localAgent(gateway: gateway, eventStore: InMemoryEventStore());
+    final app = AppComposition.localAgent(
+        gateway: gateway, eventStore: InMemoryEventStore());
     addTearDown(app.strategyController.dispose);
     addTearDown(app.automaticAgent!.dispose);
     final strategy = app.strategyController, agent = app.automaticAgent!;
@@ -392,7 +400,8 @@ void main() {
     gateway.delayed = Completer<String>();
     gateway.nextRequestStarted = Completer<void>();
     final pending = agent.resumePending();
-    await gateway.nextRequestStarted!.future.timeout(const Duration(seconds: 5));
+    await gateway.nextRequestStarted!.future
+        .timeout(const Duration(seconds: 5));
     final reply = buildDemoAgentReply(gateway.contexts.last);
     final events = jsonEncode(gateway.events);
     agent.reset();
@@ -872,8 +881,8 @@ Future<AppComposition> _pendingReviewApp(_TestGateway gateway) async {
   await agent.generate();
   await strategy.decideProposal(ProposalDecision.accept);
   await strategy.activateStrategy();
-  await strategy.recordFeedback(executionStatus: ExecutionStatus.completed,
-      note: '已保存的反馈');
+  await strategy.recordFeedback(
+      executionStatus: ExecutionStatus.completed, note: '已保存的反馈');
   return app;
 }
 

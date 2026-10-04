@@ -34,11 +34,14 @@ final class AutomaticAgentController extends ChangeNotifier {
       (strategy.strategyId == null ||
           (strategy.strategyState == 'active' &&
               strategy.outcomeId != null &&
-              (strategy.reviewState == null || strategy.reviewState == 'accepted')));
+              (strategy.reviewState == null ||
+                  strategy.reviewState == 'accepted')));
 
   String? get _pendingResumeKey {
     if (!hasPendingContinuation || strategy.contextBundle == null) return null;
-    final refs = strategy.contextRecords.map((record) => '${record['ref']}').toList()
+    final refs = strategy.contextRecords
+        .map((record) => '${record['ref']}')
+        .toList()
       ..sort();
     return '${strategy.sessionId}:${strategy.strategyId}:${strategy.outcomeId}:'
         '${strategy.reviewState}:$provider:$connectionId:$_connectionRevision:$account:$model:$refs';
@@ -63,13 +66,18 @@ final class AutomaticAgentController extends ChangeNotifier {
     if (!_current(epoch)) return false;
     if (retryPending) _resumeAttemptKey = null;
     final attempted = await resumePending();
-    if (_current(epoch) && !attempted && previousKey != null &&
-        previousKey == _pendingResumeKey && error == null && previousError != null) {
+    if (_current(epoch) &&
+        !attempted &&
+        previousKey != null &&
+        previousKey == _pendingResumeKey &&
+        error == null &&
+        previousError != null) {
       error = previousError;
       notifyListeners();
     }
     return attempted;
   }
+
   bool get canGenerate =>
       connected &&
       model != null &&
