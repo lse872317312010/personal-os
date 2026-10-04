@@ -7,6 +7,7 @@
 - Recorded neutral observations without inferring success, feelings or measurements from completion;
 - Preserved unsaved notes on write failure and saved facts on model failure, with reload/retry and duplicate-submission coverage;
 - Removed a redundant next-round button and focused the review card after feedback;
+- Kept primary action-button labels in the theme's bundled font after compiled screenshot QA found invisible text;
 - Extended the compiled Web smoke to exercise goal -> plan -> skipped feedback -> review through the real local gateway and an explicit fixture Agent.
 
 ## 2026-10-03 — Edit saved Web context without duplicate goals

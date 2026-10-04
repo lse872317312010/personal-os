@@ -322,10 +322,10 @@ final class StrategyActionCard extends StatelessWidget {
           foregroundColor: _ink,
           backgroundColor: _accent,
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         onPressed: onPressed,
-        child: Text(label),
+        child: Text(label,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
       );
 }
 
