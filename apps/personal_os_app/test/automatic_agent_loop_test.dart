@@ -82,6 +82,164 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('one phone feedback click records the chosen status and reviews',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final status in <ExecutionStatus>[
+      ExecutionStatus.completed,
+      ExecutionStatus.skipped,
+    ]) {
+      final gateway = _TestGateway();
+      final store = LocalAgentEventStore(gateway);
+      await store.load();
+      final app =
+          AppComposition.localAgent(gateway: gateway, eventStore: store);
+      addTearDown(app.strategyController.dispose);
+      addTearDown(app.automaticAgent!.dispose);
+      await app.strategyController.savePersonalContext(goal: '每天学十分钟');
+      await app.automaticAgent!.connect();
+      await app.automaticAgent!.generate();
+      await tester.pumpWidget(PersonalOsApp(composition: app));
+      await tester.pumpAndSettle();
+      expect(_eventPayloads(gateway, 'execution.recorded'), isEmpty);
+      await tester.tap(find.byKey(const Key('accept-proposal')));
+      await tester.pumpAndSettle();
+      expect(_eventPayloads(gateway, 'execution.recorded'), isEmpty);
+      final button = find.byKey(Key(status == ExecutionStatus.completed
+          ? 'feedback-completed'
+          : 'feedback-skipped'));
+      expect(tester.getBottomRight(button).dy, lessThan(784));
+      expect(find.byKey(const Key('record-execution')), findsNothing);
+      expect(find.byKey(const Key('record-outcome')), findsNothing);
+      if (status == ExecutionStatus.completed) {
+        await tester.enterText(find.byKey(const Key('feedback-note')), '有点累');
+      }
+      final writes = gateway.historyWrites;
+      await tester.tap(button);
+      await tester.pumpAndSettle();
+      final execution = _eventPayloads(gateway, 'execution.recorded').single;
+      final outcome = _eventPayloads(gateway, 'outcome.recorded').single;
+      expect(execution['status'], status.name);
+      expect(outcome['valence'], 'neutral');
+      expect(outcome['metrics'], isEmpty);
+      expect(
+          outcome['observation'],
+          status == ExecutionStatus.completed
+              ? '用户反馈：这一步已完成。 补充：有点累'
+              : '用户反馈：这次没有执行这一步。');
+      expect(
+          gateway.historyWrites, writes + 2); // feedback batch, then AI review
+      expect(gateway.stages, <String>['proposal', 'review']);
+      expect(app.strategyController.hasPendingReview, true);
+      expect(gateway.contexts.last, contains(status.name));
+      expect(find.byKey(const Key('accept-review')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    }
+  });
+
+  testWidgets('feedback write and model failures retry without duplicate facts',
+      (tester) async {
+    final gateway = _TestGateway();
+    final store = LocalAgentEventStore(gateway);
+    await store.load();
+    final app = AppComposition.localAgent(gateway: gateway, eventStore: store);
+    addTearDown(app.strategyController.dispose);
+    addTearDown(app.automaticAgent!.dispose);
+    await app.strategyController.savePersonalContext(goal: '记录真实反馈');
+    await app.automaticAgent!.connect();
+    await app.automaticAgent!.generate();
+    await tester.pumpWidget(PersonalOsApp(composition: app));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('accept-proposal')));
+    await tester.pumpAndSettle();
+    final note = find.byKey(const Key('feedback-note'));
+    await tester.enterText(note, '完成十分钟，需要再简化');
+    final feedback = find.byKey(const Key('feedback-completed'));
+    await tester.ensureVisible(feedback);
+    gateway.rejectNextHistoryWrite = true;
+    await tester.tap(feedback);
+    await tester.pumpAndSettle();
+    expect(app.strategyController.executionId, isNull);
+    expect(app.strategyController.outcomeId, isNull);
+    expect(_eventPayloads(gateway, 'execution.recorded'), isEmpty);
+    expect(_eventPayloads(gateway, 'outcome.recorded'), isEmpty);
+    expect(tester.widget<TextField>(note).controller!.text, '完成十分钟，需要再简化');
+    expect(gateway.stages, <String>['proposal']);
+    gateway.failure = const AgentGatewayException('provider_unreachable');
+    await tester.tap(feedback);
+    await tester.pumpAndSettle();
+    expect(app.strategyController.executionId, isNotNull);
+    expect(app.strategyController.outcomeId, isNotNull);
+    expect(app.automaticAgent!.error, contains('无法访问 AI 服务'));
+    final savedEvents = jsonEncode(gateway.events);
+    await app.automaticAgent!.saveFeedback(ExecutionStatus.completed);
+    expect(jsonEncode(gateway.events), savedEvents);
+    await tester.pumpWidget(const SizedBox.shrink());
+    gateway.failure = null;
+    final restoredStore = LocalAgentEventStore(gateway);
+    await restoredStore.load();
+    final restored =
+        AppComposition.localAgent(gateway: gateway, eventStore: restoredStore);
+    addTearDown(restored.strategyController.dispose);
+    addTearDown(restored.automaticAgent!.dispose);
+    await tester.pumpWidget(PersonalOsApp(composition: restored));
+    await tester.pumpAndSettle();
+    expect(restored.strategyController.outcomeId, isNotNull);
+    final retry = find.byKey(const Key('ask-agent-next'));
+    await tester.ensureVisible(retry);
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+    expect(_eventPayloads(gateway, 'execution.recorded'), hasLength(1));
+    expect(_eventPayloads(gateway, 'outcome.recorded'), hasLength(1));
+    expect(gateway.stages, <String>['proposal', 'review', 'review']);
+    expect(restored.strategyController.hasPendingReview, true);
+    expect(gateway.contexts.last, contains('完成十分钟，需要再简化'));
+    expect(tester.takeException(), isNull);
+  });
+
+  test('feedback saves offline and ignores double submission during review',
+      () async {
+    final gateway = _TestGateway();
+    final store = LocalAgentEventStore(gateway);
+    await store.load();
+    final app = AppComposition.localAgent(gateway: gateway, eventStore: store);
+    addTearDown(app.strategyController.dispose);
+    addTearDown(app.automaticAgent!.dispose);
+    final agent = app.automaticAgent!, strategy = app.strategyController;
+    await strategy.savePersonalContext(goal: '先保存事实');
+    await agent.connect();
+    await agent.generate();
+    await strategy.decideProposal(ProposalDecision.accept);
+    await strategy.activateStrategy();
+    gateway.connected = false;
+    await agent.connect();
+    await agent.saveFeedback(ExecutionStatus.skipped);
+    expect(strategy.outcomeId, isNotNull);
+    expect(gateway.stages, <String>['proposal']);
+    gateway.connected = true;
+    await agent.connect();
+    gateway.delayed = Completer<String>();
+    gateway.nextRequestStarted = Completer<void>();
+    final review = agent.generate();
+    await gateway.nextRequestStarted!.future
+        .timeout(const Duration(seconds: 5));
+    expect(agent.busy, true);
+    final events = jsonEncode(gateway.events);
+    await agent.saveFeedback(ExecutionStatus.completed, note: '重复点击');
+    expect(jsonEncode(gateway.events), events);
+    expect(gateway.stages, <String>['proposal', 'review']);
+    gateway.delayed!.complete(buildDemoAgentReply(gateway.contexts.last));
+    await review;
+    expect(strategy.hasPendingReview, true);
+    expect(_eventPayloads(gateway, 'execution.recorded').single['status'],
+        'skipped');
+    expect(agent.busy, false);
+  });
+
   test('connection probe sends only model identity and acquires CSRF first',
       () async {
     final requests = <http.Request>[];
@@ -313,8 +471,6 @@ void main() {
     await tester.tap(find.byKey(const Key('accept-proposal')));
     await tester.pumpAndSettle();
     expect(app.strategyController.strategyState, 'active');
-    await tester.tap(find.byKey(const Key('record-execution')));
-    await tester.pumpAndSettle();
     final originalStrategy = app.strategyController.strategyId;
     final connection = find.byKey(const Key('automatic-connection'));
     await tester.ensureVisible(connection);
@@ -328,10 +484,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(app.strategyController.strategyId, originalStrategy);
     expect(app.strategyController.personalGoal, '每天学习');
-    final outcome = find.byKey(const Key('outcome-input'));
+    final outcome = find.byKey(const Key('feedback-note'));
     await tester.ensureVisible(outcome);
     await tester.enterText(outcome, '完成了十分钟，但二十分钟太长');
-    final save = find.byKey(const Key('record-outcome'));
+    final save = find.byKey(const Key('feedback-completed'));
     await tester.ensureVisible(save);
     await tester.tap(save);
     await tester.pumpAndSettle();
@@ -540,7 +696,16 @@ void main() {
 }
 
 // Test-only inference. Production localAgent composition has no fixture model.
+List<Map> _eventPayloads(_TestGateway gateway, String type) => gateway.events
+    .cast<Map>()
+    .where((event) => event['event_type'] == type)
+    .map((event) => event['payload'] as Map)
+    .toList();
+
 final class _TestGateway implements AutomaticAgentGateway {
+  bool connected = true;
+  bool rejectNextHistoryWrite = false;
+  int historyWrites = 0;
   final List<String> stages = <String>[], contexts = <String>[];
   final List<String> providersUsed = <String>[];
   String provider = 'test-agent';
@@ -560,6 +725,7 @@ final class _TestGateway implements AutomaticAgentGateway {
 
   final started = Completer<void>();
   Completer<String>? delayed;
+  Completer<void>? nextRequestStarted;
   AgentGatewayException? failure;
   bool invalid = false;
   int cancellations = 0, revision = 0;
@@ -568,7 +734,7 @@ final class _TestGateway implements AutomaticAgentGateway {
   Uri get signInPage => Uri.parse('http://127.0.0.1:8787/connect');
   @override
   Future<Map<String, Object?>> status() async => <String, Object?>{
-        'connected': true,
+        'connected': connected,
         'provider': provider,
         'connection_id': connectionId,
         'connection_name': currentConnection?['label'],
@@ -600,6 +766,9 @@ final class _TestGateway implements AutomaticAgentGateway {
     stages.add(stage);
     providersUsed.add(provider);
     contexts.add(context);
+    if (nextRequestStarted != null && !nextRequestStarted!.isCompleted) {
+      nextRequestStarted!.complete();
+    }
     if (!started.isCompleted) started.complete();
     if (failure != null) throw failure!;
     if (delayed != null) return delayed!.future;
@@ -647,6 +816,11 @@ final class _TestGateway implements AutomaticAgentGateway {
     }
     if (body['revision'] != revision) {
       throw const AgentGatewayException('history_conflict');
+    }
+    historyWrites++;
+    if (rejectNextHistoryWrite) {
+      rejectNextHistoryWrite = false;
+      throw const AgentGatewayException('history_write_failed');
     }
     events = body['events'] as List<Object?>;
     return <String, Object?>{'revision': ++revision};

@@ -182,6 +182,8 @@ jobs:
 
           目标与现状会在刷新后预填；修改时保存新版本，保留当前行动，下次 AI 请求使用更新后的资料。
 
+          行动卡可直接反馈“完成了 / 这次没做”，说明可选；保存执行与结果后自动复盘，失败重试不重复记录行动。
+
           构建来源：https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA
           包内 provenance.json 记录同一 commit。当前发布不代表已完成真实账户推理或 Android 真机验收。
           EOF

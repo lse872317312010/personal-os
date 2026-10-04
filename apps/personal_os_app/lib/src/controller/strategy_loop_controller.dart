@@ -637,6 +637,44 @@ final class StrategyLoopController extends ChangeNotifier {
     });
   }
 
+  Future<void> recordFeedback({
+    required ExecutionStatus executionStatus,
+    String note = '',
+  }) async {
+    final strategyId = _strategyId;
+    final action = selectedAction ?? _strategyActions.firstOrNull;
+    if (strategyId == null ||
+        _strategyState != 'active' ||
+        action == null ||
+        _executionId != null ||
+        _outcomeId != null) {
+      _fail('strategy.feedback_not_available');
+      return;
+    }
+    await _run((isCurrent) async {
+      final result = await _strategyLoop.recordFeedback(
+        RecordStrategyFeedbackCommand(
+          actor: _user,
+          profileId: _profileId,
+          correlationId: _correlation('feedback'),
+          strategyRef: ObjectRef(
+            type: 'strategy',
+            id: strategyId,
+            revision: Revision(_strategyRevision),
+          ),
+          actionId: EntityId(action.id),
+          status: executionStatus,
+          note: note,
+        ),
+      );
+      if (!isCurrent()) return 'stale';
+      _selectedActionId = action.id;
+      _executionId = result.executionId;
+      _outcomeId = result.outcomeId;
+      return 'feedback_recorded';
+    });
+  }
+
   Future<void> recordOutcome({
     required String observation,
     required OutcomeValence valence,

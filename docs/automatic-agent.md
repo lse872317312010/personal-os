@@ -51,11 +51,24 @@ account's current catalog. Sign-out revokes the renewable session and keeps
 the host/account registration for later sign-in. If revocation cannot be
 confirmed, the app says so and links to ChatGPT settings.
 
-Save a goal to generate a plan. Confirm the suggested plan to start. After doing
-an action, report its result: the app automatically requests and receives the
-review. Accept that review: the app automatically requests the next plan.
+Save a goal to generate a plan. Confirm the suggested plan to start. On the
+action card, choose **完成了** or **这次没做**; the result/obstacle note is optional.
+That explicit user choice saves an execution and an outcome in one atomic
+append, then automatically requests the review. The outcome records only the
+chosen status and any user-supplied note: valence stays neutral and no metrics,
+feelings or effectiveness are inferred from completion. Accept the review:
+the app automatically requests the next plan.
 Repeated clicks do not create overlapping model requests. Failures preserve
 existing state and provide a retry. Incomplete output is never adopted.
+
+A failed feedback write leaves both facts unwritten and preserves the note for
+retry. A failed or unavailable AI request keeps the saved facts; the action card
+can retry only the review, including after reloading. Saving feedback requires
+the local service, but does not require an AI connection. No execution is
+recorded when merely accepting or starting a plan. The atomic command checks
+user authority, profile ownership, the active strategy revision and action ID.
+It uses the existing execution/outcome event types. This shortcut is currently
+for the automatic Web screen; other clients keep their existing input flow.
 
 The AI card distinguishes saved configuration from a completed model response.
 Choose **测试 AI 连接** to send one fixed test message to the selected model.

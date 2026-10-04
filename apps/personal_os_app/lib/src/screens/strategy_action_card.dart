@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:personal_os_application/application.dart';
+import 'package:personal_os_domain/domain.dart';
 
 import '../controller/strategy_loop_controller.dart';
 
@@ -11,10 +12,12 @@ final class StrategyActionCard extends StatelessWidget {
     this.onStart,
     this.onReject,
     this.onRecord,
+    this.onFeedback,
     this.onSaveOutcome,
     this.onAskAgent,
     this.onReview,
     this.outcome,
+    this.interactionBlocked = false,
     super.key,
   });
 
@@ -23,17 +26,20 @@ final class StrategyActionCard extends StatelessWidget {
   final VoidCallback? onStart;
   final VoidCallback? onReject;
   final VoidCallback? onRecord;
+  final ValueChanged<ExecutionStatus>? onFeedback;
   final VoidCallback? onSaveOutcome;
   final VoidCallback? onAskAgent;
   final ValueChanged<ReviewDecision>? onReview;
   final TextEditingController? outcome;
+  final bool interactionBlocked;
 
   static const _ink = Color(0xff123c32);
   static const _accent = Color(0xffc2f5d7);
 
   @override
   Widget build(BuildContext context) {
-    final busy = controller.status == StrategyUiStatus.running;
+    final busy =
+        interactionBlocked || controller.status == StrategyUiStatus.running;
     final actions = controller.strategyActions;
     final action =
         controller.selectedAction ?? (actions.isEmpty ? null : actions.first);
@@ -202,6 +208,43 @@ final class StrategyActionCard extends StatelessWidget {
                   onPressed: busy ? null : onStart,
                 )
               else if (controller.canRecordExecution &&
+                  controller.executionId == null &&
+                  onFeedback != null) ...<Widget>[
+                const Text('这一步做得怎么样？'),
+                const SizedBox(height: 10),
+                TextField(
+                  key: const Key('feedback-note'),
+                  controller: outcome,
+                  enabled: !busy,
+                  minLines: 1,
+                  maxLines: 3,
+                  maxLength: 4000,
+                  style: const TextStyle(color: _ink),
+                  decoration: const InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
+                    hintText: '补充结果或困难（可选）',
+                    counterText: '',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _button(
+                  key: const Key('feedback-completed'),
+                  label: '完成了',
+                  onPressed: busy
+                      ? null
+                      : () => onFeedback?.call(ExecutionStatus.completed),
+                ),
+                TextButton(
+                  key: const Key('feedback-skipped'),
+                  onPressed: busy
+                      ? null
+                      : () => onFeedback?.call(ExecutionStatus.skipped),
+                  child: const Text('这次没做', style: TextStyle(color: _accent)),
+                ),
+                const Text('点击即保存反馈，并让 AI 自动复盘。',
+                    style: TextStyle(color: _accent, fontSize: 13)),
+              ] else if (controller.canRecordExecution &&
                   controller.executionId == null)
                 _button(
                   key: const Key('record-execution'),
@@ -209,7 +252,7 @@ final class StrategyActionCard extends StatelessWidget {
                   onPressed: busy || action == null ? null : onRecord,
                 )
               else if (controller.canRecordOutcome && !hasResult) ...<Widget>[
-                const Text('已经记下完成。实际感觉如何？'),
+                const Text('执行已记录。补充结果或困难，再交给 AI。'),
                 const SizedBox(height: 10),
                 TextField(
                   key: const Key('outcome-input'),
@@ -279,10 +322,10 @@ final class StrategyActionCard extends StatelessWidget {
           foregroundColor: _ink,
           backgroundColor: _accent,
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         onPressed: onPressed,
-        child: Text(label),
+        child: Text(label,
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
       );
 }
 

@@ -165,3 +165,23 @@ final class RecordStrategyOutcomeCommand extends StrategyLoopCommand {
   final Map<String, num> metrics;
   final List<ObjectRef> evidenceRefs;
 }
+
+/// Explicit user feedback, saved as one execution/outcome transaction.
+final class RecordStrategyFeedbackCommand extends StrategyLoopCommand {
+  RecordStrategyFeedbackCommand({
+    required super.actor,
+    required super.profileId,
+    required super.correlationId,
+    required this.strategyRef,
+    required this.actionId,
+    required this.status,
+    this.note = '',
+    super.sensitivity,
+    super.consentRefs,
+  });
+
+  final ObjectRef strategyRef;
+  final EntityId actionId;
+  final ExecutionStatus status;
+  final String note;
+}
