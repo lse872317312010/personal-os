@@ -295,8 +295,10 @@ void main() {
     await tester.pumpWidget(PersonalOsApp(composition: app));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('automatic-goal')), '离线先保存目标');
+    await tester.pumpAndSettle();
     final saveGoal = find.byKey(const Key('automatic-save-goal'));
     await tester.ensureVisible(saveGoal);
+    await tester.pumpAndSettle();
     await tester.tap(saveGoal);
     await tester.pumpAndSettle();
     expect(gateway.stages, isEmpty);
@@ -381,8 +383,10 @@ void main() {
     await strategy.activateStrategy();
     expect(await agent.resumePending(), false);
     expect(strategy.executionId, isNull);
+    gateway.replyStrategyId = strategy.strategyId;
     await strategy.recordFeedback(executionStatus: ExecutionStatus.skipped);
     await agent.generate();
+    expect(agent.error, isNull);
     expect(await agent.resumePending(), false);
     expect(strategy.reviewState, 'draft');
     await strategy.decideReview(ReviewDecision.reject);
@@ -469,6 +473,7 @@ void main() {
     await tester.pumpAndSettle();
     final check = find.byKey(const Key('automatic-check-connection'));
     await tester.ensureVisible(check);
+    await tester.pumpAndSettle();
     await tester.tap(check);
     await tester.pumpAndSettle();
     expect(gateway.checks, 1);
@@ -478,6 +483,7 @@ void main() {
     expect(gateway.stages, <String>['proposal']);
     gateway.checkFailure = const AgentGatewayException('provider_unreachable');
     await tester.ensureVisible(check);
+    await tester.pumpAndSettle();
     await tester.tap(check);
     await tester.pumpAndSettle();
     expect(gateway.checks, 2);
@@ -895,6 +901,7 @@ List<Map> _eventPayloads(_TestGateway gateway, String type) => gateway.events
 final class _TestGateway implements AutomaticAgentGateway {
   bool connected = true;
   String connectionRevision = 'test-revision-1';
+  String? replyStrategyId;
   bool rejectNextHistoryWrite = false;
   int historyWrites = 0;
   final List<String> stages = <String>[], contexts = <String>[];
@@ -966,7 +973,8 @@ final class _TestGateway implements AutomaticAgentGateway {
     if (delayed != null) return delayed!.future;
     if (invalid) return '{}';
     final value =
-        jsonDecode(buildDemoAgentReply(context)) as Map<String, Object?>;
+        jsonDecode(buildDemoAgentReply(context, strategyId: replyStrategyId))
+            as Map<String, Object?>;
     if (value['strategy'] is Map) {
       (value['strategy'] as Map)['title'] = '测试模型自动计划';
     }
