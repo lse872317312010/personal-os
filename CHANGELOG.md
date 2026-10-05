@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-05 — Resume pending Web Agent work automatically
+
+- Continued saved goals, feedback and accepted reviews on reopening or reconnecting, with the action/review brought into view;
+- Continued pending work after saving or changing an Agent connection, account or model;
+- Limited automatic attempts per pending context and connection, retained failure messages on focus, and allowed explicit retries;
+- Preserved draft/rejected user decisions and accepted-but-not-started plans, with no inferred execution;
+- Added phone recovery, offline connection setup, deduplication, cancellation and user-decision coverage;
+- Extended the compiled Web/local-gateway smoke to recover a failed next-plan request after reload using an explicit fixture Agent.
+
 ## 2026-10-04 — One-click Web action feedback and automatic review
 
 - Added direct completed/skipped feedback on the action card with an optional note;

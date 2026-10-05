@@ -61,9 +61,25 @@ the app automatically requests the next plan.
 Repeated clicks do not create overlapping model requests. Failures preserve
 existing state and provide a retry. Incomplete output is never adopted.
 
+On reopening or reconnecting, the app automatically continues a saved goal
+without a plan, saved feedback without a review, or an accepted review without
+the next plan. Saving a connection closes setup before continuing; choosing a
+different connection, account or model can also continue pending work. New
+plans and reviews still await the user's decision. Drafts, rejected decisions,
+accepted-but-not-started plans and actions without feedback are not advanced.
+The resulting action or review is brought to the top of the page.
+
+Each pending state and connection gets one automatic attempt in that app
+instance. Switching away and back does not repeatedly request a failed model or
+hide its error. **刷新连接** explicitly permits a retry; reopening also permits a
+fresh attempt. Changed context or connection settings may permit a new attempt.
+There is no background retry loop. History writes remain revision-checked, but
+this is not an exactly-once guarantee for remote provider calls or billing.
+
 A failed feedback write leaves both facts unwritten and preserves the note for
-retry. A failed or unavailable AI request keeps the saved facts; the action card
-can retry only the review, including after reloading. Saving feedback requires
+retry. A failed or unavailable AI request keeps the saved facts; reopening or
+reconnecting continues the pending review without recording feedback again.
+The action card also offers an explicit review retry. Saving feedback requires
 the local service, but does not require an AI connection. No execution is
 recorded when merely accepting or starting a plan. The atomic command checks
 user authority, profile ownership, the active strategy revision and action ID.
@@ -181,7 +197,11 @@ protected persistence, connection switching, all three generic transports and
 late streaming failures. Flutter/Chrome tests cover the phone connection form,
 switching Agent between action and review,
 automatic proposal, user acceptance/action/outcome, automatic review and the
-next proposal, plus persistence and stale-response cancellation.
+next proposal, plus persistence, automatic continuation, failed-attempt
+deduplication, user-decision boundaries and stale-response cancellation. The
+compiled browser smoke also reopens after a failed next-plan request and
+verifies that the accepted review continues into a draft proposal while prior
+execution/outcome evidence remains unchanged.
 
 Model replies and JWTs in tests are explicitly test doubles. A production
 ChatGPT inference run still requires a real eligible account's OAuth grant;

@@ -57,7 +57,7 @@ final class _AgentConnectionDialogState extends State<AgentConnectionDialog> {
     });
     if (saved && mounted) {
       _key.clear();
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
     }
   }
 
@@ -66,7 +66,7 @@ final class _AgentConnectionDialogState extends State<AgentConnectionDialog> {
             .removeConnection(widget.connection!['id'] as String) &&
         mounted) {
       _key.clear();
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
     }
   }
 
