@@ -321,7 +321,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('connection-name')), findsNothing);
     expect(gateway.stages, <String>['proposal']);
-    expect(gateway.providersUsed, <String>['responses']);
+    expect(gateway.providersUsed, <String>['chat-completions']);
     expect(app.strategyController.hasPendingProposal, true);
     expect(_eventPayloads(gateway, 'goal.created'), hasLength(1));
     expect(_eventPayloads(gateway, 'execution.recorded'), isEmpty);
