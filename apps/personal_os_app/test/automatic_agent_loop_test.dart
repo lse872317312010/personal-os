@@ -544,8 +544,11 @@ void main() {
     await tester.enterText(
         find.byKey(const Key('automatic-constraints')), '不花钱');
     final save = find.byKey(const Key('automatic-save-goal'));
-    await tester.scrollUntilVisible(save, 250,
-        scrollable: find.byType(ListView));
+    await tester.scrollUntilVisible(
+      save,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(save);
     await tester.pumpAndSettle();
     expect(strategy.strategyId, strategyId);
@@ -674,8 +677,11 @@ void main() {
     await tester.enterText(
         find.byKey(const Key('automatic-conditions')), '晚上只有十分钟');
     final saveProfile = find.byKey(const Key('automatic-save-goal'));
-    await tester.scrollUntilVisible(saveProfile, 250,
-        scrollable: find.byType(ListView));
+    await tester.scrollUntilVisible(
+      saveProfile,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(saveProfile);
     await tester.pumpAndSettle();
     expect(gateway.stages, <String>['proposal']);
@@ -733,8 +739,11 @@ void main() {
             .text,
         '晚上只有十分钟');
     final history = find.byKey(const Key('automatic-history'));
-    await tester.scrollUntilVisible(history, 250,
-        scrollable: find.byType(ListView));
+    await tester.scrollUntilVisible(
+      history,
+      250,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('行动历史'));
     await tester.pumpAndSettle();
     expect(find.descendant(of: history, matching: find.text('实际结果')),
