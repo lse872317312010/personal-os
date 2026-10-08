@@ -34,6 +34,11 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
   AutomaticAgentController get agent => widget.agent;
   StrategyLoopController get strategy => agent.strategy;
   bool get busy => agent.busy || strategy.status == StrategyUiStatus.running;
+  int get _optionalContextFieldCount => <String>[
+        _successCriteria.text,
+        _conditions.text,
+        _constraints.text,
+      ].where((value) => value.trim().isNotEmpty).length;
   @override
   void initState() {
     super.initState();
@@ -311,33 +316,44 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                               enabled: !busy,
                               decoration: const InputDecoration(
                                   labelText: '目标', hintText: '例如：每天学习 20 分钟')),
-                          const SizedBox(height: 12),
-                          TextField(
-                              key: const Key('automatic-success-criteria'),
-                              controller: _successCriteria,
-                              enabled: !busy,
-                              maxLines: 2,
-                              decoration: const InputDecoration(
-                                  labelText: '做到什么算完成（可选）',
-                                  hintText: '例如：一周完成 3 次')),
-                          const SizedBox(height: 12),
-                          TextField(
-                              key: const Key('automatic-conditions'),
-                              controller: _conditions,
-                              enabled: !busy,
-                              maxLines: 2,
-                              decoration: const InputDecoration(
-                                  labelText: '当前情况（可选）',
-                                  hintText: '例如：工作日很累，晚上只有十分钟')),
-                          const SizedBox(height: 12),
-                          TextField(
-                              key: const Key('automatic-constraints'),
-                              controller: _constraints,
-                              enabled: !busy,
-                              maxLines: 2,
-                              decoration: const InputDecoration(
-                                  labelText: '执行限制（可选）',
-                                  hintText: '例如：不额外花钱，每天不超过 20 分钟')),
+                          ExpansionTile(
+                            key: const Key('automatic-profile-details'),
+                            tilePadding: EdgeInsets.zero,
+                            title: const Text('补充个人资料（可选）'),
+                            subtitle: Text(_optionalContextFieldCount == 0
+                                ? '成功标准、当前情况、执行限制'
+                                : '已填写 $_optionalContextFieldCount 项'),
+                            childrenPadding:
+                                const EdgeInsets.fromLTRB(0, 0, 0, 8),
+                            children: <Widget>[
+                              TextField(
+                                  key: const Key('automatic-success-criteria'),
+                                  controller: _successCriteria,
+                                  enabled: !busy,
+                                  maxLines: 2,
+                                  decoration: const InputDecoration(
+                                      labelText: '做到什么算完成',
+                                      hintText: '例如：一周完成 3 次')),
+                              const SizedBox(height: 12),
+                              TextField(
+                                  key: const Key('automatic-conditions'),
+                                  controller: _conditions,
+                                  enabled: !busy,
+                                  maxLines: 2,
+                                  decoration: const InputDecoration(
+                                      labelText: '当前情况',
+                                      hintText: '例如：工作日很累，晚上只有十分钟')),
+                              const SizedBox(height: 12),
+                              TextField(
+                                  key: const Key('automatic-constraints'),
+                                  controller: _constraints,
+                                  enabled: !busy,
+                                  maxLines: 2,
+                                  decoration: const InputDecoration(
+                                      labelText: '执行限制',
+                                      hintText: '例如：不额外花钱，每天不超过 20 分钟')),
+                            ],
+                          ),
                           const SizedBox(height: 12),
                           FilledButton(
                               key: const Key('automatic-save-goal'),

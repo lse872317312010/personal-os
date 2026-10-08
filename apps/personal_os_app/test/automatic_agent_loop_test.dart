@@ -526,6 +526,10 @@ void main() {
     await tester.ensureVisible(find.text('我的目标与资料'));
     await tester.tap(find.text('我的目标与资料'));
     await tester.pumpAndSettle();
+    final profileDetails = find.byKey(const Key('automatic-profile-details'));
+    await tester.ensureVisible(profileDetails);
+    await tester.tap(profileDetails);
+    await tester.pumpAndSettle();
     String text(String key) =>
         tester.widget<TextField>(find.byKey(Key(key))).controller!.text;
     expect(text('automatic-goal'), '学习二十分钟');
@@ -540,7 +544,8 @@ void main() {
     await tester.enterText(
         find.byKey(const Key('automatic-constraints')), '不花钱');
     final save = find.byKey(const Key('automatic-save-goal'));
-    await tester.ensureVisible(save);
+    await tester.scrollUntilVisible(save, 250,
+        scrollable: find.byType(ListView));
     await tester.tap(save);
     await tester.pumpAndSettle();
     expect(strategy.strategyId, strategyId);
@@ -565,6 +570,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('我的目标与资料'));
     await tester.tap(find.text('我的目标与资料'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('automatic-profile-details')));
+    await tester.tap(find.byKey(const Key('automatic-profile-details')));
     await tester.pumpAndSettle();
     expect(text('automatic-goal'), '学习十分钟');
     expect(text('automatic-success-criteria'), '一周学习四次');
@@ -658,9 +666,16 @@ void main() {
     expect(find.byKey(const Key('agent-reply-input')), findsNothing);
     expect(find.byKey(const Key('copy-agent-prompt')), findsNothing);
     await tester.enterText(find.byKey(const Key('automatic-goal')), '每天学习');
+    final profileDetails = find.byKey(const Key('automatic-profile-details'));
+    await tester.ensureVisible(profileDetails);
+    await tester.tap(profileDetails);
+    await tester.pumpAndSettle();
     await tester.enterText(
         find.byKey(const Key('automatic-conditions')), '晚上只有十分钟');
-    await tester.tap(find.byKey(const Key('automatic-save-goal')));
+    final saveProfile = find.byKey(const Key('automatic-save-goal'));
+    await tester.scrollUntilVisible(saveProfile, 250,
+        scrollable: find.byType(ListView));
+    await tester.tap(saveProfile);
     await tester.pumpAndSettle();
     expect(gateway.stages, <String>['proposal']);
     expect(app.strategyController.hasPendingProposal, true);
@@ -706,6 +721,9 @@ void main() {
     await tester.ensureVisible(find.text('我的目标与资料'));
     await tester.tap(find.text('我的目标与资料'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('automatic-profile-details')));
+    await tester.tap(find.byKey(const Key('automatic-profile-details')));
+    await tester.pumpAndSettle();
     expect(
         tester
             .widget<TextField>(find.byKey(const Key('automatic-conditions')))
@@ -713,7 +731,8 @@ void main() {
             .text,
         '晚上只有十分钟');
     final history = find.byKey(const Key('automatic-history'));
-    await tester.ensureVisible(history);
+    await tester.scrollUntilVisible(history, 250,
+        scrollable: find.byType(ListView));
     await tester.tap(find.text('行动历史'));
     await tester.pumpAndSettle();
     expect(find.descendant(of: history, matching: find.text('实际结果')),
