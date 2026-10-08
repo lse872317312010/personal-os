@@ -14,6 +14,13 @@ import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
 
+Finder _pageScrollable() => find
+    .descendant(
+      of: find.byType(ListView),
+      matching: find.byType(Scrollable),
+    )
+    .first;
+
 void main() {
   test(
       'automatic HTTP transport carries context and CSRF without model credentials',
@@ -547,7 +554,7 @@ void main() {
     await tester.scrollUntilVisible(
       save,
       250,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: _pageScrollable(),
     );
     await tester.tap(save);
     await tester.pumpAndSettle();
@@ -680,7 +687,7 @@ void main() {
     await tester.scrollUntilVisible(
       saveProfile,
       250,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: _pageScrollable(),
     );
     await tester.tap(saveProfile);
     await tester.pumpAndSettle();
@@ -742,7 +749,7 @@ void main() {
     await tester.scrollUntilVisible(
       history,
       250,
-      scrollable: find.byType(Scrollable).first,
+      scrollable: _pageScrollable(),
     );
     await tester.tap(find.text('行动历史'));
     await tester.pumpAndSettle();
