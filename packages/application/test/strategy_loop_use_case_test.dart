@@ -198,6 +198,92 @@ void main() {
     expect(savedConstraint.attributes['content'], 'Only use free resources');
   });
 
+  test('legacy constraint ownership comes from its recorded source goal',
+      () async {
+    final firstGoal = await useCase.recordPersonalContext(
+      RecordPersonalContextCommand(
+        actor: user,
+        profileId: EntityId('primary-user'),
+        correlationId: 'first-goal',
+        goal: 'First goal',
+      ),
+    );
+    final secondGoal = await useCase.recordPersonalContext(
+      RecordPersonalContextCommand(
+        actor: user,
+        profileId: EntityId('primary-user'),
+        correlationId: 'second-goal',
+        goal: 'Second goal',
+      ),
+    );
+    final constraintRef = ObjectRef(
+      type: 'constraint',
+      id: EntityId('legacy-constraint'),
+    );
+    await store.appendAll(<EventEnvelope>[
+      EventEnvelope(
+        eventId: 'legacy-constraint-recorded',
+        eventType: EventTypes.constraintRecorded,
+        eventVersion: 1,
+        occurredAt: DateTime.utc(2026, 10, 4),
+        recordedAt: DateTime.utc(2026, 10, 4),
+        actor: user,
+        subjectRefs: <ObjectRef>[
+          constraintRef,
+          ObjectRef(type: 'profile', id: EntityId('primary-user')),
+        ],
+        correlationId: 'legacy-constraint',
+        sourceRefs: <ObjectRef>[
+          ObjectRef(
+            type: 'goal',
+            id: firstGoal.objectId,
+            revision: Revision(2),
+          ),
+        ],
+        sensitivity: Sensitivity.d1,
+        payload: <String, Object?>{
+          'expected_revision': 0,
+          'title': '执行约束',
+          'content': 'Keep the original restriction',
+          'source': 'user_input',
+        },
+      ),
+    ]);
+
+    await expectLater(
+      useCase.updatePersonalContext(
+        UpdatePersonalContextCommand(
+          actor: user,
+          profileId: EntityId('primary-user'),
+          correlationId: 'reassign-legacy-constraint',
+          goalRef: ObjectRef(
+            type: 'goal',
+            id: secondGoal.objectId,
+            revision: Revision(2),
+          ),
+          constraintRef: ObjectRef(
+            type: constraintRef.type,
+            id: constraintRef.id,
+            revision: Revision(1),
+          ),
+          goal: 'Second goal',
+          currentState: '',
+          constraints: 'Reassigned restriction',
+        ),
+      ),
+      throwsA(isA<StrategyLoopFailure>().having(
+        (error) => error.code,
+        'code',
+        StrategyLoopFailureCode.invalidCommand,
+      )),
+    );
+    expect(store.batches, hasLength(3));
+    expect(
+        _project(store)['constraint:' + constraintRef.id.value]!
+            .attributes['content'],
+        'Keep the original restriction');
+  });
+
   test(
       'unchanged, stale, foreign and agent context edits never partially write',
       () async {

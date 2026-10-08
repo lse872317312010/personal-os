@@ -214,15 +214,24 @@ final class StrategyLoopUseCase {
                 stateGoal['id'] != command.goalRef.id.value))) {
       throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
     }
+    Object? constraintGoal = oldConstraint?.attributes['goal_ref'];
+    if (oldConstraint != null && constraintGoal == null) {
+      final original = await _eventStore.readBySubject(command.constraintRef!);
+      for (final event in original) {
+        if (event.eventType != EventTypes.constraintRecorded) continue;
+        final goals = event.sourceRefs.where((ref) => ref.type == 'goal');
+        if (goals.isNotEmpty) constraintGoal = goals.first.toJson();
+      }
+    }
     if (oldConstraint != null) {
-      final constraintGoal = oldConstraint.attributes['goal_ref'];
       if (oldConstraint.objectType != 'constraint' ||
           oldConstraint.state != 'recorded' ||
           oldConstraint.attributes['title'] != '执行约束' ||
           (oldConstraint.attributes['source'] != null &&
               oldConstraint.attributes['source'] != 'user_input') ||
           (constraintGoal is Map &&
-              constraintGoal['id'] != command.goalRef.id.value)) {
+              (constraintGoal['type'] != 'goal' ||
+                  constraintGoal['id'] != command.goalRef.id.value))) {
         throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
       }
     }
