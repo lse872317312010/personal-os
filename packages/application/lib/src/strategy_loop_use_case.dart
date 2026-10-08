@@ -234,9 +234,9 @@ final class StrategyLoopUseCase {
     );
     final criteriaChanged = successCriteria != null &&
         !_sameStrings(successCriteria, previousCriteria);
-    final goalChanged =
-        goal != (oldGoal.attributes['title'] ?? oldGoal.attributes['statement']) ||
-            criteriaChanged;
+    final goalChanged = goal !=
+            (oldGoal.attributes['title'] ?? oldGoal.attributes['statement']) ||
+        criteriaChanged;
     if (goalChanged) {
       events.add(_event(
         id: _ids.nextId('event'),

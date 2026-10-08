@@ -542,9 +542,7 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
         child: ExpansionTile(
       key: Key(history ? 'automatic-history' : 'automatic-saved-context'),
       title: Text(history ? '行动历史' : '其他个人资料'),
-      subtitle: Text(history
-          ? '计划、执行结果和 AI 复盘'
-          : '共 ${records.length} 条补充资料'),
+      subtitle: Text(history ? '计划、执行结果和 AI 复盘' : '共 ${records.length} 条补充资料'),
       children: records.map((record) {
         final type = (record['ref'] as Map)['type'] as String;
         final data = record['data'] as Map;

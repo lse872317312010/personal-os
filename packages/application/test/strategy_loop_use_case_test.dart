@@ -142,8 +142,10 @@ void main() {
       ),
     );
     final constraint = store.batches.single
-        .singleWhere((event) => event.eventType == EventTypes.constraintRecorded)
-        .subjectRefs.first;
+        .singleWhere(
+            (event) => event.eventType == EventTypes.constraintRecorded)
+        .subjectRefs
+        .first;
     final edited = await useCase.updatePersonalContext(
       UpdatePersonalContextCommand(
         actor: user,
@@ -152,9 +154,7 @@ void main() {
         goalRef: ObjectRef(
             type: 'goal', id: created.objectId, revision: Revision(2)),
         constraintRef: ObjectRef(
-            type: constraint.type,
-            id: constraint.id,
-            revision: Revision(1)),
+            type: constraint.type, id: constraint.id, revision: Revision(1)),
         goal: 'Study consistently',
         successCriteria: 'Four sessions',
         currentState: '',
@@ -167,8 +167,10 @@ void main() {
       EventTypes.constraintRevised,
     ]);
     var projections = _project(store);
-    expect(projections['goal:${created.objectId.value}']!.attributes[
-        'success_criteria'], <String>['Four sessions']);
+    expect(
+        projections['goal:${created.objectId.value}']!
+            .attributes['success_criteria'],
+        <String>['Four sessions']);
     var savedConstraint = projections['constraint:${constraint.id.value}']!;
     expect(savedConstraint.revision.value, 2);
     expect(savedConstraint.attributes['content'], 'Only use free resources');
@@ -181,9 +183,7 @@ void main() {
         goalRef: ObjectRef(
             type: 'goal', id: created.objectId, revision: Revision(3)),
         constraintRef: ObjectRef(
-            type: constraint.type,
-            id: constraint.id,
-            revision: Revision(2)),
+            type: constraint.type, id: constraint.id, revision: Revision(2)),
         goal: 'Study consistently',
         successCriteria: 'Four sessions',
         currentState: '',

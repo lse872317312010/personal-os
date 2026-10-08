@@ -158,8 +158,7 @@ void main() {
         id: 'event-constraint-archived',
         type: EventTypes.constraintArchived,
         actor: user,
-        subject: ObjectRef(
-            type: 'constraint', id: EntityId('constraint-1')),
+        subject: ObjectRef(type: 'constraint', id: EntityId('constraint-1')),
         otherSubjects: <ObjectRef>[ObjectRef(type: 'profile', id: profileId)],
         payload: const <String, Object?>{'expected_revision': 1},
       ),
