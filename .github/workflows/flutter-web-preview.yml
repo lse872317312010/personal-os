@@ -12,6 +12,7 @@ on:
       - "analysis_options.yaml"
       - "services/agent_gateway/**"
       - "tool/prepare_local_web_font.py"
+      - "tool/web/**"
   push:
     branches: [main]
     paths:
@@ -23,6 +24,7 @@ on:
       - "analysis_options.yaml"
       - "services/agent_gateway/**"
       - "tool/prepare_local_web_font.py"
+      - "tool/web/**"
   workflow_dispatch:
 
 permissions:
@@ -61,7 +63,7 @@ jobs:
           set -Eeuo pipefail
           format_paths=(lib/main_web_preview.dart lib/src/app.dart lib/src/agent_interop/agent_handoff.dart lib/src/agent_interop/agent_reply_inbox.dart lib/src/agent_interop/agent_text_share.dart lib/src/composition/app_composition.dart lib/src/controller/strategy_loop_controller.dart lib/src/screens/home_screen.dart lib/src/screens/strategy_loop_screen.dart lib/src/screens/strategy_action_card.dart test/agent_handoff_test.dart test/agent_reply_inbox_test.dart test/agent_text_share_test.dart test/mvp_journey_test.dart test/web_agent_loop_test.dart test/action_first_ui_test.dart test/strategy_cold_start_restore_test.dart test/strategy_loop_controller_test.dart test/app_composition_test.dart ../../packages/application/lib/src/strategy_session_read_model.dart)
           format_paths+=(lib/main_web_agent.dart lib/src/agent_interop/automatic_agent_gateway.dart lib/src/agent_interop/local_agent_event_store.dart lib/src/controller/automatic_agent_controller.dart lib/src/screens/automatic_strategy_screen.dart lib/src/screens/agent_connection_dialog.dart test/automatic_agent_loop_test.dart)
-          format_paths+=(../../packages/application/lib/src/strategy_loop_commands.dart ../../packages/application/lib/src/strategy_loop_use_case.dart ../../packages/application/test/strategy_loop_use_case_test.dart ../../packages/events/lib/src/event_types.dart ../../packages/events/lib/src/reducer.dart ../../packages/agent_protocol/lib/src/event_backed_context_source.dart ../../packages/agent_protocol/test/event_backed_context_source_test.dart)
+          format_paths+=(../../packages/application/lib/src/strategy_loop_commands.dart ../../packages/application/lib/src/strategy_loop_use_case.dart ../../packages/application/test/strategy_loop_use_case_test.dart ../../packages/application/test/strategy_session_read_model_test.dart ../../packages/events/lib/src/event_types.dart ../../packages/events/lib/src/reducer.dart ../../packages/agent_protocol/lib/src/event_backed_context_source.dart ../../packages/agent_protocol/test/event_backed_context_source_test.dart)
           if ! dart format --output=none --set-exit-if-changed "${format_paths[@]}"; then
             dart format "${format_paths[@]}" >/dev/null
             git diff -- "${format_paths[@]}"
@@ -72,7 +74,7 @@ jobs:
 
       - name: Run end-to-end journey in Chrome
         working-directory: apps/personal_os_app
-        run: flutter test --platform chrome test/mvp_journey_test.dart test/web_agent_loop_test.dart test/action_first_ui_test.dart test/automatic_agent_loop_test.dart
+        run: flutter test --platform chrome test/mvp_journey_test.dart test/web_agent_loop_test.dart test/action_first_ui_test.dart test/automatic_agent_loop_test.dart test/strategy_cold_start_restore_test.dart
 
       - name: Build public download page
         working-directory: apps/personal_os_app
@@ -93,6 +95,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Verify source Web startup syntax
+        run: node --check tool/web/start-web.mjs
       - name: Verify browser gateway transport and persistence
         run: node --test services/agent_gateway/test/*.test.mjs
       - name: Verify compiled Web journey at phone width

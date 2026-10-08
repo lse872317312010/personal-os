@@ -44,7 +44,7 @@
 
 纠错使用新事件，不重写历史。删除区分业务不可见、原始内容擦除、最小 tombstone、审计事件和备份传播。具体物理策略留给 M2，但必须满足 `AC-407`。
 
-Web 目标和当前情况的编辑使用 `goal.revised` 与 `personal_asset.revised`：用户触发、引用原对象固定版本、校验所属 profile 和 expected_revision，追加后对象 ID 与状态不变，revision 增加。此前版本继续作为历史证据读取。清空可选的当前情况使用 `personal_asset.archived`，保留历史，不生成空事实。不改变 success_criteria、其他约束或已经接受的策略。新事件为 v1 信封的新增类型，旧客户端无法解释时必须拒绝或隔离，不能当作已经处理。
+Web 目标资料的编辑由用户触发，并引用原对象固定版本、校验所属 profile 与 `expected_revision`。目标文本或成功标准变化时追加 `goal.revised`；当前情况变化或清空时分别追加 `personal_asset.revised` 或 `personal_asset.archived`；执行约束变化或清空时分别追加 `constraint.revised` 或 `constraint.archived`。对象 ID 保持不变，修订增加 revision，归档保留最后内容供审计但不再作为当前约束。多个字段一次保存时在同一批次追加，避免出现只更新一半的个人资料。此前版本继续作为历史证据读取，已经接受的策略不变。新事件为 v1 信封的新增类型，旧客户端无法解释时必须拒绝或隔离，不能当作已经处理。
 
 ## 禁止内容
 

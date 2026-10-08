@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-10-08 — Freeze the Web candidate validation scope
+
+- Included source Web startup changes in browser CI triggers and checked the startup script syntax;
+- Added cold-start restoration to the Chrome suite and the session read-model test to formatting checks;
+- Updated the active Web roadmap and separated prior PR checks from the latest candidate's pending browser verification.
+
+## 2026-10-08 — Save recovered outcomes without inferred effects or duplicates
+
+- Kept user-supplied outcomes neutral when an execution was saved before page recreation, instead of assigning a mixed effectiveness rating;
+- Locked outcome submission while history is being written and ignored repeat submissions after a result was saved;
+- Added write-failure, model-failure, reload/review recovery and concurrent-save regressions while retaining the original user observation.
+
+## 2026-10-08 — Restore the recorded action in multi-action plans
+
+- Restored the selected action from the existing execution record instead of losing the choice on page recreation;
+- Kept the recorded action visible for completed/skipped feedback and executions still awaiting an outcome;
+- Added read-model and recreated-page regressions for a second action in a multi-action plan.
+
+## 2026-10-08 — Source Web startup and connected-home verification
+
+- Added `npm --prefix services/agent_gateway run web` to prepare the pinned font, build the Web app and serve its output directly through the local gateway;
+- Added compiled phone/desktop assertions that saved connection management starts collapsed after reload;
+- Organized the current local verification scope and next acceptance steps in `docs/WEB_STATUS.md`, and corrected startup prerequisites and stale profile-editor instructions.
+
+## 2026-10-08 — Structured Web profile editing
+
+- Added editable success criteria and execution constraints alongside the goal and current situation;
+- Saved profile changes as revision-checked, append-only events, including clearing optional facts without leaving stale active constraints;
+- Kept the AI connection in one predictable location and removed duplicate display of the current goal and situation;
+- Added reload and next-Agent-request coverage for all profile fields.
+
 ## 2026-10-08 — Web browser validation; desktop maintenance paused
 
 - Paused automatic Windows/Linux portable packaging and release updates;

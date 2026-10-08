@@ -129,6 +129,161 @@ void main() {
         hasLength(1));
   });
 
+  test('success criteria and execution constraints revise and archive cleanly',
+      () async {
+    final created = await useCase.recordPersonalContext(
+      RecordPersonalContextCommand(
+        actor: user,
+        profileId: EntityId('primary-user'),
+        correlationId: 'create',
+        goal: 'Study consistently',
+        successCriteria: 'Three sessions\nOne reflection',
+        constraints: 'No spending',
+      ),
+    );
+    final constraint = store.batches.single
+        .singleWhere(
+            (event) => event.eventType == EventTypes.constraintRecorded)
+        .subjectRefs
+        .first;
+    final edited = await useCase.updatePersonalContext(
+      UpdatePersonalContextCommand(
+        actor: user,
+        profileId: EntityId('primary-user'),
+        correlationId: 'edit',
+        goalRef: ObjectRef(
+            type: 'goal', id: created.objectId, revision: Revision(2)),
+        constraintRef: ObjectRef(
+            type: constraint.type, id: constraint.id, revision: Revision(1)),
+        goal: 'Study consistently',
+        successCriteria: 'Four sessions',
+        currentState: '',
+        constraints: 'Only use free resources',
+      ),
+    );
+    expect(edited.eventIds, hasLength(2));
+    expect(store.batches.last.map((event) => event.eventType), <String>[
+      EventTypes.goalRevised,
+      EventTypes.constraintRevised,
+    ]);
+    var projections = _project(store);
+    expect(
+        projections['goal:${created.objectId.value}']!
+            .attributes['success_criteria'],
+        <String>['Four sessions']);
+    var savedConstraint = projections['constraint:${constraint.id.value}']!;
+    expect(savedConstraint.revision.value, 2);
+    expect(savedConstraint.attributes['content'], 'Only use free resources');
+
+    await useCase.updatePersonalContext(
+      UpdatePersonalContextCommand(
+        actor: user,
+        profileId: EntityId('primary-user'),
+        correlationId: 'archive-constraint',
+        goalRef: ObjectRef(
+            type: 'goal', id: created.objectId, revision: Revision(3)),
+        constraintRef: ObjectRef(
+            type: constraint.type, id: constraint.id, revision: Revision(2)),
+        goal: 'Study consistently',
+        successCriteria: 'Four sessions',
+        currentState: '',
+        constraints: '',
+      ),
+    );
+    expect(store.batches.last.single.eventType, EventTypes.constraintArchived);
+    projections = _project(store);
+    savedConstraint = projections['constraint:${constraint.id.value}']!;
+    expect(savedConstraint.state, 'archived');
+    expect(savedConstraint.revision.value, 3);
+    expect(savedConstraint.attributes['content'], 'Only use free resources');
+  });
+
+  test('legacy constraint ownership comes from its recorded source goal',
+      () async {
+    final firstGoal = await useCase.recordPersonalContext(
+      RecordPersonalContextCommand(
+        actor: user,
+        profileId: EntityId('primary-user'),
+        correlationId: 'first-goal',
+        goal: 'First goal',
+      ),
+    );
+    final secondGoal = await useCase.recordPersonalContext(
+      RecordPersonalContextCommand(
+        actor: user,
+        profileId: EntityId('primary-user'),
+        correlationId: 'second-goal',
+        goal: 'Second goal',
+      ),
+    );
+    final constraintRef = ObjectRef(
+      type: 'constraint',
+      id: EntityId('legacy-constraint'),
+    );
+    await store.appendAll(<EventEnvelope>[
+      EventEnvelope(
+        eventId: 'legacy-constraint-recorded',
+        eventType: EventTypes.constraintRecorded,
+        eventVersion: 1,
+        occurredAt: DateTime.utc(2026, 10, 4),
+        recordedAt: DateTime.utc(2026, 10, 4),
+        actor: user,
+        subjectRefs: <ObjectRef>[
+          constraintRef,
+          ObjectRef(type: 'profile', id: EntityId('primary-user')),
+        ],
+        correlationId: 'legacy-constraint',
+        sourceRefs: <ObjectRef>[
+          ObjectRef(
+            type: 'goal',
+            id: firstGoal.objectId,
+            revision: Revision(2),
+          ),
+        ],
+        sensitivity: Sensitivity.d1,
+        payload: <String, Object?>{
+          'expected_revision': 0,
+          'title': '执行约束',
+          'content': 'Keep the original restriction',
+          'source': 'user_input',
+        },
+      ),
+    ]);
+
+    await expectLater(
+      useCase.updatePersonalContext(
+        UpdatePersonalContextCommand(
+          actor: user,
+          profileId: EntityId('primary-user'),
+          correlationId: 'reassign-legacy-constraint',
+          goalRef: ObjectRef(
+            type: 'goal',
+            id: secondGoal.objectId,
+            revision: Revision(2),
+          ),
+          constraintRef: ObjectRef(
+            type: constraintRef.type,
+            id: constraintRef.id,
+            revision: Revision(1),
+          ),
+          goal: 'Second goal',
+          currentState: '',
+          constraints: 'Reassigned restriction',
+        ),
+      ),
+      throwsA(isA<StrategyLoopFailure>().having(
+        (error) => error.code,
+        'code',
+        StrategyLoopFailureCode.invalidCommand,
+      )),
+    );
+    expect(store.batches, hasLength(3));
+    expect(
+        _project(store)['constraint:${constraintRef.id.value}']!
+            .attributes['content'],
+        'Keep the original restriction');
+  });
+
   test(
       'unchanged, stale, foreign and agent context edits never partially write',
       () async {

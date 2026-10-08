@@ -1,13 +1,69 @@
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:personal_os_app/src/composition/app_composition.dart';
 import 'package:personal_os_app/src/controller/strategy_loop_controller.dart';
+import 'package:personal_os_app/src/screens/strategy_action_card.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
 
 void main() {
+  testWidgets(
+      'restored multi-action feedback keeps the recorded action visible',
+      (tester) async {
+    for (final state in <String>['execution-only', 'completed', 'skipped']) {
+      final store = InMemoryEventStore();
+      final first = AppComposition.inMemoryDemo(eventStore: store);
+      final controller = first.strategyController;
+      await controller.openOfflineSession(agentId: 'multi-action-agent');
+      await controller.importProposal(_proposal(controller.sessionId!,
+          proposalId: 'multi-action-plan', multipleActions: true));
+      await controller.decideProposal(ProposalDecision.accept);
+      await controller.activateStrategy();
+      controller.selectAction('second-action');
+      if (state == 'execution-only') {
+        await controller.recordExecution(
+            actionId: 'second-action',
+            executionStatus: ExecutionStatus.completed);
+      } else {
+        await controller.recordFeedback(
+            executionStatus: state == 'completed'
+                ? ExecutionStatus.completed
+                : ExecutionStatus.skipped,
+            note: 'Feedback for the second action');
+      }
+      final executionId = controller.executionId;
+      final outcomeId = controller.outcomeId;
+      expect(executionId, isNotNull);
+      expect(controller.status, StrategyUiStatus.ready);
+      controller.dispose();
+      first.controller.dispose();
+
+      final second = AppComposition.inMemoryDemo(eventStore: store);
+      final restored = second.strategyController;
+      await restored.bootstrap();
+      expect(restored.selectedActionId, 'second-action', reason: state);
+      expect(restored.executionId, executionId);
+      expect(restored.outcomeId, outcomeId);
+      await tester.pumpWidget(MaterialApp(
+          home: Scaffold(
+              body: SingleChildScrollView(
+                  child: StrategyActionCard(controller: restored)))));
+      expect(
+          tester
+              .widget<Text>(find.byKey(const Key('strategy-focus-instruction')))
+              .data,
+          'Report the second experiment',
+          reason: state);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      restored.dispose();
+      second.controller.dispose();
+    }
+  });
+
   test('recreated composition resumes and completes the durable strategy loop',
       () async {
     final store = InMemoryEventStore();
@@ -75,6 +131,7 @@ void main() {
 String _proposal(
   String sessionId, {
   required String proposalId,
+  bool multipleActions = false,
 }) =>
     jsonEncode(<String, Object?>{
       'protocol_version': 'personal-os.mcp.v0',
@@ -98,6 +155,11 @@ String _proposal(
             'success_measure': 'Record the measured result',
             'due_at': '2026-10-07T00:00:00Z',
           },
+          if (multipleActions)
+            <String, Object?>{
+              'id': 'second-action',
+              'instruction': 'Report the second experiment',
+            },
         ],
       },
     });

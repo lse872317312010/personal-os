@@ -7,6 +7,8 @@ abstract final class EventTypes {
   static const executionRecorded = 'execution.recorded';
   static const outcomeRecorded = 'outcome.recorded';
   static const constraintRecorded = 'constraint.recorded';
+  static const constraintRevised = 'constraint.revised';
+  static const constraintArchived = 'constraint.archived';
 
   static const personalAssetRecorded = 'personal_asset.recorded';
   static const personalAssetRevised = 'personal_asset.revised';
