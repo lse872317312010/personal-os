@@ -134,7 +134,8 @@ final class EventBackedAgentContextSource implements AgentContextSource {
     }
     return projections.values
         .map((projection) => _record(projection,
-            legacyGoal: projection.objectType == 'personal_asset'
+            legacyGoal: <String>{'personal_asset', 'constraint'}
+                    .contains(projection.objectType)
                 ? legacyGoals[projection.id.value]
                 : null))
         .toList();
