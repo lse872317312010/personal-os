@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-08 — Web browser validation; desktop maintenance paused
+
+- Paused automatic Windows/Linux portable packaging and release updates;
+- Made Windows core regression manual-only while preserving existing platform code and historical archives;
+- Kept browser gateway transport/persistence checks in the Web workflow;
+- Ran the compiled Agent journey at phone and desktop browser sizes, starting with connection setup in the actual form instead of injecting a saved profile;
+- Retained screenshots and the existing request-failure/reload recovery checks without involving desktop launch scripts.
+
 ## 2026-10-05 — Resume pending Web Agent work automatically
 
 - Continued saved goals, feedback and accepted reviews on reopening or reconnecting, with the action/review brought into view;

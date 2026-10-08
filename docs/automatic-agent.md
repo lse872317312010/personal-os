@@ -22,6 +22,24 @@ clients together: older readers cannot interpret the new revision event types.
 
 ## Run
 
+As of 2026-10-08, Windows/Linux launcher maintenance and portable package
+publishing are paused at the user's request. The existing archives are retained
+as historical builds. Current validation runs the compiled Web application in
+disposable phone-width and desktop-width Chrome browsers, with the gateway
+started directly by Node. A CI Ubuntu runner does not imply a maintained Linux
+edition. Windows core regression is manual-only during this phase.
+
+The browser smoke configures an HTTP Agent using the actual connection form,
+reloads the saved connection, checks its response, saves a goal and completes
+plan -> explicit feedback -> review -> next plan. It then recovers a failed
+request by reloading. Screenshots are retained for visual checks. There is no
+desktop launcher in this validation path. Inference uses a disposable fixture,
+so live GPT authorization and inference remain separate acceptance work.
+
+The source-development startup below is the active path. The archive instructions
+are retained for historical builds and are not evidence that their launchers
+have been validated for the current Web work.
+
 Download `personal-os-automatic-windows.zip` from the `automatic-agent-web`
 release, extract it, and double-click `Start-Personal-OS.cmd`. Node is bundled;
 no Flutter SDK, npm installation, API key or developer console is required for

@@ -1,4 +1,4 @@
-name: Flutter Web and automatic Agent app
+name: Flutter Web and Agent browser validation
 
 on:
   pull_request:
@@ -93,11 +93,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify actual app startup without external CDNs
+      - name: Verify browser gateway transport and persistence
+        run: node --test services/agent_gateway/test/*.test.mjs
+      - name: Verify compiled Web journey at phone width
         id: web_smoke
         run: node services/agent_gateway/test/built-web-smoke.mjs
+      - name: Verify compiled Web journey at desktop browser width
+        id: desktop_web_smoke
+        env:
+          WEB_SMOKE_VIEWPORT: desktop
+        run: node services/agent_gateway/test/built-web-smoke.mjs
       - uses: actions/upload-artifact@v4
-        if: always() && (steps.web_smoke.outcome == 'success' || steps.web_smoke.outcome == 'failure')
+        if: always() && (steps.web_smoke.outcome == 'success' || steps.web_smoke.outcome == 'failure' || steps.desktop_web_smoke.outcome == 'success' || steps.desktop_web_smoke.outcome == 'failure')
         with:
           name: personal-os-agent-startup
           path: build/automatic-agent-*.png
@@ -108,88 +115,6 @@ jobs:
           name: personal-os-agent-web
           path: apps/personal_os_app/build/web
           if-no-files-found: error
-
-  agent-runtime:
-    name: Test and package local Agent (${{ matrix.os }})
-    needs: verify
-    strategy:
-      matrix:
-        os: [ubuntu-24.04, windows-2022]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Verify real loopback gateway and protected credentials
-        run: node --test services/agent_gateway/test/*.test.mjs
-      - uses: actions/download-artifact@v4
-        with:
-          name: personal-os-agent-web
-          path: services/agent_gateway/web
-      - name: Include portable Node runtime and provenance
-        shell: bash
-        run: |
-          node -e "const fs=require('node:fs');fs.mkdirSync('services/agent_gateway/runtime',{recursive:true});fs.copyFileSync(process.execPath,'services/agent_gateway/runtime/'+(process.platform==='win32'?'node.exe':'node'));fs.writeFileSync('services/agent_gateway/provenance.json',JSON.stringify({commit:process.env.GITHUB_SHA,node:process.version,platform:process.platform},null,2))"
-          cp docs/automatic-agent.md services/agent_gateway/README.md
-      - name: Package Windows app
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: Compress-Archive -Path services/agent_gateway/* -DestinationPath personal-os-automatic-windows.zip
-      - name: Package Linux app
-        if: runner.os == 'Linux'
-        run: |
-          chmod +x services/agent_gateway/runtime/node services/agent_gateway/start-personal-os.sh
-          cd services/agent_gateway
-          zip -qr ../../personal-os-automatic-linux.zip .
-      - uses: actions/upload-artifact@v4
-        with:
-          name: personal-os-automatic-${{ runner.os }}
-          path: personal-os-automatic-*.zip
-          if-no-files-found: error
-
-  publish-agent:
-    name: Publish automatic local app
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
-    needs: agent-runtime
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: personal-os-automatic-*
-          merge-multiple: true
-          path: packages
-      - name: Publish tested automatic app packages
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if ! gh release view automatic-agent-web --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create automatic-agent-web --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title 'Personal OS · 自动 Agent 本机版' --notes '解压 Windows 包后双击 Start-Personal-OS.cmd。首次 Continue with ChatGPT 授权后，行动计划、复盘与下一轮自动请求和接收。包内 provenance.json 记录构建 commit；当前发布不代表已完成真实账户推理验收。'
-          fi
-          gh release upload automatic-agent-web packages/*.zip --clobber --repo "$GITHUB_REPOSITORY"
-          # This is a rolling download channel: its source tag must match the
-          # successfully uploaded packages, whose provenance records this SHA.
-          gh api --method PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/automatic-agent-web" -f sha="$GITHUB_SHA" -F force=true
-          cat > release-notes.md <<EOF
-          解压 Windows 包后双击 Start-Personal-OS.cmd；Linux 运行 bash start-personal-os.sh。
-
-          首次 Continue with ChatGPT 授权，或在应用内“接入其他 AI”中保存兼容 API / HTTP Agent。行动计划、复盘与下一轮自动请求和接收；切换连接保留目标和历史。
-
-          可主动“测试 AI 连接”确认模型是否响应。个人资料与行动历史分别展开，首页继续突出当前行动。
-
-          目标与现状会在刷新后预填；修改时保存新版本，保留当前行动，下次 AI 请求使用更新后的资料。
-
-          行动卡可直接反馈“完成了 / 这次没做”，说明可选；保存执行与结果后自动复盘，失败重试不重复记录行动。
-
-          重新打开或连接 AI 后，会自动继续已保存的目标、反馈和已确认复盘；新计划仍待你确认，同一页面不会因反复切回而不断重试。
-
-          构建来源：https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA
-          包内 provenance.json 记录同一 commit。当前发布不代表已完成真实账户推理或 Android 真机验收。
-          EOF
-          gh release edit automatic-agent-web --repo "$GITHUB_REPOSITORY" --notes-file release-notes.md
 
   deploy:
     name: Publish app download page to GitHub Pages

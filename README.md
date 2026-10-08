@@ -4,15 +4,17 @@
 
 应用的能力由用户选择的 GPT 或其他外部 Agent 提供；Personal OS 保存结构化个人资料和连续历史，让常用 Agent 能基于这些数据继续规划和复盘。当前优先打通整套闭环，并在 Web 展示操作流程，随后验证 Android 真机。见[优先级决策 0016](docs/decisions/0016-agent-access-and-web-loop-first.md)。
 
-当前交付聚焦 Web 的真实可用性和自动 Agent 闭环，Android 真机与两端同步后排。见[Web 优先决策 0018](docs/decisions/0018-web-product-first.md)。
+当前聚焦 Web 浏览器内的真实可用性和自动 Agent 闭环。Windows/Linux 启动包维护、Android 真机与两端同步后排；桌面包不再自动构建发布。见[Web 验证决策 0019](docs/decisions/0019-web-validation-only.md)。
 
 Personal OS保存个人已有资产、当前状态、目标、约束、策略、计划、执行、确定性结果和主观反馈。Codex或其他外部Agent/Harness通过MCP读取并维护这些数据，负责全部分析、推理、策略生成和复盘；Android App不内置特定模型，负责权威数据、执行监督和历史连续性。
 
-## 自动 Agent 本机版
+## 自动 Agent Web 闭环
 
-[打开下载页](https://lse872317312010.github.io/personal-os/) · [Windows / Linux 启动包](https://github.com/lse872317312010/personal-os/releases/tag/automatic-agent-web)
+[既有公开入口](https://lse872317312010.github.io/personal-os/) · [历史启动包（暂停维护）](https://github.com/lse872317312010/personal-os/releases/tag/automatic-agent-web)
 
-Windows 解压后双击 `Start-Personal-OS.cmd`，浏览器自动打开应用。首次使用 **Continue with ChatGPT** 登录并授权；后续请求和回复在应用内自动完成，无需复制提示词、粘贴回复或导入 JSON。启动包包含 Node、中文字体和渲染组件，不需要 Flutter SDK。
+当前直接验证编译后的浏览器应用，测试服务由 Node 启动，不依赖 Windows 批处理或桌面启动包。CI 覆盖 390×844 和 1440×900 两种浏览器尺寸，从页面内填写 Agent 连接开始，完成计划、反馈、复盘及刷新恢复。网关仍承担凭据和历史存储；公开静态入口尚不是可独立调用 AI 的线上应用。
+
+首次使用 **Continue with ChatGPT** 登录并授权；后续请求和回复在应用内自动完成，无需复制提示词、粘贴回复或导入 JSON。桌面启动脚本已保留，但其启动问题暂不作为 Web 验证任务处理。
 
 保存目标和现状 → 自动生成行动计划 → 用户确认并执行 → 记录结果 → 自动复盘 → 用户接受复盘 → 自动生成下一轮。行动卡在首屏，目标、连接设置和历史按需展开。结构化资料和事件历史加密保存在本机服务中，刷新或重启后可以接续；请求 AI 时会向所选服务发送当前上下文。
 
@@ -46,7 +48,7 @@ Windows 解压后双击 `Start-Personal-OS.cmd`，浏览器自动打开应用。
 - JSON/JSONL Context与Proposal Bundle是兼容和退出接口；
 - UI、MCP和文件导入共享同一Application API；
 - Agent可以维护资产、创建策略、计划和复盘，但不能篡改历史；
-- 原生 Windows 客户端、多设备同步、内置模型、多Agent编排和高级披露暂缓；Windows 本机 Web 启动包用于当前自动闭环。
+- 原生 Windows 客户端、Windows/Linux 启动包维护、多设备同步、内置模型、多Agent编排和高级披露暂缓；当前直接验证 Web 页面及其网关。
 
 ## MVP目标
 

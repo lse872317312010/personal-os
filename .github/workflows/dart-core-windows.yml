@@ -1,29 +1,7 @@
 name: Dart core (Windows)
 
+# Desktop maintenance is paused. Run explicitly when that work is resumed.
 on:
-  pull_request:
-    paths:
-      - "packages/**"
-      - "adapters/**"
-      - "test_contract/runner_dart/**"
-      - "pubspec.yaml"
-      - "analysis_options.yaml"
-      - "tool/check_dart_core.sh"
-      - "tool/validate_local_dependencies.py"
-      - ".github/workflows/dart-core-windows.yml"
-  push:
-    branches:
-      - main
-      - "feature/**"
-    paths:
-      - "packages/**"
-      - "adapters/**"
-      - "test_contract/runner_dart/**"
-      - "pubspec.yaml"
-      - "analysis_options.yaml"
-      - "tool/check_dart_core.sh"
-      - "tool/validate_local_dependencies.py"
-      - ".github/workflows/dart-core-windows.yml"
   workflow_dispatch:
 
 permissions:
