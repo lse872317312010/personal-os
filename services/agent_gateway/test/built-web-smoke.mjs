@@ -12,6 +12,12 @@ import { AgentConnections } from '../connections.mjs';
 import { createGateway } from '../server.mjs';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const viewportName = process.env.WEB_SMOKE_VIEWPORT || 'phone';
+assert.ok(['phone', 'desktop'].includes(viewportName), 'Unknown Web smoke viewport');
+const viewport = viewportName === 'desktop'
+  ? { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false }
+  : { width: 390, height: 844, deviceScaleFactor: 1, mobile: true };
+const screenshotPath = name => `build/automatic-agent-${viewportName === 'desktop' ? 'desktop-' : ''}${name}.png`;
 const profile = await mkdtemp(join(tmpdir(), 'personal-os-browser-smoke-'));
 const store = new ProtectedStore(join(profile, 'app'));
 const auth = new ChatGPTAuth(store); await auth.init();
@@ -49,7 +55,7 @@ try {
   call = (method, params = {}) => new Promise((resolve, reject) => { const id = ++next; pending.set(id, { resolve, reject }); socket.send(JSON.stringify({ id, method, params })); });
   await call('Network.enable');
   await call('Page.enable');
-  await call('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+  await call('Emulation.setDeviceMetricsOverride', viewport);
   await call('Page.reload', { ignoreCache: true });
   let ready = false;
   while (Date.now() < deadline && !ready) {
@@ -71,7 +77,7 @@ try {
   await delay(250);
   const screenshot = await call('Page.captureScreenshot', { format: 'png' });
   await mkdir('build', { recursive: true });
-  await writeFile('build/automatic-agent-start.png', Buffer.from(screenshot.data, 'base64'));
+  await writeFile(screenshotPath('start'), Buffer.from(screenshot.data, 'base64'));
   const tree = await call('Accessibility.getFullAXTree');
   const add = tree.nodes.find(n => n.role?.value === 'button' && n.name?.value?.includes('接入其他 AI'));
   assert.ok(add?.backendDOMNodeId, 'Connection setup is not accessible from the app');
@@ -87,10 +93,10 @@ try {
       && dialog.nodes.some(n => n.role?.value === 'button' && n.name?.value?.includes('保存并使用'));
     if (!dialogReady) await delay(100);
   }
-  assert.ok(dialogReady, 'Connection setup dialog did not open at phone width');
+  assert.ok(dialogReady, `Connection setup dialog did not open at ${viewportName} width`);
   await delay(250);
   const setupScreenshot = await call('Page.captureScreenshot', { format: 'png' });
-  await writeFile('build/automatic-agent-connection.png', Buffer.from(setupScreenshot.data, 'base64'));
+  await writeFile(screenshotPath('connection'), Buffer.from(setupScreenshot.data, 'base64'));
   // A second production-browser pass uses an explicit disposable model fixture.
   // It exercises the actual Web -> gateway -> HTTP Agent probe, never OAuth.
   const checks = [];
@@ -131,21 +137,18 @@ try {
     res.end(JSON.stringify({ reply }));
   });
   await new Promise(resolve => fixture.listen(0, '127.0.0.1', resolve));
-  await connections.save({ label: 'CI 测试模型', kind: 'agent-http', model: `ci-test-${'long-model-name-'.repeat(8)}`, agent_url: `http://127.0.0.1:${fixture.address().port}/agent` });
-  const historyBefore = await store.read('history');
-  await call('Page.reload', { ignoreCache: true });
-  const clickButton = async (label, { expand = false } = {}) => {
+  const clickButton = async (label, { expand = false, roles = ['button'] } = {}) => {
     for (let attempt = 0; attempt < 40; attempt++) {
       await call('Runtime.evaluate', { expression: "document.querySelector('flt-semantics-placeholder')?.click()" });
       const ax = await call('Accessibility.getFullAXTree');
-      const node = ax.nodes.find(n => n.role?.value === 'button' && n.name?.value?.includes(label)
+      const node = ax.nodes.find(n => roles.includes(n.role?.value) && n.name?.value?.includes(label)
         && !(n.properties || []).some(p => p.name === 'disabled' && p.value?.value === true));
       if (node?.backendDOMNodeId) {
         let box;
         try { box = await call('DOM.getBoxModel', { backendNodeId: node.backendDOMNodeId }); }
         catch { await delay(150); continue; }
         const x = (box.model.content[0] + box.model.content[2]) / 2, y = (box.model.content[1] + box.model.content[5]) / 2;
-        if (y > 40 && y < 790) {
+        if (y > 40 && y < viewport.height - 54) {
           if (expand) {
             // The connection panel can remain open while startup discovers the
             // saved profile. Do not toggle an already-expanded panel closed.
@@ -159,13 +162,64 @@ try {
           return;
         }
       }
-      if (attempt > 5) await call('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 195, y: 600, deltaX: 0, deltaY: 300 });
+      if (attempt > 5) await call('Input.dispatchMouseEvent', { type: 'mouseWheel', x: viewport.width / 2, y: 600, deltaX: 0, deltaY: 300 });
       await delay(150);
     }
     const unavailable = await call('Accessibility.getFullAXTree');
     console.log('Fixture controls after failed activation:', JSON.stringify(unavailable.nodes.filter(n => n.role?.value === 'button').map(n => ({ name: n.name?.value, properties: n.properties }))));
     throw Error(`Compiled app button unavailable: ${label}`);
   };
+  const enterText = async (label, text) => {
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const ax = await call('Accessibility.getFullAXTree');
+      const node = ax.nodes.find(n => n.role?.value === 'textbox' && n.name?.value?.startsWith(label));
+      if (node?.backendDOMNodeId) {
+        const { model } = await call('DOM.getBoxModel', { backendNodeId: node.backendDOMNodeId });
+        const x = (model.content[0] + model.content[2]) / 2, y = (model.content[1] + model.content[5]) / 2;
+        if (y > 40 && y < viewport.height - 54) {
+          await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+          await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+          await call('DOM.focus', { backendNodeId: node.backendDOMNodeId });
+          await delay(100);
+          await call('Input.insertText', { text });
+          for (let check = 0; check < 20; check++) {
+            const current = await call('Accessibility.getFullAXTree');
+            if (current.nodes.some(n => n.role?.value === 'textbox'
+              && n.name?.value?.startsWith(label) && n.value?.value === text)) return;
+            await delay(100);
+          }
+          throw Error(`Compiled app did not retain input: ${label}`);
+        }
+      }
+      await call('Input.dispatchMouseEvent', { type: 'mouseWheel', x: viewport.width / 2, y: 600, deltaX: 0, deltaY: 200 });
+      await delay(100);
+    }
+    throw Error(`Compiled app input unavailable: ${label}`);
+  };
+  // Configure the connection in the actual form. No profile is injected through
+  // a backend shortcut, and no prompt or reply is pasted by the browser user.
+  const historyBefore = await store.read('history');
+  const testModel = `ci-test-${'long-model-name-'.repeat(8)}`;
+  await enterText('连接名称', 'CI 测试模型');
+  await clickButton('OpenAI 兼容 API');
+  await clickButton('自建 HTTP Agent', { roles: ['button', 'menuitem', 'option'] });
+  await enterText('Agent 地址', `http://127.0.0.1:${fixture.address().port}/agent`);
+  await enterText('模型名称', testModel);
+  await clickButton('保存并使用');
+  let saved = false;
+  for (let attempt = 0; attempt < 80 && !saved; attempt++) {
+    const ax = await call('Accessibility.getFullAXTree');
+    saved = connections.current.label === 'CI 测试模型'
+      && !ax.nodes.some(n => n.role?.value === 'textbox' && n.name?.value?.startsWith('连接名称'));
+    if (!saved) await delay(100);
+  }
+  assert.ok(saved, 'Connection setup did not close into the selected Agent');
+  const connection = connections.summaries.find(c => c.label === 'CI 测试模型');
+  assert.equal(connection.kind, 'agent-http');
+  assert.equal(connection.model, testModel);
+  assert.deepEqual(await store.read('history'), historyBefore, 'Connection setup changed personal history');
+  console.log(`Compiled ${viewportName} browser saved the HTTP Agent through the UI without creating personal facts.`);
+  await call('Page.reload', { ignoreCache: true });
   await clickButton('使用 CI 测试模型', { expand: true });
   await delay(250);
   await clickButton('测试 AI 连接');
@@ -181,35 +235,18 @@ try {
   assert.deepEqual(await store.read('history'), historyBefore, 'Connection test changed personal history');
   await delay(250);
   const checkScreenshot = await call('Page.captureScreenshot', { format: 'png' });
-  await writeFile('build/automatic-agent-check.png', Buffer.from(checkScreenshot.data, 'base64'));
+  await writeFile(screenshotPath('check'), Buffer.from(checkScreenshot.data, 'base64'));
   console.log('Actual compiled app completed a fixture Agent response check without sharing personal context or changing history.');
   // Complete the new feedback interaction in the compiled app itself. Input is
   // disposable CI data; choosing "没做" explicitly avoids claiming execution.
-  await call('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 195, y: 500, deltaX: 0, deltaY: -1600 });
+  await call('Input.dispatchMouseEvent', { type: 'mouseWheel', x: viewport.width / 2, y: 500, deltaX: 0, deltaY: -1600 });
   await delay(300);
-  const goalDeadline = Date.now() + 15_000;
-  let filledGoal = false;
-  while (Date.now() < goalDeadline && !filledGoal) {
-    const ax = await call('Accessibility.getFullAXTree');
-    const goal = ax.nodes.find(n => n.role?.value === 'textbox' && n.name?.value?.startsWith('目标'));
-    if (goal?.backendDOMNodeId) {
-      const { model } = await call('DOM.getBoxModel', { backendNodeId: goal.backendDOMNodeId });
-      const x = (model.content[0] + model.content[2]) / 2, y = (model.content[1] + model.content[5]) / 2;
-      if (y > 40 && y < 790) {
-        await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
-        await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
-        await call('Input.insertText', { text: 'CI 目标：验证一键反馈' });
-        filledGoal = true;
-      }
-    }
-    if (!filledGoal) await delay(150);
-  }
-  assert.ok(filledGoal, 'Compiled app goal input was unavailable');
+  await enterText('目标', 'CI 目标：验证一键反馈');
   await clickButton('保存并生成行动计划');
   await clickButton('就按这个计划开始');
   await delay(250);
   const feedbackScreenshot = await call('Page.captureScreenshot', { format: 'png' });
-  await writeFile('build/automatic-agent-feedback.png', Buffer.from(feedbackScreenshot.data, 'base64'));
+  await writeFile(screenshotPath('feedback'), Buffer.from(feedbackScreenshot.data, 'base64'));
   await clickButton('这次没做');
   let reviewed = false;
   for (let attempt = 0; attempt < 80 && !reviewed; attempt++) {
@@ -231,7 +268,7 @@ try {
   assert.equal(checks.at(-1).context.objects.filter(o => o.ref.type === 'execution').length, 1);
   await delay(250);
   const reviewScreenshot = await call('Page.captureScreenshot', { format: 'png' });
-  await writeFile('build/automatic-agent-feedback-review.png', Buffer.from(reviewScreenshot.data, 'base64'));
+  await writeFile(screenshotPath('feedback-review'), Buffer.from(reviewScreenshot.data, 'base64'));
   console.log('Compiled Web -> real local gateway -> fixture Agent quick-feedback review passed with one skipped execution and one neutral outcome.');
   // Persist acceptance, fail the first next-plan request, then reopen. Startup
   // must resume only the pending revision and leave the new proposal for the user.
@@ -265,16 +302,28 @@ try {
   assert.ok(nextPlan.payload.parent_strategy);
   assert.equal(afterResume.events.filter(e => e.event_type === 'strategy.accepted').length, 1, 'Resume accepted a plan without the user');
   await delay(250);
+  const actionTree = await call('Accessibility.getFullAXTree');
+  const confirm = actionTree.nodes.find(n => n.role?.value === 'button' && n.name?.value?.includes('就按这个计划开始'));
+  const confirmBox = await call('DOM.getBoxModel', { backendNodeId: confirm.backendDOMNodeId });
+  assert.ok(confirmBox.model.content[1] > 40 && confirmBox.model.content[5] < viewport.height - 54,
+    'The recovered action confirmation is not visible without scrolling');
   const resumeScreenshot = await call('Page.captureScreenshot', { format: 'png' });
-  await writeFile('build/automatic-agent-resume.png', Buffer.from(resumeScreenshot.data, 'base64'));
+  await writeFile(screenshotPath('resume'), Buffer.from(resumeScreenshot.data, 'base64'));
   console.log('Compiled app resumed a saved accepted review after reload, preserved evidence and left the next plan awaiting the user.');
-  console.log('Compiled automatic app starts and opens connection setup at phone width with local fonts/renderer and no external startup requests. No account grant or real model inference was made.');
+  console.log(`Compiled automatic app passed the ${viewportName} Web journey with local fonts/renderer and no external startup requests. No account grant or real model inference was made.`);
 } catch (error) {
   if (call) {
     try {
+      const ax = await call('Accessibility.getFullAXTree');
+      // This browser contains only the disposable CI form inputs, never user
+      // credentials or real personal context. Keep diagnostics scoped to UI.
+      console.log('Disposable fixture UI at failure:', JSON.stringify(ax.nodes
+        .filter(n => ['textbox', 'button', 'StaticText'].includes(n.role?.value))
+        .map(n => ({ role: n.role?.value, name: n.name?.value, value: n.value?.value }))));
+      console.log('Disposable fixture selected connection:', JSON.stringify({ label: connections.current.label, kind: connections.current.config.kind }));
       const screenshot = await call('Page.captureScreenshot', { format: 'png' });
       await mkdir('build', { recursive: true });
-      await writeFile('build/automatic-agent-check-failure.png', Buffer.from(screenshot.data, 'base64'));
+      await writeFile(screenshotPath('check-failure'), Buffer.from(screenshot.data, 'base64'));
     } catch { /* Preserve the original failure if the disposable browser exited. */ }
   }
   throw error;
