@@ -508,7 +508,12 @@ void main() {
     final strategy = app.strategyController, agent = app.automaticAgent!;
     addTearDown(strategy.dispose);
     addTearDown(agent.dispose);
-    await strategy.savePersonalContext(goal: '学习二十分钟', currentState: '平日很累');
+    await strategy.savePersonalContext(
+      goal: '学习二十分钟',
+      successCriteria: '一周学习三次',
+      currentState: '平日很累',
+      constraints: '不买新课程',
+    );
     await agent.connect();
     await agent.generate();
     await strategy.decideProposal(ProposalDecision.accept);
@@ -518,16 +523,22 @@ void main() {
     final oldEvents = jsonEncode(gateway.events);
     await tester.pumpWidget(PersonalOsApp(composition: app));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('我的目标与现状'));
-    await tester.tap(find.text('我的目标与现状'));
+    await tester.ensureVisible(find.text('我的目标与资料'));
+    await tester.tap(find.text('我的目标与资料'));
     await tester.pumpAndSettle();
     String text(String key) =>
         tester.widget<TextField>(find.byKey(Key(key))).controller!.text;
     expect(text('automatic-goal'), '学习二十分钟');
+    expect(text('automatic-success-criteria'), '一周学习三次');
     expect(text('automatic-conditions'), '平日很累');
+    expect(text('automatic-constraints'), '不买新课程');
     await tester.enterText(find.byKey(const Key('automatic-goal')), '学习十分钟');
     await tester.enterText(
+        find.byKey(const Key('automatic-success-criteria')), '一周学习四次');
+    await tester.enterText(
         find.byKey(const Key('automatic-conditions')), '周末有时间');
+    await tester.enterText(
+        find.byKey(const Key('automatic-constraints')), '不花钱');
     final save = find.byKey(const Key('automatic-save-goal'));
     await tester.ensureVisible(save);
     await tester.tap(save);
@@ -552,11 +563,13 @@ void main() {
     addTearDown(restored.automaticAgent!.dispose);
     await tester.pumpWidget(PersonalOsApp(composition: restored));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('我的目标与现状'));
-    await tester.tap(find.text('我的目标与现状'));
+    await tester.ensureVisible(find.text('我的目标与资料'));
+    await tester.tap(find.text('我的目标与资料'));
     await tester.pumpAndSettle();
     expect(text('automatic-goal'), '学习十分钟');
+    expect(text('automatic-success-criteria'), '一周学习四次');
     expect(text('automatic-conditions'), '周末有时间');
+    expect(text('automatic-constraints'), '不花钱');
     await restored.strategyController.recordExecution(
         actionId: restored.strategyController.strategyActions.first.id,
         executionStatus: ExecutionStatus.completed,
@@ -573,6 +586,10 @@ void main() {
             .where((e) => e['ref']['type'] == 'personal_asset')
             .single['data']['content'],
         '周末有时间');
+    expect(
+        objects.where((e) => e['ref']['type'] == 'constraint').single['data']
+            ['content'],
+        '不花钱');
     expect(gateway.stages, <String>['proposal', 'review']);
     await restored.strategyController
         .updatePersonalContext(goal: '学习十分钟', currentState: '');
@@ -685,14 +702,16 @@ void main() {
     expect(app.strategyController.parentStrategyRef, isNotNull);
     expect(app.strategyController.executionId, isNull);
     expect(gateway.contexts.last, contains('二十分钟太长'));
-    final savedContext = find.byKey(const Key('automatic-saved-context'));
-    await tester.ensureVisible(savedContext);
-    await tester.tap(find.text('已保存的个人资料'));
+    expect(find.byKey(const Key('automatic-saved-context')), findsNothing);
+    await tester.ensureVisible(find.text('我的目标与资料'));
+    await tester.tap(find.text('我的目标与资料'));
     await tester.pumpAndSettle();
     expect(
-        find.descendant(
-            of: savedContext, matching: find.textContaining('晚上只有十分钟')),
-        findsOneWidget);
+        tester
+            .widget<TextField>(find.byKey(const Key('automatic-conditions')))
+            .controller!
+            .text,
+        '晚上只有十分钟');
     final history = find.byKey(const Key('automatic-history'));
     await tester.ensureVisible(history);
     await tester.tap(find.text('行动历史'));

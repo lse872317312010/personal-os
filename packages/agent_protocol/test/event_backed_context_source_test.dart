@@ -87,6 +87,9 @@ void main() {
     otherSubjects: <ObjectRef>[
       ObjectRef(type: 'profile', id: profileId),
     ],
+    sources: <ObjectRef>[
+      ObjectRef(type: 'goal', id: EntityId('goal-1')),
+    ],
     payload: const <String, Object?>{
       'expected_revision': 0,
       'statement': 'No late training',
@@ -137,6 +140,50 @@ void main() {
     expect(goal.ref.revision, Revision(2));
     expect(goal.data['state'], GoalState.active.name);
     expect(goal.data['statement'], 'Improve recovery');
+    final constraintRecord = <ContextRecord>[
+      ...first.records,
+      ...second.records,
+    ].singleWhere((record) => record.ref.type == 'constraint');
+    expect((constraintRecord.data['goal_ref'] as Map)['id'], 'goal-1');
+  });
+
+  test('archived constraints leave current context but remain auditable',
+      () async {
+    final events = <EventEnvelope>[
+      sessionOpened,
+      goalCreated,
+      goalActivated,
+      constraint,
+      event(
+        id: 'event-constraint-archived',
+        type: EventTypes.constraintArchived,
+        actor: user,
+        subject: ObjectRef(
+            type: 'constraint', id: EntityId('constraint-1')),
+        otherSubjects: <ObjectRef>[ObjectRef(type: 'profile', id: profileId)],
+        payload: const <String, Object?>{'expected_revision': 1},
+      ),
+    ];
+    final source = EventBackedAgentContextSource(
+      eventStore: _EventStore(events),
+      profileId: profileId,
+    );
+    final current = await source.query(
+      sessionId: sessionId,
+      purpose: 'strategy review',
+      objectTypes: const <String>{'constraint'},
+    );
+    expect(current.records, isEmpty);
+    final archived = await source.get(
+      sessionId: sessionId,
+      ref: ObjectRef(
+        type: 'constraint',
+        id: EntityId('constraint-1'),
+        revision: Revision(2),
+      ),
+    );
+    expect(archived!.data['state'], 'archived');
+    expect(archived.data['statement'], 'No late training');
   });
 
   test(

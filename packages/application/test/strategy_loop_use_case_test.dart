@@ -129,6 +129,75 @@ void main() {
         hasLength(1));
   });
 
+  test('success criteria and execution constraints revise and archive cleanly',
+      () async {
+    final created = await useCase.recordPersonalContext(
+      RecordPersonalContextCommand(
+        actor: user,
+        profileId: EntityId('primary-user'),
+        correlationId: 'create',
+        goal: 'Study consistently',
+        successCriteria: 'Three sessions\nOne reflection',
+        constraints: 'No spending',
+      ),
+    );
+    final constraint = store.batches.single
+        .singleWhere((event) => event.eventType == EventTypes.constraintRecorded)
+        .subjectRefs.first;
+    final edited = await useCase.updatePersonalContext(
+      UpdatePersonalContextCommand(
+        actor: user,
+        profileId: EntityId('primary-user'),
+        correlationId: 'edit',
+        goalRef: ObjectRef(
+            type: 'goal', id: created.objectId, revision: Revision(2)),
+        constraintRef: ObjectRef(
+            type: constraint.type,
+            id: constraint.id,
+            revision: Revision(1)),
+        goal: 'Study consistently',
+        successCriteria: 'Four sessions',
+        currentState: '',
+        constraints: 'Only use free resources',
+      ),
+    );
+    expect(edited.eventIds, hasLength(2));
+    expect(store.batches.last.map((event) => event.eventType), <String>[
+      EventTypes.goalRevised,
+      EventTypes.constraintRevised,
+    ]);
+    var projections = _project(store);
+    expect(projections['goal:${created.objectId.value}']!.attributes[
+        'success_criteria'], <String>['Four sessions']);
+    var savedConstraint = projections['constraint:${constraint.id.value}']!;
+    expect(savedConstraint.revision.value, 2);
+    expect(savedConstraint.attributes['content'], 'Only use free resources');
+
+    await useCase.updatePersonalContext(
+      UpdatePersonalContextCommand(
+        actor: user,
+        profileId: EntityId('primary-user'),
+        correlationId: 'archive-constraint',
+        goalRef: ObjectRef(
+            type: 'goal', id: created.objectId, revision: Revision(3)),
+        constraintRef: ObjectRef(
+            type: constraint.type,
+            id: constraint.id,
+            revision: Revision(2)),
+        goal: 'Study consistently',
+        successCriteria: 'Four sessions',
+        currentState: '',
+        constraints: '',
+      ),
+    );
+    expect(store.batches.last.single.eventType, EventTypes.constraintArchived);
+    projections = _project(store);
+    savedConstraint = projections['constraint:${constraint.id.value}']!;
+    expect(savedConstraint.state, 'archived');
+    expect(savedConstraint.revision.value, 3);
+    expect(savedConstraint.attributes['content'], 'Only use free resources');
+  });
+
   test(
       'unchanged, stale, foreign and agent context edits never partially write',
       () async {

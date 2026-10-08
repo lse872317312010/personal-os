@@ -23,7 +23,9 @@ final class AutomaticStrategyScreen extends StatefulWidget {
 final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
     with WidgetsBindingObserver {
   final _goal = TextEditingController();
+  final _successCriteria = TextEditingController();
   final _conditions = TextEditingController();
+  final _constraints = TextEditingController();
   final _result = TextEditingController();
   final _scroll = ScrollController();
   bool _contextEdited = false;
@@ -37,7 +39,9 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _goal.addListener(_editContext);
+    _successCriteria.addListener(_editContext);
     _conditions.addListener(_editContext);
+    _constraints.addListener(_editContext);
     unawaited(_load());
   }
 
@@ -103,7 +107,9 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
     if (!mounted || _contextEdited) return;
     _syncingContext = true;
     _goal.text = strategy.personalGoal ?? '';
+    _successCriteria.text = strategy.personalSuccessCriteria;
     _conditions.text = strategy.personalCurrentState;
+    _constraints.text = strategy.personalConstraints;
     _syncingContext = false;
     setState(() {});
   }
@@ -117,7 +123,9 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _goal.dispose();
+    _successCriteria.dispose();
     _conditions.dispose();
+    _constraints.dispose();
     _result.dispose();
     _scroll.dispose();
     super.dispose();
@@ -139,7 +147,11 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
     if (busy || _goal.text.trim().isEmpty) return;
     final existing = strategy.personalGoalRecord != null;
     await strategy.updatePersonalContext(
-        goal: _goal.text, currentState: _conditions.text);
+      goal: _goal.text,
+      successCriteria: _successCriteria.text,
+      currentState: _conditions.text,
+      constraints: _constraints.text,
+    );
     if (!mounted) return;
     if (strategy.status != StrategyUiStatus.failed) {
       _contextEdited = false;
@@ -277,7 +289,7 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                                             onPressed: _generate,
                                             child: const Text('重试 AI 请求')),
                                     ]))),
-                      if (!agent.connected) _connection(),
+                      _connection(),
                       Card(
                           child: ExpansionTile(
                         key: Key(
@@ -286,7 +298,7 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                             strategy.strategyId == null,
                         title: Text(strategy.personalGoal == null
                             ? '你想达成什么？'
-                            : '我的目标与现状'),
+                            : '我的目标与资料'),
                         subtitle: strategy.personalGoal == null
                             ? const Text('先写一句话就够了')
                             : Text(strategy.personalGoal!),
@@ -301,13 +313,31 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                                   labelText: '目标', hintText: '例如：每天学习 20 分钟')),
                           const SizedBox(height: 12),
                           TextField(
+                              key: const Key('automatic-success-criteria'),
+                              controller: _successCriteria,
+                              enabled: !busy,
+                              maxLines: 2,
+                              decoration: const InputDecoration(
+                                  labelText: '做到什么算完成（可选）',
+                                  hintText: '例如：一周完成 3 次')),
+                          const SizedBox(height: 12),
+                          TextField(
                               key: const Key('automatic-conditions'),
                               controller: _conditions,
                               enabled: !busy,
                               maxLines: 2,
                               decoration: const InputDecoration(
-                                  labelText: '现状 / 限制（可选）',
+                                  labelText: '当前情况（可选）',
                                   hintText: '例如：工作日很累，晚上只有十分钟')),
+                          const SizedBox(height: 12),
+                          TextField(
+                              key: const Key('automatic-constraints'),
+                              controller: _constraints,
+                              enabled: !busy,
+                              maxLines: 2,
+                              decoration: const InputDecoration(
+                                  labelText: '执行限制（可选）',
+                                  hintText: '例如：不额外花钱，每天不超过 20 分钟')),
                           const SizedBox(height: 12),
                           FilledButton(
                               key: const Key('automatic-save-goal'),
@@ -325,11 +355,7 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                                 child: Text(_contextNotice!)),
                         ],
                       )),
-                      if (strategy.contextRecords.any((e) => <String>[
-                            'goal',
-                            'personal_asset',
-                            'constraint'
-                          ].contains((e['ref'] as Map?)?['type'])))
+                      if (_additionalContextRecords.isNotEmpty)
                         _records(history: false),
                       if (strategy.contextRecords.any((e) => <String>[
                             'strategy',
@@ -338,11 +364,10 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                             'review'
                           ].contains((e['ref'] as Map?)?['type'])))
                         _records(history: true),
-                      if (agent.connected) _connection(),
                       const Padding(
                           padding: EdgeInsets.fromLTRB(8, 12, 8, 0),
                           child: Text(
-                              '你的资料和行动历史保存在本机。生成计划与复盘时，当前目标、现状和相关历史会发送给你连接的 AI。',
+                              '你的资料和行动历史保存在本机。生成计划与复盘时，当前目标、成功标准、现状、执行限制和相关历史会发送给你连接的 AI。',
                               style: TextStyle(
                                   fontSize: 12, color: Colors.black54))),
                     ],
@@ -475,6 +500,24 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
         ],
       ));
 
+  List<Map<String, Object?>> get _additionalContextRecords {
+    final editableIds = <Object?>[
+      strategy.personalGoalRecord,
+      strategy.personalCurrentStateRecord,
+      strategy.personalConstraintRecord,
+    ]
+        .whereType<Map<String, Object?>>()
+        .map((record) => (record['ref'] as Map?)?['id'])
+        .whereType<String>()
+        .toSet();
+    return strategy.contextRecords.where((record) {
+      final ref = record['ref'] as Map?;
+      return <String>['goal', 'personal_asset', 'constraint']
+              .contains(ref?['type']) &&
+          !editableIds.contains(ref?['id']);
+    }).toList(growable: false);
+  }
+
   Widget _records({required bool history}) {
     final labels = history
         ? <String, String>{
@@ -488,17 +531,20 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
             'personal_asset': '个人情况',
             'constraint': '执行限制'
           };
-    final records = <Map<String, Object?>>[
-      for (final type in labels.keys)
-        ...strategy.contextRecords
-            .where((e) => (e['ref'] as Map?)?['type'] == type),
-    ];
+    final records = history
+        ? <Map<String, Object?>>[
+            for (final type in labels.keys)
+              ...strategy.contextRecords
+                  .where((e) => (e['ref'] as Map?)?['type'] == type),
+          ]
+        : _additionalContextRecords;
     return Card(
         child: ExpansionTile(
       key: Key(history ? 'automatic-history' : 'automatic-saved-context'),
-      title: Text(history ? '行动历史' : '已保存的个人资料'),
-      subtitle:
-          Text(history ? '计划、执行结果和 AI 复盘' : '共 ${records.length} 条目标与个人条件'),
+      title: Text(history ? '行动历史' : '其他个人资料'),
+      subtitle: Text(history
+          ? '计划、执行结果和 AI 复盘'
+          : '共 ${records.length} 条补充资料'),
       children: records.map((record) {
         final type = (record['ref'] as Map)['type'] as String;
         final data = record['data'] as Map;

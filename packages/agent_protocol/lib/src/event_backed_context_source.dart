@@ -39,6 +39,9 @@ final class EventBackedAgentContextSource implements AgentContextSource {
             record.ref.type != 'personal_asset' ||
             !const <String>{'archived', 'superseded'}
                 .contains(record.data['state']))
+        .where((record) =>
+            record.ref.type != 'constraint' ||
+            record.data['state'] != 'archived')
         .toList(growable: false)
       ..sort((left, right) {
         final typeOrder = left.ref.type.compareTo(right.ref.type);
@@ -82,7 +85,8 @@ final class EventBackedAgentContextSource implements AgentContextSource {
     final key = '${ref.type}:${ref.id.value}';
     ObjectRef? legacyGoal;
     for (final event in events) {
-      if (event.eventType == EventTypes.personalAssetRecorded) {
+      if (event.eventType == EventTypes.personalAssetRecorded ||
+          event.eventType == EventTypes.constraintRecorded) {
         final goals = event.sourceRefs.where((source) => source.type == 'goal');
         if (goals.isNotEmpty) legacyGoal = goals.first;
       }
@@ -120,7 +124,8 @@ final class EventBackedAgentContextSource implements AgentContextSource {
       if (reduction.disposition != ReductionDisposition.applied) continue;
       projections = Map<String, ObjectProjection>.of(reduction.projections);
       seen = Set<String>.of(reduction.seenEventIds);
-      if (event.eventType == EventTypes.personalAssetRecorded) {
+      if (event.eventType == EventTypes.personalAssetRecorded ||
+          event.eventType == EventTypes.constraintRecorded) {
         final goals = event.sourceRefs.where((source) => source.type == 'goal');
         if (goals.isNotEmpty) {
           legacyGoals[event.subjectRefs.first.id.value] = goals.first;

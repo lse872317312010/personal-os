@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-08 — Structured Web profile editing
+
+- Added editable success criteria and execution constraints alongside the goal and current situation;
+- Saved profile changes as revision-checked, append-only events, including clearing optional facts without leaving stale active constraints;
+- Kept the AI connection in one predictable location and removed duplicate display of the current goal and situation;
+- Added reload and next-Agent-request coverage for all profile fields.
+
 ## 2026-10-08 — Web browser validation; desktop maintenance paused
 
 - Paused automatic Windows/Linux portable packaging and release updates;

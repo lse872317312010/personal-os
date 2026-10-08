@@ -115,9 +115,13 @@ formal plans still use the existing bundle validation and user decisions.
 Changing the connection or model, refreshing it, or failing a later test clears
 the previous response status. Check results are not persisted as personal data.
 
-Saved personal facts and goals are shown in **已保存的个人资料**. Suggested plans,
-execution reports, outcomes and reviews are shown separately in **行动历史**.
-Both cards are collapsed by default so the current action stays prominent.
+The goal editor keeps the current goal, success criteria, current situation and
+execution constraints together, so edits stay with the structured facts used
+for the next Agent request. The same editable fields restore after reload.
+Unrelated or supplementary facts appear in **其他个人资料**; current goal and
+current situation are not repeated in a second card. Suggested plans, execution
+reports, outcomes and reviews appear in **行动历史**. Both cards are collapsed
+by default so the current action stays prominent.
 
 ## Other model or Agent connections
 
