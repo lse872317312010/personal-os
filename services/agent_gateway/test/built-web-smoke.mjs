@@ -179,9 +179,16 @@ try {
         if (y > 40 && y < viewport.height - 54) {
           await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
           await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
-          await call('Input.insertText', { text });
+          await call('DOM.focus', { backendNodeId: node.backendDOMNodeId });
           await delay(100);
-          return;
+          await call('Input.insertText', { text });
+          for (let check = 0; check < 20; check++) {
+            const current = await call('Accessibility.getFullAXTree');
+            if (current.nodes.some(n => n.role?.value === 'textbox'
+              && n.name?.value?.startsWith(label) && n.value?.value === text)) return;
+            await delay(100);
+          }
+          throw Error(`Compiled app did not retain input: ${label}`);
         }
       }
       await call('Input.dispatchMouseEvent', { type: 'mouseWheel', x: viewport.width / 2, y: 600, deltaX: 0, deltaY: 200 });
