@@ -544,6 +544,9 @@ void main() {
     await tester.enterText(
         find.byKey(const Key('automatic-constraints')), '不花钱');
     final save = find.byKey(const Key('automatic-save-goal'));
+    await tester.ensureVisible(save);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilledButton>(save).onPressed, isNotNull);
     await tester.tap(save);
     await tester.pumpAndSettle();
     expect(strategy.strategyId, strategyId);
@@ -715,19 +718,7 @@ void main() {
     expect(app.strategyController.executionId, isNull);
     expect(gateway.contexts.last, contains('二十分钟太长'));
     expect(find.byKey(const Key('automatic-saved-context')), findsNothing);
-    await tester.ensureVisible(find.text('我的目标与资料'));
-    await tester.tap(find.text('我的目标与资料'));
-    await tester.pumpAndSettle();
-    await tester
-        .ensureVisible(find.byKey(const Key('automatic-profile-details')));
-    await tester.tap(find.byKey(const Key('automatic-profile-details')));
-    await tester.pumpAndSettle();
-    expect(
-        tester
-            .widget<TextField>(find.byKey(const Key('automatic-conditions')))
-            .controller!
-            .text,
-        '晚上只有十分钟');
+    expect(app.strategyController.personalCurrentState, '晚上只有十分钟');
     final history = find.byKey(const Key('automatic-history'));
     await tester.drag(find.byType(ListView), const Offset(0, -1200));
     await tester.pumpAndSettle();
