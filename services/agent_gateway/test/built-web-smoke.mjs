@@ -202,7 +202,7 @@ try {
   let saved = false;
   for (let attempt = 0; attempt < 80 && !saved; attempt++) {
     const ax = await call('Accessibility.getFullAXTree');
-    saved = ax.nodes.some(n => n.name?.value?.includes('使用 CI 测试模型'))
+    saved = connections.current.label === 'CI 测试模型'
       && !ax.nodes.some(n => n.role?.value === 'textbox' && n.name?.value?.startsWith('连接名称'));
     if (!saved) await delay(100);
   }
@@ -324,6 +324,13 @@ try {
 } catch (error) {
   if (call) {
     try {
+      const ax = await call('Accessibility.getFullAXTree');
+      // This browser contains only the disposable CI form inputs, never user
+      // credentials or real personal context. Keep diagnostics scoped to UI.
+      console.log('Disposable fixture UI at failure:', JSON.stringify(ax.nodes
+        .filter(n => ['textbox', 'button', 'StaticText'].includes(n.role?.value))
+        .map(n => ({ role: n.role?.value, name: n.name?.value, value: n.value?.value }))));
+      console.log('Disposable fixture selected connection:', JSON.stringify({ label: connections.current.label, kind: connections.current.config.kind }));
       const screenshot = await call('Page.captureScreenshot', { format: 'png' });
       await mkdir('build', { recursive: true });
       await writeFile(screenshotPath('check-failure'), Buffer.from(screenshot.data, 'base64'));
