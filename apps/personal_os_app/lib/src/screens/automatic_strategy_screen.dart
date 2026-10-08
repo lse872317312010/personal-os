@@ -316,6 +316,21 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                               enabled: !busy,
                               decoration: const InputDecoration(
                                   labelText: '目标', hintText: '例如：每天学习 20 分钟')),
+                          const SizedBox(height: 12),
+                          FilledButton(
+                              key: const Key('automatic-save-goal'),
+                              onPressed: busy || _goal.text.trim().isEmpty
+                                  ? null
+                                  : _saveGoal,
+                              child: Text(strategy.personalGoalRecord != null
+                                  ? '保存资料'
+                                  : agent.connected
+                                      ? '保存并生成行动计划'
+                                      : '保存目标')),
+                          if (_contextNotice != null)
+                            Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(_contextNotice!)),
                           ExpansionTile(
                             key: const Key('automatic-profile-details'),
                             tilePadding: EdgeInsets.zero,
@@ -354,21 +369,6 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                                       hintText: '例如：不额外花钱，每天不超过 20 分钟')),
                             ],
                           ),
-                          const SizedBox(height: 12),
-                          FilledButton(
-                              key: const Key('automatic-save-goal'),
-                              onPressed: busy || _goal.text.trim().isEmpty
-                                  ? null
-                                  : _saveGoal,
-                              child: Text(strategy.personalGoalRecord != null
-                                  ? '保存资料'
-                                  : agent.connected
-                                      ? '保存并生成行动计划'
-                                      : '保存目标')),
-                          if (_contextNotice != null)
-                            Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Text(_contextNotice!)),
                         ],
                       )),
                       if (_additionalContextRecords.isNotEmpty)

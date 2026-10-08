@@ -543,8 +543,6 @@ void main() {
         find.byKey(const Key('automatic-conditions')), '周末有时间');
     await tester.enterText(
         find.byKey(const Key('automatic-constraints')), '不花钱');
-    await tester.tap(find.byKey(const Key('automatic-profile-details')));
-    await tester.pumpAndSettle();
     final save = find.byKey(const Key('automatic-save-goal'));
     await tester.tap(save);
     await tester.pumpAndSettle();
@@ -673,8 +671,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(
         find.byKey(const Key('automatic-conditions')), '晚上只有十分钟');
-    await tester.tap(find.byKey(const Key('automatic-profile-details')));
-    await tester.pumpAndSettle();
     final saveProfile = find.byKey(const Key('automatic-save-goal'));
     await tester.tap(saveProfile);
     await tester.pumpAndSettle();
