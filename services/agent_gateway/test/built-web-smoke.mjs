@@ -241,24 +241,7 @@ try {
   // disposable CI data; choosing "没做" explicitly avoids claiming execution.
   await call('Input.dispatchMouseEvent', { type: 'mouseWheel', x: viewport.width / 2, y: 500, deltaX: 0, deltaY: -1600 });
   await delay(300);
-  const goalDeadline = Date.now() + 15_000;
-  let filledGoal = false;
-  while (Date.now() < goalDeadline && !filledGoal) {
-    const ax = await call('Accessibility.getFullAXTree');
-    const goal = ax.nodes.find(n => n.role?.value === 'textbox' && n.name?.value?.startsWith('目标'));
-    if (goal?.backendDOMNodeId) {
-      const { model } = await call('DOM.getBoxModel', { backendNodeId: goal.backendDOMNodeId });
-      const x = (model.content[0] + model.content[2]) / 2, y = (model.content[1] + model.content[5]) / 2;
-      if (y > 40 && y < viewport.height - 54) {
-        await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
-        await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
-        await call('Input.insertText', { text: 'CI 目标：验证一键反馈' });
-        filledGoal = true;
-      }
-    }
-    if (!filledGoal) await delay(150);
-  }
-  assert.ok(filledGoal, 'Compiled app goal input was unavailable');
+  await enterText('目标', 'CI 目标：验证一键反馈');
   await clickButton('保存并生成行动计划');
   await clickButton('就按这个计划开始');
   await delay(250);
