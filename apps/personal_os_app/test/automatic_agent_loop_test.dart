@@ -14,13 +14,6 @@ import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
 
-Finder _pageScrollable() => find
-    .descendant(
-      of: find.byType(ListView),
-      matching: find.byType(Scrollable),
-    )
-    .first;
-
 void main() {
   test(
       'automatic HTTP transport carries context and CSRF without model credentials',
@@ -550,12 +543,9 @@ void main() {
         find.byKey(const Key('automatic-conditions')), '周末有时间');
     await tester.enterText(
         find.byKey(const Key('automatic-constraints')), '不花钱');
+    await tester.tap(find.byKey(const Key('automatic-profile-details')));
+    await tester.pumpAndSettle();
     final save = find.byKey(const Key('automatic-save-goal'));
-    await tester.scrollUntilVisible(
-      save,
-      250,
-      scrollable: _pageScrollable(),
-    );
     await tester.tap(save);
     await tester.pumpAndSettle();
     expect(strategy.strategyId, strategyId);
@@ -683,12 +673,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(
         find.byKey(const Key('automatic-conditions')), '晚上只有十分钟');
+    await tester.tap(find.byKey(const Key('automatic-profile-details')));
+    await tester.pumpAndSettle();
     final saveProfile = find.byKey(const Key('automatic-save-goal'));
-    await tester.scrollUntilVisible(
-      saveProfile,
-      250,
-      scrollable: _pageScrollable(),
-    );
     await tester.tap(saveProfile);
     await tester.pumpAndSettle();
     expect(gateway.stages, <String>['proposal']);
@@ -746,11 +733,9 @@ void main() {
             .text,
         '晚上只有十分钟');
     final history = find.byKey(const Key('automatic-history'));
-    await tester.scrollUntilVisible(
-      history,
-      250,
-      scrollable: _pageScrollable(),
-    );
+    await tester.drag(find.byType(ListView), const Offset(0, -1200));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(history);
     await tester.tap(find.text('行动历史'));
     await tester.pumpAndSettle();
     expect(find.descendant(of: history, matching: find.text('实际结果')),
