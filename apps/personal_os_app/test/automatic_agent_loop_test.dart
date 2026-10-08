@@ -571,7 +571,8 @@ void main() {
     await tester.ensureVisible(find.text('我的目标与资料'));
     await tester.tap(find.text('我的目标与资料'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('automatic-profile-details')));
+    await tester
+        .ensureVisible(find.byKey(const Key('automatic-profile-details')));
     await tester.tap(find.byKey(const Key('automatic-profile-details')));
     await tester.pumpAndSettle();
     expect(text('automatic-goal'), '学习十分钟');
@@ -721,7 +722,8 @@ void main() {
     await tester.ensureVisible(find.text('我的目标与资料'));
     await tester.tap(find.text('我的目标与资料'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const Key('automatic-profile-details')));
+    await tester
+        .ensureVisible(find.byKey(const Key('automatic-profile-details')));
     await tester.tap(find.byKey(const Key('automatic-profile-details')));
     await tester.pumpAndSettle();
     expect(
