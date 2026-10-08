@@ -22,6 +22,7 @@ void main() {
     expect(view?.proposalTitle, 'Run experiment');
     expect(view?.proposalEvidenceRefs, <String>['goal:goal-1@1']);
     expect(view?.executionId?.value, 'execution-1');
+    expect(view?.executionActionId, 'action-1');
     expect(view?.outcomeId?.value, 'outcome-1');
     expect(view?.reviewId?.value, 'review-1');
     expect(view?.reviewState, ReviewState.accepted.name);

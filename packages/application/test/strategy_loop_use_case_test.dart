@@ -279,7 +279,7 @@ void main() {
     );
     expect(store.batches, hasLength(3));
     expect(
-        _project(store)['constraint:' + constraintRef.id.value]!
+        _project(store)['constraint:${constraintRef.id.value}']!
             .attributes['content'],
         'Keep the original restriction');
   });

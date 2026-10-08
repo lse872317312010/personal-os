@@ -279,7 +279,10 @@ final class StrategyLoopController extends ChangeNotifier {
     _strategyRevision = view.strategyRevision;
     _strategyState = view.strategyState;
     _strategyActions = List<StrategySessionAction>.unmodifiable(view.actions);
-    _selectedActionId = _defaultActionSelection(_strategyActions);
+    _selectedActionId =
+        _strategyActions.any((action) => action.id == view.executionActionId)
+            ? view.executionActionId
+            : _defaultActionSelection(_strategyActions);
     _executionId = view.executionId;
     _outcomeId = view.outcomeId;
     _contextBundle = null;

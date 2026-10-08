@@ -1,8 +1,8 @@
 # Personal OS
 
-一个Android-first、Agent-agnostic的个人策略资产与反馈闭环系统。
+一个 Agent-agnostic 的个人策略资产与反馈闭环系统，当前优先本机 Web，后续保留 Android 设备方向。
 
-应用的能力由用户选择的 GPT 或其他外部 Agent 提供；Personal OS 保存结构化个人资料和连续历史，让常用 Agent 能基于这些数据继续规划和复盘。当前优先打通整套闭环，并在 Web 展示操作流程，随后验证 Android 真机。见[优先级决策 0016](docs/decisions/0016-agent-access-and-web-loop-first.md)。
+应用的能力由用户选择的 GPT 或其他外部 Agent 提供；Personal OS 保存结构化个人资料和连续历史，让常用 Agent 能基于这些数据继续规划和复盘。当前计划是固定 Web 候选版本、验证真实 Agent 和两轮使用，再验证变化展示、跨 Agent 接续和 Web 数据恢复。见[当前路线图](docs/ROADMAP.md)。
 
 当前聚焦 Web 浏览器内的真实可用性和自动 Agent 闭环。Windows/Linux 启动包维护、Android 真机与两端同步后排；桌面包不再自动构建发布。见[Web 验证决策 0019](docs/decisions/0019-web-validation-only.md)。
 
@@ -13,6 +13,8 @@ Personal OS保存个人已有资产、当前状态、目标、约束、策略、
 [既有公开入口](https://lse872317312010.github.io/personal-os/) · [历史启动包（暂停维护）](https://github.com/lse872317312010/personal-os/releases/tag/automatic-agent-web)
 
 当前直接验证编译后的浏览器应用，测试服务由 Node 启动，不依赖 Windows 批处理或桌面启动包。CI 覆盖 390×844 和 1440×900 两种浏览器尺寸，从页面内填写 Agent 连接开始，完成计划、反馈、复盘及刷新恢复。网关仍承担凭据和历史存储；公开静态入口尚不是可独立调用 AI 的线上应用。
+
+从源码运行 Web 版需要 Node.js 22+、Flutter SDK；字体缺失或校验失败时还需要 Python 3 和网络。在仓库根目录执行 `npm --prefix services/agent_gateway run web`，脚本会构建 Web 应用、启动本机网关并打开浏览器。中文字体使用仓库固定版本。停止进程即可关闭本地服务。
 
 首次使用 **Continue with ChatGPT** 登录并授权；后续请求和回复在应用内自动完成，无需复制提示词、粘贴回复或导入 JSON。桌面启动脚本已保留，但其启动问题暂不作为 Web 验证任务处理。
 
@@ -101,6 +103,8 @@ Personal OS保存个人已有资产、当前状态、目标、约束、策略、
 这些代码是新方向的重要基础。现有 Android 内置 OpenAI 路径、原生 Windows spike 和多设备同步不属于当前 MVP 主线；本机 Web 自动接入沿用共享策略协议和 Application API。
 
 ## 当前状态
+
+当前 Web 阶段的本地验证结果、未验收项和下一阶段顺序见[Web 阶段记录](docs/WEB_STATUS.md)。
 
 外部Agent策略主链已进入设备与真实使用验证阶段：
 

@@ -198,6 +198,111 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('restored execution outcome retries without inventing effects',
+      (tester) async {
+    final gateway = _TestGateway();
+    final store = LocalAgentEventStore(gateway);
+    await store.load();
+    final first =
+        AppComposition.localAgent(gateway: gateway, eventStore: store);
+    await first.strategyController.savePersonalContext(goal: '补交真实结果');
+    await first.automaticAgent!.connect();
+    await first.automaticAgent!.generate();
+    await first.strategyController.decideProposal(ProposalDecision.accept);
+    await first.strategyController.activateStrategy();
+    await first.strategyController.recordExecution(
+        actionId: first.strategyController.strategyActions.first.id,
+        executionStatus: ExecutionStatus.completed,
+        note: '执行已记录');
+    first.automaticAgent!.dispose();
+    first.strategyController.dispose();
+
+    final restoredStore = LocalAgentEventStore(gateway);
+    await restoredStore.load();
+    final restored =
+        AppComposition.localAgent(gateway: gateway, eventStore: restoredStore);
+    addTearDown(restored.strategyController.dispose);
+    addTearDown(restored.automaticAgent!.dispose);
+    await tester.pumpWidget(PersonalOsApp(composition: restored));
+    await tester.pumpAndSettle();
+    final input = find.byKey(const Key('outcome-input'));
+    final save = find.byKey(const Key('record-outcome'));
+    await tester.enterText(input, '做了十分钟，效果还不确定');
+    await tester.ensureVisible(save);
+    gateway.rejectNextHistoryWrite = true;
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    expect(restored.strategyController.outcomeId, isNull);
+    expect(_eventPayloads(gateway, 'outcome.recorded'), isEmpty);
+    expect(tester.widget<TextField>(input).controller!.text, '做了十分钟，效果还不确定');
+    expect(gateway.stages, <String>['proposal']);
+
+    gateway.failure = const AgentGatewayException('provider_unreachable');
+    await tester.tap(save);
+    await tester.pumpAndSettle();
+    final outcome = _eventPayloads(gateway, 'outcome.recorded').single;
+    expect(outcome['valence'], 'neutral');
+    expect(outcome['metrics'], isEmpty);
+    expect(outcome['observation'], '做了十分钟，效果还不确定');
+    expect(restored.automaticAgent!.error, contains('无法访问 AI 服务'));
+    final savedEvents = jsonEncode(gateway.events);
+    await restored.automaticAgent!.saveOutcome('重复提交');
+    expect(jsonEncode(gateway.events), savedEvents);
+    expect(gateway.stages, <String>['proposal', 'review']);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    gateway.failure = null;
+    final nextStore = LocalAgentEventStore(gateway);
+    await nextStore.load();
+    final next =
+        AppComposition.localAgent(gateway: gateway, eventStore: nextStore);
+    addTearDown(next.strategyController.dispose);
+    addTearDown(next.automaticAgent!.dispose);
+    await tester.pumpWidget(PersonalOsApp(composition: next));
+    await tester.pumpAndSettle();
+    expect(_eventPayloads(gateway, 'execution.recorded'), hasLength(1));
+    expect(_eventPayloads(gateway, 'outcome.recorded'), hasLength(1));
+    expect(gateway.stages, <String>['proposal', 'review', 'review']);
+    expect(gateway.contexts.last, contains('做了十分钟，效果还不确定'));
+    expect(next.strategyController.hasPendingReview, true);
+    expect(tester.takeException(), isNull);
+  });
+
+  test('outcome save stays busy until persisted and ignores concurrent saves',
+      () async {
+    final gateway = _TestGateway();
+    final store = LocalAgentEventStore(gateway);
+    await store.load();
+    final app = AppComposition.localAgent(gateway: gateway, eventStore: store);
+    addTearDown(app.strategyController.dispose);
+    addTearDown(app.automaticAgent!.dispose);
+    final agent = app.automaticAgent!, strategy = app.strategyController;
+    await strategy.savePersonalContext(goal: '保存期间只写一次');
+    await agent.connect();
+    await agent.generate();
+    await strategy.decideProposal(ProposalDecision.accept);
+    await strategy.activateStrategy();
+    await strategy.recordExecution(
+        actionId: strategy.strategyActions.first.id,
+        executionStatus: ExecutionStatus.completed);
+    gateway.delayedHistoryWrite = Completer<void>();
+    gateway.nextHistoryWriteStarted = Completer<void>();
+    final saving = agent.saveOutcome('用户原始结果');
+    await gateway.nextHistoryWriteStarted!.future
+        .timeout(const Duration(seconds: 5));
+    expect(agent.busy, true);
+    expect(agent.savingFeedback, true);
+    await agent.saveOutcome('重复点击');
+    expect(gateway.stages, <String>['proposal']);
+    gateway.delayedHistoryWrite!.complete();
+    await saving;
+    expect(_eventPayloads(gateway, 'outcome.recorded').single['observation'],
+        '用户原始结果');
+    expect(gateway.stages, <String>['proposal', 'review']);
+    expect(agent.busy, false);
+    expect(agent.savingFeedback, false);
+  });
+
   test('feedback saves offline and ignores double submission during review',
       () async {
     final gateway = _TestGateway();
@@ -592,6 +697,10 @@ void main() {
             ['title'],
         '学习十分钟');
     expect(
+        objects.where((e) => e['ref']['type'] == 'goal').single['data']
+            ['success_criteria'],
+        <String>['一周学习四次']);
+    expect(
         objects
             .where((e) => e['ref']['type'] == 'personal_asset')
             .single['data']['content'],
@@ -606,10 +715,17 @@ void main() {
     expect(restored.strategyController.personalCurrentState, '');
     await restored.automaticAgent!.decideReview(ReviewDecision.accept);
     final revised = jsonDecode(gateway.contexts.last) as Map;
+    final revisedObjects = (revised['objects'] as List).cast<Map>();
     expect(
-        (revised['objects'] as List)
-            .cast<Map>()
-            .where((e) => e['ref']['type'] == 'personal_asset'),
+        revisedObjects.where((e) => e['ref']['type'] == 'goal').single['data']
+            ['success_criteria'],
+        <String>['一周学习四次']);
+    expect(
+        revisedObjects
+            .where((e) => e['ref']['type'] == 'constraint')
+            .single['data']['content'],
+        '不花钱');
+    expect(revisedObjects.where((e) => e['ref']['type'] == 'personal_asset'),
         isEmpty);
     expect(gateway.stages, <String>['proposal', 'review', 'revision']);
     expect(tester.takeException(), isNull);
@@ -931,6 +1047,7 @@ final class _TestGateway implements AutomaticAgentGateway {
   String connectionRevision = 'test-revision-1';
   String? replyStrategyId;
   bool rejectNextHistoryWrite = false;
+  Completer<void>? delayedHistoryWrite, nextHistoryWriteStarted;
   int historyWrites = 0;
   final List<String> stages = <String>[], contexts = <String>[];
   final List<String> providersUsed = <String>[];
@@ -1050,6 +1167,11 @@ final class _TestGateway implements AutomaticAgentGateway {
       rejectNextHistoryWrite = false;
       throw const AgentGatewayException('history_write_failed');
     }
+    if (nextHistoryWriteStarted != null &&
+        !nextHistoryWriteStarted!.isCompleted) {
+      nextHistoryWriteStarted!.complete();
+    }
+    if (delayedHistoryWrite != null) await delayedHistoryWrite!.future;
     events = body['events'] as List<Object?>;
     return <String, Object?>{'revision': ++revision};
   }

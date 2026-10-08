@@ -31,7 +31,7 @@ final class StrategySessionAction {
   final String? dueAt;
 }
 
-/// Durable state needed to resume the Android strategy workflow.
+/// Durable state needed to resume the strategy workflow.
 final class StrategySessionView {
   const StrategySessionView({
     required this.sessionId,
@@ -46,6 +46,7 @@ final class StrategySessionView {
     this.parentStrategyRef,
     this.proposalEvidenceRefs = const <String>[],
     this.executionId,
+    this.executionActionId,
     this.outcomeId,
     this.reviewId,
     this.reviewState,
@@ -66,6 +67,7 @@ final class StrategySessionView {
   final String? parentStrategyRef;
   final List<String> proposalEvidenceRefs;
   final EntityId? executionId;
+  final String? executionActionId;
   final EntityId? outcomeId;
   final EntityId? reviewId;
   final String? reviewState;
@@ -174,6 +176,7 @@ final class StrategySessionQueryHandler {
         ..._list(strategy?.attributes['asset_refs']),
       ]),
       executionId: execution?.id,
+      executionActionId: _string(execution?.attributes['action_id']),
       outcomeId: outcome?.id,
       reviewId: review?.id,
       reviewState: review?.state,

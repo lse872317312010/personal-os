@@ -206,14 +206,6 @@ final class StrategyLoopUseCase {
         if (goals.isNotEmpty) stateGoal = goals.first.toJson();
       }
     }
-    if (oldState != null &&
-        (oldState.state != 'active' ||
-            oldState.attributes['source'] != 'user_input' ||
-            oldState.attributes['title'] != '当前情况' ||
-            (stateGoal is Map &&
-                stateGoal['id'] != command.goalRef.id.value))) {
-      throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
-    }
     Object? constraintGoal = oldConstraint?.attributes['goal_ref'];
     if (oldConstraint != null && constraintGoal == null) {
       final original = await _eventStore.readBySubject(command.constraintRef!);
@@ -222,6 +214,14 @@ final class StrategyLoopUseCase {
         final goals = event.sourceRefs.where((ref) => ref.type == 'goal');
         if (goals.isNotEmpty) constraintGoal = goals.first.toJson();
       }
+    }
+    if (oldState != null &&
+        (oldState.state != 'active' ||
+            oldState.attributes['source'] != 'user_input' ||
+            oldState.attributes['title'] != '当前情况' ||
+            (stateGoal is Map &&
+                stateGoal['id'] != command.goalRef.id.value))) {
+      throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
     }
     if (oldConstraint != null) {
       if (oldConstraint.objectType != 'constraint' ||

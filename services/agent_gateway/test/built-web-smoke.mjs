@@ -220,6 +220,20 @@ try {
   assert.deepEqual(await store.read('history'), historyBefore, 'Connection setup changed personal history');
   console.log(`Compiled ${viewportName} browser saved the HTTP Agent through the UI without creating personal facts.`);
   await call('Page.reload', { ignoreCache: true });
+  let connectedHomeCollapsed = false;
+  for (let attempt = 0; attempt < 60 && !connectedHomeCollapsed; attempt++) {
+    await call('Runtime.evaluate', { expression: "document.querySelector('flt-semantics-placeholder')?.click()" });
+    const ax = await call('Accessibility.getFullAXTree');
+    const connectedHeading = ax.nodes.some(n => n.role?.value === 'button'
+      && n.name?.value?.includes('使用 CI 测试模型'));
+    const setupActions = ax.nodes.some(n => n.name?.value?.includes('接入其他 AI'));
+    connectedHomeCollapsed = connectedHeading && !setupActions;
+    if (!connectedHomeCollapsed) await delay(100);
+  }
+  assert.ok(connectedHomeCollapsed, 'Saved connection controls should start collapsed after reload');
+  const connectedHome = await call('Page.captureScreenshot', { format: 'png' });
+  await writeFile(screenshotPath('connected-default'), Buffer.from(connectedHome.data, 'base64'));
+  console.log(`Compiled ${viewportName} connected home keeps connection management collapsed.`);
   await clickButton('使用 CI 测试模型', { expand: true });
   await delay(250);
   await clickButton('测试 AI 连接');
