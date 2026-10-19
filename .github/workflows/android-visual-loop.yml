@@ -1,0 +1,24 @@
+name: Android visual loop policy
+on:
+  pull_request:
+    paths: ['tools/android-automation/**', '.github/workflows/android-visual-loop.yml']
+  push:
+    paths: ['tools/android-automation/**', '.github/workflows/android-visual-loop.yml']
+permissions:
+  contents: read
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test tools/android-automation/test/core.test.cjs
+      - run: node tools/android-automation/build.mjs
+      - run: node --check tools/android-automation/dist/PersonalOS-VisualLoop.js
+      - run: git diff --exit-code -- tools/android-automation/dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PersonalOS-VisualLoop-script
+          path: tools/android-automation/dist/PersonalOS-VisualLoop.js
