@@ -19,10 +19,11 @@ BASE_SHA256 = {
     'a37d6978389396e91e3a34316059fa41ce29d66f69478b938567fd48a7265e74',
     '1a161b7240f3ab71c39a585ef7566e2bccabcd2e470ae69d0ca05a71dbefbc15',
     '7c774de4b89c9287017f081373eaf6e514e033e5495ba876858ee6173e6660d6',
+    '219ddb6fbeac362a9236b17848fb3c5edbfbbe20f2a7376d3082ef55d5f0cb4f',
 }
 RUNTIME = ['server.mjs', 'chatgpt-auth.mjs', 'connections.mjs', 'providers.mjs',
            'codex-cli.mjs', 'diagnostics.mjs', 'acceptance.mjs', 'protected-store.mjs', 'package.json']
-DEPLOYMENT = ['Dockerfile', 'compose.yaml', 'install-docker-ubuntu.sh', 'backup-data.sh', 'restore-data.sh', 'validate-backup.py']
+DEPLOYMENT = ['Dockerfile', 'compose.yaml', 'install-docker-ubuntu.sh', 'backup-data.sh', 'restore-data.sh', 'validate-backup.py', 'personal-os.sh']
 DOCS = {'README.md': 'docs/ORACLE_ALWAYS_FREE_EXPERIMENT.md',
         'START_HERE.md': 'docs/ORACLE_ALWAYS_FREE_START_HERE.md'}
 REQUIRED_WEB = {'index.html', 'flutter_bootstrap.js', 'main.dart.js', 'fonts/NotoSansSC.ttf'}

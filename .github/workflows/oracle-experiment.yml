@@ -32,8 +32,10 @@ jobs:
         run: python3 tool/oracle/test-prepare-experiment.py
       - name: Backup archive safety tests
         run: python3 tool/oracle/test-backup-format.py
+      - name: Server controls routing tests (no Docker or inference)
+        run: python3 tool/oracle/test-controls.py
       - name: Shell syntax
-        run: bash -n tool/oracle/install-docker-ubuntu.sh tool/oracle/backup-data.sh tool/oracle/restore-data.sh
+        run: bash -n tool/oracle/install-docker-ubuntu.sh tool/oracle/backup-data.sh tool/oracle/restore-data.sh tool/oracle/personal-os.sh
   container-arm64:
     needs: gateway
     runs-on: ubuntu-24.04-arm

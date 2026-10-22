@@ -120,12 +120,14 @@ sha256sum -c SHA256SUMS
 
 ```bash
 sudo bash install-docker-ubuntu.sh
-sudo docker compose config --quiet
-sudo docker compose up --build -d
+bash personal-os.sh start
 sudo docker compose ps
 ```
 
 安装脚本仅使用 Docker 官方 apt 仓库，识别 Arm64/x86_64 Ubuntu LTS。
+`start` 会检查部署包 SHA256SUMS、核对 Compose 配置并等待服务 healthy。
+它从脚本所在目录运行固定 Compose 文件，自动使用当前 Docker 权限或非交互
+sudo；不会登录账号、调用 AI 或删除资料卷。
 如果已有可用 Docker/Compose 就退出；遇到不完整安装或冲突包会停止，
 不会自动卸载现有容器软件。初次启动会拉取 `node:22-bookworm-slim` 并构建
 网关映像，网络耗时取决于实例的实际连接。
@@ -169,7 +171,7 @@ Docker 的 healthy 仅检查 `/api/health`；没有登录也可以 healthy。
 在同一云端部署目录执行：
 
 ```bash
-sudo docker compose exec gateway codex login --device-auth
+bash personal-os.sh login
 sudo docker compose exec gateway codex login status
 ```
 
@@ -194,13 +196,14 @@ sudo docker compose exec gateway codex login status
 也可以在云端部署目录执行：
 
 ```bash
-sudo docker compose exec -T gateway node acceptance.mjs --run-inference
+bash personal-os.sh test-ai
 ```
 
 它通过现有 HTTP 网关读取当前连接与模型列表，再发送一次固定内容的
 `/api/agent/check`；会消耗订阅额度。它不切换连接、不读取或写入个人历史、
 不输出账号、令牌、CSRF 或模型原文，也不会在失败后自动重试或转用付费 API。
-不加 `--run-inference` 时只显示用法，不发请求，退出码 2。
+`test-ai` 是显式调用入口，会传入 `--run-inference`。直接运行容器内的
+`node acceptance.mjs` 且不加此参数时只显示用法，不发请求，退出码 2。
 
 成功结果为 `inference_passed=true`、`code=passed`、退出码 0。
 `inference_attempted=true` 仅表示向网关发送了测试请求，不能单独证明模型完成回复。
@@ -257,12 +260,14 @@ http://127.0.0.1:8787
 | 操作 | 命令 |
 | --- | --- |
 | 再次启动 | `sudo docker compose up -d` |
+| 校验包、构建并等待健康启动 | `bash personal-os.sh start` |
 | 查看状态 | `sudo docker compose ps` |
-| 无 AI 额度消耗的部署诊断 | `sudo docker compose exec -T gateway node diagnostics.mjs` |
-| 调用一次固定内容验收，会消耗订阅额度 | `sudo docker compose exec -T gateway node acceptance.mjs --run-inference` |
+| 无 AI 额度消耗的部署诊断 | `bash personal-os.sh status` |
+| ChatGPT 设备码登录，需要交互式 SSH 终端 | `bash personal-os.sh login` |
+| 调用一次固定内容验收，会消耗订阅额度 | `bash personal-os.sh test-ai` |
 | 查看最近日志 | `sudo docker compose logs --tail=80 gateway` |
 | 重启网关 | `sudo docker compose restart gateway` |
-| 停止网关 | `sudo docker compose stop` |
+| 停止网关，保留资料与登录卷 | `bash personal-os.sh stop` |
 | 停止并移除容器、保留历史卷 | `sudo docker compose down` |
 
 Docker 与容器重启策略已启用，正常 VM 重启后服务会重新运行；本机 SSH

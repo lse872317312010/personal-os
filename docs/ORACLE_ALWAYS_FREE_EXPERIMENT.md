@@ -89,6 +89,10 @@ f0144a03c356998c8a2acde6cd84aa36393f0a3cebdc033ad0de4392e9d3c1bd
 
 ## 云实例上运行
 
+部署包包含统一入口 `personal-os.sh`：`start` 校验并启动、`status` 只做诊断、
+`login` 设备码登录、`test-ai` 显式调用一次固定测试内容、`stop` 停止并保留卷。
+具体命令见 `START_HERE.md`。首次安装 Docker 后无需逐条拼接 Compose 命令。
+
 1. 安装官方 [Docker Engine](https://docs.docker.com/engine/install/ubuntu/)
    及 Compose 插件，然后把部署目录传到自己的实例。
 2. 在部署目录核对文件并启动：

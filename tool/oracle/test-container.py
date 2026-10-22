@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
@@ -92,6 +93,8 @@ class ContainerTest:
             path = self.context / 'web' / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('container-test-fixture:' + name)
+        files = sorted(path for path in self.context.rglob('*') if path.is_file())
+        (self.context / 'SHA256SUMS').write_text(''.join(f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.relative_to(self.context).as_posix()}\n' for path in files))
 
     def test(self):
         # Refuse to disturb any existing gateway, even on a developer machine.
@@ -99,9 +102,7 @@ class ContainerTest:
             probe.bind(('127.0.0.1', 8787))
         self.prepare_context()
         try:
-            self.compose('config', '--quiet')
-            self.compose('build', 'gateway', timeout=600, stream=True)
-            self.compose('up', '-d', '--wait', '--wait-timeout', '90', timeout=120)
+            self.run(['bash', 'personal-os.sh', 'start'], timeout=720, stream=True)
             self.ready()
             self.passed('image build and unauthenticated healthy startup')
 
@@ -127,7 +128,7 @@ class ContainerTest:
             self.execute('node', '-e', "const fs=require('node:fs');for(const p of ['/var/lib/personal-os','/home/node/.codex'])if((fs.statSync(p).mode&511)!==448)process.exit(1);try{fs.writeFileSync('/opt/personal-os/readonly-probe','x');process.exit(1)}catch(e){if(!['EROFS','EACCES'].includes(e.code))process.exit(1)}fs.writeFileSync('/tmp/writable-probe','fixture');fs.unlinkSync('/tmp/writable-probe')")
             status = self.request('/api/agent/status')
             assert status['provider'] == 'codex-cli' and status['connected'] is False
-            report = json.loads(self.execute('node', 'diagnostics.mjs', expected=2))
+            report = json.loads(self.run(['bash', 'personal-os.sh', 'status'], expected=2))
             assert [item['check'] for item in report['checks'] if not item['ok']] == ['chatgpt_login']
             assert report['inference_tested'] is False
             report = json.loads(self.execute('node', 'acceptance.mjs', expected=2))
@@ -159,7 +160,7 @@ class ContainerTest:
                 assert not unsupported, 'Backup contains entries the restore validator would reject'
             self.passed('real stopped-write backup captures both volumes and resumes service')
 
-            self.compose('stop', 'gateway')
+            self.run(['bash', 'personal-os.sh', 'stop'])
             # A second project guarantees empty, separately named volumes.
             self.compose('build', 'gateway', project=self.recovery, timeout=600)
             self.run(['bash', 'restore-data.sh', str(archive)], project=self.recovery)
