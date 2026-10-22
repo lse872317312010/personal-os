@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { readFile, mkdir, open, unlink } from 'node:fs/promises';
+import { readFile, mkdir, open, unlink, chmod } from 'node:fs/promises';
 import { resolve, join, extname, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -53,12 +53,20 @@ export function createGateway({ auth, providers, connections = null, store, webR
       if (url.pathname.startsWith('/api/')) {
         if (request.headers['x-personal-os'] !== '1') throw new AgentError('local_client_required', 403);
         if (request.method !== 'GET' && request.headers['x-personal-os-csrf'] !== csrf) throw new AgentError('invalid_csrf', 403);
+        if (url.pathname === '/api/health' && request.method === 'GET') {
+          // Liveness only: no CLI process, auth, history, or AI request.
+          send(response, 200, { ok: true }); return;
+        }
         if (url.pathname === '/api/agent/status' && request.method === 'GET') {
-          send(response, 200, { provider: provider.id, connected: provider.connected, csrf, account: auth.account?.client_id || null, accounts: auth.accounts, connection_id: connections?.state.active || null, connection_revision: connections?.state.revision || null, connection_name: connections?.current.label || null, connections: connections?.summaries || [] }); return;
+          const status = await provider.status?.(controller.signal);
+          if (connections && provider !== connections.provider) throw new AgentError('connection_changed', 409);
+          send(response, 200, { provider: provider.id, connected: provider.connected, error: status?.error || null, csrf, account: provider.id === 'codex-cli' ? null : auth.account?.client_id || null, accounts: provider.id === 'codex-cli' ? [] : auth.accounts, connection_id: connections?.state.active || null, connection_revision: connections?.state.revision || null, connection_name: connections?.current.label || null, connections: connections?.summaries || [] }); return;
         }
         if (url.pathname === '/api/agent/models' && request.method === 'GET') {
           if (connections && (url.searchParams.get('connection_id') !== connections.state.active || url.searchParams.get('connection_revision') !== connections.state.revision)) throw new AgentError('connection_changed', 409);
-          send(response, 200, { models: await provider.models() }); return;
+          const models = await provider.models();
+          if (connections && provider !== connections.provider) throw new AgentError('connection_changed', 409);
+          send(response, 200, { models }); return;
         }
         if (url.pathname === '/api/agent/connections' && request.method === 'GET') {
           if (!connections) throw new AgentError('connection_settings_unavailable', 503);
@@ -106,13 +114,14 @@ export function createGateway({ auth, providers, connections = null, store, webR
         }
         if (['/api/agent/request', '/api/agent/check'].includes(url.pathname) && request.method === 'POST') {
           if (busy || authBusy || connectionWriting) throw new AgentError('agent_busy', 409);
-          if (!provider.connected) throw new AgentError('sign_in_required', 401);
           const checking = url.pathname === '/api/agent/check';
           busy = controller;
           const timeout = setTimeout(() => controller.abort(), checking ? 30_000 : 180_000);
           try {
             const body = await jsonBody(request);
             if (connections && (body.connection_id !== connections.state.active || body.connection_revision !== connections.state.revision)) throw new AgentError('connection_changed', 409);
+            const status = await provider.status?.(controller.signal);
+            if (!provider.connected) throw new AgentError(status?.error || 'sign_in_required', 401);
             // A user-initiated connectivity probe never reads personal history
             // or accepts caller-supplied context/prompt. Its response is discarded.
             const input = checking ? {
@@ -172,6 +181,7 @@ export function createGateway({ auth, providers, connections = null, store, webR
 async function main() {
   const directory = process.env.PERSONAL_OS_PROFILE || join(process.env.LOCALAPPDATA || homedir(), '.personal-os-agent');
   await mkdir(directory, { recursive: true, mode: 0o700 });
+  if (process.platform !== 'win32') await chmod(directory, 0o700);
   const lockPath = join(directory, 'runtime.lock');
   // One process per profile prevents refresh-token rotation and history races.
   let lock;
@@ -179,6 +189,9 @@ async function main() {
   catch (error) {
     if (error.code !== 'EEXIST') throw error;
     const pid = Number(await readFile(lockPath, 'utf8'));
+    // Docker restarts commonly reuse PID 1. A lock naming this new process
+    // cannot belong to another live gateway; an abrupt prior stop left it behind.
+    if (pid === process.pid) { await unlink(lockPath); return main(); }
     try { process.kill(pid, 0); throw new AgentError('runtime_already_running'); }
     catch (probe) { if (probe.code !== 'ESRCH') throw probe; await unlink(lockPath); return main(); }
   }

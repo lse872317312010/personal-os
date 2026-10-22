@@ -170,3 +170,4 @@ test('personal records are encrypted, survive restart and reject tampering', asy
   await writeFile(path, raw.slice(0, -10) + 'corrupted');
   await assert.rejects(store.read('history'), { message: 'protected_storage_unavailable' });
 });
+
