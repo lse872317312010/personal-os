@@ -13,14 +13,11 @@ import tarfile
 import tempfile
 import zipfile
 
-WEB_SHA256 = 'f0144a03c356998c8a2acde6cd84aa36393f0a3cebdc033ad0de4392e9d3c1bd'
-BASE_SHA256 = {
-    'b3ec6969b06c3c4e7b7ddf2aeabcb7458ae24c531f3ac2981b947c500ac242ed',
-    'a37d6978389396e91e3a34316059fa41ce29d66f69478b938567fd48a7265e74',
-    '1a161b7240f3ab71c39a585ef7566e2bccabcd2e470ae69d0ca05a71dbefbc15',
-    '7c774de4b89c9287017f081373eaf6e514e033e5495ba876858ee6173e6660d6',
-    '219ddb6fbeac362a9236b17848fb3c5edbfbbe20f2a7376d3082ef55d5f0cb4f',
-}
+WEB_SHA256 = '801bfa70479062cc1f51c8ede7ec90e5269ca1e484fdeea729096dcdc564b1a8'
+# Previous deployment archives contain the 19cacae Web UI. Do not relabel those
+# bytes as this candidate after the account-mode UI fixes. Pin a compatible
+# future archive explicitly before permitting --base-bundle reuse again.
+BASE_SHA256: set[str] = set()
 RUNTIME = ['server.mjs', 'chatgpt-auth.mjs', 'connections.mjs', 'providers.mjs',
            'codex-cli.mjs', 'diagnostics.mjs', 'acceptance.mjs', 'protected-store.mjs', 'package.json']
 DEPLOYMENT = ['Dockerfile', 'compose.yaml', 'install-docker-ubuntu.sh', 'backup-data.sh', 'restore-data.sh', 'validate-backup.py', 'personal-os.sh']
@@ -101,10 +98,10 @@ def prepare(archive: Path, output: Path, commit: str, *, base_bundle: bool = Fal
             target.write_bytes(content)
             target.chmod(0o755 if name.endswith('.sh') else 0o644)
         manifest = {
-            'source_commit_remote': '19cacaefa32cbaf033cc3b5e4341f425e03eb4cb',
-            'source_tree': 'a02653aa252a5cc70505c47ae08518d918d74a70',
+            'source_commit_remote': 'f8500d6beed984c2034ecd50ce3782564daed2ec',
+            'source_tree': 'b3086b47578db5c4072802d6316737b6416dd1eb',
             'web_artifact_sha256': WEB_SHA256,
-            'web_workflow_run': 37745226802,
+            'web_workflow_run': 39723058694,
             'gateway_source_commit': commit,
             'codex_cli_version': '0.162.1',
             'scope': 'private loopback gateway via SSH; ChatGPT-login Codex CLI; cloud/inference validation pending',

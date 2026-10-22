@@ -138,6 +138,19 @@ class PackagingTests(unittest.TestCase):
                 self.build()
         self.assertFalse(self.output.exists())
 
+    def test_previous_ui_bundle_cannot_be_relabelled_as_current_candidate(self):
+        self.archive = self.root / 'previous-ui.tar.gz'
+        with tarfile.open(self.archive, 'w:gz') as bundle:
+            for name in prepare.REQUIRED_WEB:
+                content = b'previous-ui'
+                info = tarfile.TarInfo('personal-os-oracle-experiment/web/' + name)
+                info.size = len(content)
+                bundle.addfile(info, io.BytesIO(content))
+        self.assertEqual(prepare.BASE_SHA256, set())
+        with self.assertRaises(ValueError):
+            self.build(base_bundle=True)
+        self.assertFalse(self.output.exists())
+
 
 if __name__ == '__main__':
     unittest.main()

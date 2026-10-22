@@ -4,6 +4,14 @@
 
 ## 实际状态
 
+网页已补齐 Codex 账号模式：连接表单不要求 API 地址或密钥，切换服务类型时
+不会把旧密钥带入账号模式；未登录时显示服务器登录指引，额度耗尽时保留目标、
+计划与反馈，并避免生命周期重连自动重复请求。
+Web 候选 `f8500d6beed984c2034ecd50ce3782564daed2ec` 已通过
+[Web CI #196](https://github.com/lse872317312010/personal-os/actions/runs/39723058694)：
+150 项应用测试、41 项 Chrome 测试、32 项网关测试、手机/桌面编译页面闭环。
+核心 Dart 和仓库契约 CI 同时通过。测试使用替身 Agent，未请求真实模型。
+
 本轮新增独立调用验收 `node acceptance.mjs --run-inference`，通过现有网关
 发送一次固定测试内容。只有完成有效模型响应才报告 `inference_passed=true`；
 登录、额度上限、临时限速、超时和格式错误分别给出固定错误码，不输出原始
@@ -22,7 +30,7 @@
 access this site”，刷新一次仍相同。没有进入登录、选择租户或创建云资源。
 没有升级付费账号，也没有发生真实 AI 推理。
 
-部署包继续使用经固定 SHA-256 验证的 Web 编译产物，33 个 Web 文件保持不变。
+部署包现使用 Web CI #196 的完整编译产物，并校验固定 SHA-256；不混用旧网页。
 `node diagnostics.mjs` 不请求推理、不读取历史；Docker 健康检查只查询存活接口。
 真实容器测试发现旧备份会包含 CLI 在 `codex-auth/tmp/arg0` 生成的符号链接，
 恢复时因此被安全校验拒绝。新版排除这个临时目录，并在发布备份前使用与恢复
@@ -30,7 +38,7 @@ access this site”，刷新一次仍相同。没有进入登录、选择租户�
 不放宽恢复规则。已有旧包应更新部署脚本后重新备份，保留原始归档。
 
 Web 输入固定为已通过核心、应用、Chrome 和编译页面 CI 的候选代码
-`19cacae`（同文件树本地提交 `16ffe5a`），以及 Web CI #194 的
+`f8500d6`，以及 Web CI #196 的
 `personal-os-agent-web` 编译产物；不混入工作树中的其他未提交修改。
 网关来自清单中单独固定的提交，包含 Codex CLI 适配；其测试不能证明真实
 Plus 推理已经接通。默认选择 `codex-cli`，要求 ChatGPT 登录，不自动配置
@@ -64,23 +72,23 @@ Node 网关保持监听 `127.0.0.1:8787`；**不开放 OCI 的 8787 入站规则
 
 若已经下载完整实验包，解压后直接跳到“云实例上运行”，无需此准备步骤。
 
-在源码仓库内，将 Web CI #194 对应的 `personal-os-agent-web` ZIP 传给：
+在源码仓库内，将 Web CI #196 对应的 `personal-os-agent-web` ZIP 传给：
 检出包含 Oracle 部署脚本的源码版本，例如 PR #133 的分支。脚本核对固定的
 Web 归档哈希，并只从指定的 Git 提交读取网关、部署文件与文档的允许清单。
 
 ```sh
 gateway_commit=$(git rev-parse HEAD)
-python3 tool/oracle/prepare-experiment.py personal-os-agent-web-19cacae.zip personal-os-oracle-experiment --gateway-source "$gateway_commit"
+python3 tool/oracle/prepare-experiment.py personal-os-agent-web-f8500d6.zip personal-os-oracle-experiment --gateway-source "$gateway_commit"
 ```
 
 `--gateway-source` 必须是包含 CLI 和部署脚本的完整 40 位提交 SHA；运行时、
-镜像配置和文档均从该提交读取。也可用 `--base-bundle` 复用先前的精确
-v2/v3/v4/v5 归档，脚本会校验固定归档哈希并只取 Web 文件。其他未提交改动不会进入包。
+镜像配置和文档均从该提交读取。旧部署包包含更新前的网页，本版本不接受
+`--base-bundle` 复用旧网页，避免把旧字节标记为新候选。未提交改动不会进入包。
 
 产物校验值应为：
 
 ```text
-f0144a03c356998c8a2acde6cd84aa36393f0a3cebdc033ad0de4392e9d3c1bd
+801bfa70479062cc1f51c8ede7ec90e5269ca1e484fdeea729096dcdc564b1a8
 ```
 
 脚本拒绝错误哈希、缺失编译入口、不安全压缩包条目和已存在的输出目录。

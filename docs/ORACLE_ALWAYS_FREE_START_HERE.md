@@ -18,6 +18,10 @@ Web 网关通过 `codex exec` 自动提交上下文、接收计划/复盘/修订
 [容器验收记录](https://github.com/lse872317312010/personal-os/actions/runs/39721506898)。
 部署包的 Web 产物来源也已核对。尚未在 OCI 实例执行，下列是待上机完成的流程。
 
+本版网页已通过 150 项应用测试、41 项 Chrome 测试及手机/桌面编译页面验收。
+选择 Codex 连接后，未登录会显示下述服务器登录命令；连接表单不再要求 API
+地址或密钥。额度耗尽会保留计划和反馈，待额度恢复后再由你重试。
+
 ## 1. 注册或登录 Oracle Cloud
 
 从 [Oracle Free Tier](https://www.oracle.com/cloud/free/) 进入注册，已有账号
