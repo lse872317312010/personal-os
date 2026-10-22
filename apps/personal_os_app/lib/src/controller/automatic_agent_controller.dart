@@ -116,6 +116,9 @@ final class AutomaticAgentController extends ChangeNotifier {
       final catalog =
           connected ? await gateway.models() : <Map<String, Object?>>[];
       if (!_current(epoch)) return;
+      if (connected && catalog.isEmpty) {
+        throw const AgentGatewayException('models_unavailable');
+      }
       models = catalog;
       if (!models.any((e) => e['id'] == model)) {
         model = models.isEmpty ? null : models.first['id'] as String;
@@ -465,6 +468,7 @@ final class AutomaticAgentController extends ChangeNotifier {
       'provider_request_failed' => 'AI 服务未能完成请求，请检查模型权限和密钥后重试。',
       'connection_name_required' => '请给这个连接起一个名字。',
       'connection_model_required' => '请填写服务提供的模型名称。',
+      'models_unavailable' => '当前连接未返回可用模型。请检查账号登录和模型配置后刷新连接；目标和反馈已保留。',
       'invalid_connection' => '连接配置无效，请检查名称、模型和地址。',
       'connection_limit' => '已保存的连接太多，请先删除不用的连接。',
       'connection_changed' => 'AI 连接已在另一页面切换，请刷新连接后重试。',

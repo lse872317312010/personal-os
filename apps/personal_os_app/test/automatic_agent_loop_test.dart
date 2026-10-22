@@ -120,6 +120,42 @@ void main() {
     },
   );
 
+  testWidgets('empty model catalog clears stale readiness and can recover',
+      (tester) async {
+    final gateway = _codexGateway();
+    final app = AppComposition.localAgent(
+      gateway: gateway,
+      eventStore: InMemoryEventStore(),
+    );
+    addTearDown(app.strategyController.dispose);
+    addTearDown(app.automaticAgent!.dispose);
+    final agent = app.automaticAgent!;
+    await app.strategyController.savePersonalContext(goal: '学习');
+    await agent.connect();
+    expect(agent.canGenerate, true);
+    gateway.emptyModels = true;
+    await agent.connect();
+    await agent.generate();
+    expect(agent.connected, false);
+    expect(agent.models, isEmpty);
+    expect(agent.model, isNull);
+    expect(agent.canGenerate, false);
+    expect(agent.busy, false);
+    expect(agent.error, contains('未返回可用模型'));
+    await tester.pumpWidget(PersonalOsApp(composition: app));
+    await tester.pumpAndSettle();
+    expect(
+        find.byKey(const Key('automatic-codex-login-command')), findsOneWidget);
+    gateway.emptyModels = false;
+    await agent.connect();
+    await tester.pumpAndSettle();
+    expect(agent.canGenerate, true);
+    expect(agent.error, isNull);
+    expect(gateway.stages, isEmpty);
+    expect(gateway.checks, 0);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'Codex edit form has no API credentials and drops them on switch',
     (tester) async {
@@ -1214,6 +1250,7 @@ List<Map> _eventPayloads(_TestGateway gateway, String type) => gateway.events
 
 final class _TestGateway implements AutomaticAgentGateway {
   bool connected = true;
+  bool emptyModels = false;
   String? statusError;
   String connectionRevision = 'test-revision-1';
   String? replyStrategyId;
@@ -1260,10 +1297,11 @@ final class _TestGateway implements AutomaticAgentGateway {
       };
   @override
   Future<List<Map<String, Object?>>> models() async => <Map<String, Object?>>[
-        <String, Object?>{
-          'id': modelId,
-          'name': modelDisplayName ?? 'Test model'
-        }
+        if (!emptyModels)
+          <String, Object?>{
+            'id': modelId,
+            'name': modelDisplayName ?? 'Test model'
+          }
       ];
   @override
   Future<Map<String, Object?>> checkConnection({required String model}) async {
