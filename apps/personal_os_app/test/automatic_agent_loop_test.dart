@@ -249,6 +249,79 @@ void main() {
     },
   );
 
+  test(
+      'expired authentication during a probe clears readiness without inference',
+      () async {
+    for (final code in <String>[
+      'sign_in_required',
+      'invalid_grant',
+      'invalid_api_key',
+      'codex_chatgpt_login_required',
+    ]) {
+      final gateway = _codexGateway()
+        ..checkFailure = AgentGatewayException(code);
+      final app = AppComposition.localAgent(
+        gateway: gateway,
+        eventStore: InMemoryEventStore(),
+      );
+      addTearDown(app.strategyController.dispose);
+      addTearDown(app.automaticAgent!.dispose);
+      final agent = app.automaticAgent!;
+      await agent.connect();
+      await agent.checkConnection();
+      expect(agent.connected, false);
+      expect(agent.model, isNull);
+      expect(agent.models, isEmpty);
+      expect(agent.error, isNotNull);
+      expect(agent.busy, false);
+      expect(agent.checkingConnection, false);
+      await agent.checkConnection();
+      expect(gateway.checks, 1);
+      expect(gateway.stages, isEmpty);
+      gateway.checkFailure = null;
+      await agent.connect();
+      expect(agent.connected, true);
+      expect(agent.error, isNull);
+      expect(gateway.checks, 1);
+    }
+  });
+
+  testWidgets(
+      'expired review authentication preserves facts and requires retry',
+      (tester) async {
+    final gateway = _codexGateway();
+    final app = await _pendingReviewApp(gateway);
+    addTearDown(app.strategyController.dispose);
+    addTearDown(app.automaticAgent!.dispose);
+    final agent = app.automaticAgent!;
+    final saved = jsonEncode(gateway.events);
+    final outcome = app.strategyController.outcomeId;
+    gateway.failure = const AgentGatewayException('sign_in_required');
+    expect(await agent.resumePending(), true);
+    expect(agent.connected, false);
+    expect(agent.model, isNull);
+    expect(agent.error, contains('服务器'));
+    expect(agent.busy, false);
+    expect(jsonEncode(gateway.events), saved);
+    expect(app.strategyController.outcomeId, outcome);
+    await tester.pumpWidget(PersonalOsApp(composition: app));
+    await tester.pumpAndSettle();
+    expect(
+        find.byKey(const Key('automatic-codex-login-command')), findsOneWidget);
+    final calls = gateway.stages.length;
+    gateway.failure = null;
+    expect(await agent.reconnectAndResume(), false);
+    expect(gateway.stages.length, calls);
+    expect(jsonEncode(gateway.events), saved);
+    expect(await agent.reconnectAndResume(retryPending: true), true);
+    expect(gateway.stages.length, calls + 1);
+    expect(app.strategyController.hasPendingReview, true);
+    expect(_eventPayloads(gateway, 'execution.recorded'), hasLength(1));
+    expect(_eventPayloads(gateway, 'outcome.recorded'), hasLength(1));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   test('Codex login and runtime status errors are actionable and redacted',
       () async {
     for (final entry in <String, String>{

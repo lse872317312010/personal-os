@@ -169,7 +169,7 @@ final class AutomaticAgentController extends ChangeNotifier {
       }
       connectionCheckMessage = 'AI 服务已响应。';
     } on Object catch (failure) {
-      if (_current(epoch)) error = _message(failure);
+      if (_current(epoch)) _recordRequestFailure(failure);
     } finally {
       if (_current(epoch)) {
         busy = false;
@@ -327,7 +327,7 @@ final class AutomaticAgentController extends ChangeNotifier {
       _requestFingerprint = fingerprint;
       connectionCheckMessage = '最近一次 AI 请求已完成。';
     } on Object catch (failure) {
-      if (_current(epoch)) error = _message(failure);
+      if (_current(epoch)) _recordRequestFailure(failure);
     } finally {
       if (_current(epoch)) {
         busy = false;
@@ -438,6 +438,21 @@ final class AutomaticAgentController extends ChangeNotifier {
     _epoch++;
     gateway.cancel();
     super.dispose();
+  }
+
+  void _recordRequestFailure(Object failure) {
+    if (failure is AgentGatewayException &&
+        const <String>{
+          'sign_in_required',
+          'invalid_grant',
+          'invalid_api_key',
+          'codex_chatgpt_login_required',
+        }.contains(failure.code)) {
+      connected = false;
+      models = [];
+      model = null;
+    }
+    error = _message(failure);
   }
 
   String _message(Object failure) {
