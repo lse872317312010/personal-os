@@ -1,6 +1,7 @@
 name: Oracle private gateway
 on:
   push:
+    branches: [main]
     paths:
       - 'services/agent_gateway/**'
       - 'tool/oracle/**'
@@ -31,3 +32,14 @@ jobs:
         run: python3 tool/oracle/test-prepare-experiment.py
       - name: Shell syntax
         run: bash -n tool/oracle/install-docker-ubuntu.sh tool/oracle/backup-data.sh tool/oracle/restore-data.sh
+  container-arm64:
+    needs: gateway
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Real Arm64 Docker build, private runtime and backup/restore (no inference)
+        run: python3 tool/oracle/test-container.py --run-docker-tests --expected-arch arm64
