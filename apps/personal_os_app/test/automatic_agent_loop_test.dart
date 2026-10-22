@@ -304,12 +304,16 @@ void main() {
     expect(agent.busy, false);
     expect(jsonEncode(gateway.events), saved);
     expect(app.strategyController.outcomeId, outcome);
+    gateway.connected = false;
+    gateway.statusError = 'sign_in_required';
     await tester.pumpWidget(PersonalOsApp(composition: app));
     await tester.pumpAndSettle();
     expect(
         find.byKey(const Key('automatic-codex-login-command')), findsOneWidget);
     final calls = gateway.stages.length;
     gateway.failure = null;
+    gateway.connected = true;
+    gateway.statusError = null;
     expect(await agent.reconnectAndResume(), false);
     expect(gateway.stages.length, calls);
     expect(jsonEncode(gateway.events), saved);
