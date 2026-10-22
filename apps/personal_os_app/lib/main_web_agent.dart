@@ -61,7 +61,7 @@ final class _StartState extends State<_Start> {
     } on Object {
       if (mounted) {
         setState(() => _error = _fontReady
-            ? '本机服务未启动或历史记录无法读取。请重新启动 Personal OS 本机版。'
+            ? '网关服务或历史记录暂不可用。请检查服务是否启动；如使用云端部署，也请检查 SSH 隧道。'
             : 'Unable to load app resources. Please restart Personal OS.');
       }
     }

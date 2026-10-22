@@ -100,6 +100,9 @@ final class AutomaticAgentController extends ChangeNotifier {
       if (!_current(epoch)) return;
       connected = state['connected'] == true;
       provider = state['provider'] as String;
+      if (!connected && state['error'] is String) {
+        error = _message(AgentGatewayException(state['error'] as String));
+      }
       account = state['account'] as String?;
       accounts = ((state['accounts'] as List?) ?? <Object?>[])
           .map((e) => Map<String, Object?>.from(e as Map))
@@ -439,6 +442,18 @@ final class AutomaticAgentController extends ChangeNotifier {
         ? failure.code
         : 'invalid_agent_bundle';
     return switch (code) {
+      'codex_chatgpt_login_required' =>
+        'Codex 当前使用 API Key 登录。请在服务器退出后改用 ChatGPT 账号登录，再刷新连接。',
+      'codex_cli_not_installed' ||
+      'codex_cli_unavailable' =>
+        '服务器上的 Codex CLI 不可用，请检查网关部署后刷新连接。',
+      'codex_usage_limit_reached' =>
+        'ChatGPT/Codex 订阅额度已达上限。目标、计划和反馈已保留；查看用量或等待额度恢复后再重试。',
+      'codex_cli_timeout' => 'Codex 本次响应超时。已有计划和反馈已保留，请检查服务器网络后重试。',
+      'codex_cli_request_failed' => 'Codex 未能完成请求。请检查账号用量、模型权限和服务器网络；目标与反馈已保留。',
+      'codex_cli_tools_not_allowed' => 'Codex 回复尝试使用未授权工具，本次回复未导入。已有计划和反馈已保留。',
+      'sign_in_required' when provider == 'codex-cli' =>
+        '请先在服务器完成 ChatGPT 账号登录，再刷新连接。目标和反馈已保留。',
       'sign_in_required' ||
       'invalid_grant' ||
       'invalid_api_key' =>
@@ -457,7 +472,7 @@ final class AutomaticAgentController extends ChangeNotifier {
       'local_service_unavailable' ||
       'service_unavailable' ||
       'connection_settings_unavailable' =>
-        '无法连接本机 AI 服务。请启动 Personal OS 本机版。',
+        '无法连接 Personal OS 网关。请检查服务是否启动；如使用云端部署，也请检查 SSH 隧道。',
       'subscription_sharing_usage_limit_exceeded' ||
       'subscription_sharing_usage_unavailable' ||
       'insufficient_quota' ||

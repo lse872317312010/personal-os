@@ -82,6 +82,164 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'logged-out Codex shows server login guidance and refreshes safely',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final gateway = _codexGateway()
+        ..connected = false
+        ..statusError = 'sign_in_required';
+      final app = AppComposition.localAgent(
+        gateway: gateway,
+        eventStore: InMemoryEventStore(),
+      );
+      addTearDown(app.strategyController.dispose);
+      addTearDown(app.automaticAgent!.dispose);
+      await tester.pumpWidget(PersonalOsApp(composition: app));
+      await tester.pumpAndSettle();
+      final command = find.byKey(const Key('automatic-codex-login-command'));
+      await tester.ensureVisible(command);
+      expect(find.text('bash personal-os.sh login'), findsOneWidget);
+      expect(find.byKey(const Key('automatic-chatgpt-sign-in')), findsNothing);
+      expect(app.automaticAgent!.error, contains('服务器'));
+      gateway.connected = true;
+      gateway.statusError = null;
+      final refresh = find.byKey(const Key('automatic-refresh-connection'));
+      await tester.ensureVisible(refresh);
+      await tester.tap(refresh);
+      await tester.pumpAndSettle();
+      expect(app.automaticAgent!.connected, true);
+      expect(app.automaticAgent!.error, isNull);
+      expect(command, findsNothing);
+      expect(gateway.stages, isEmpty);
+      expect(gateway.checks, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Codex edit form has no API credentials and drops them on switch',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final gateway = _codexGateway();
+      final app = AppComposition.localAgent(
+        gateway: gateway,
+        eventStore: InMemoryEventStore(),
+      );
+      addTearDown(app.strategyController.dispose);
+      addTearDown(app.automaticAgent!.dispose);
+      await tester.pumpWidget(PersonalOsApp(composition: app));
+      await tester.pumpAndSettle();
+      final connection = find.byKey(const Key('automatic-connection'));
+      await tester.ensureVisible(connection);
+      await tester.tap(connection);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('编辑此连接'));
+      await tester.tap(find.text('编辑此连接'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('connection-key')), findsNothing);
+      expect(find.byKey(const Key('connection-url')), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byKey(const Key('connection-kind')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Responses API').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const Key('connection-url')));
+      await tester.enterText(
+        find.byKey(const Key('connection-url')),
+        'https://old-api.example.invalid/v1',
+      );
+      await tester.ensureVisible(find.byKey(const Key('connection-key')));
+      await tester.enterText(
+        find.byKey(const Key('connection-key')),
+        'test-only-old-secret',
+      );
+      await tester.ensureVisible(find.byKey(const Key('connection-kind')));
+      await tester.tap(find.byKey(const Key('connection-kind')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Codex · ChatGPT 账号').last);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('connection-key')), findsNothing);
+      expect(find.byKey(const Key('connection-url')), findsNothing);
+      await tester.ensureVisible(find.byKey(const Key('connection-model')));
+      await tester.enterText(find.byKey(const Key('connection-model')), '');
+      await tester.tap(find.byKey(const Key('save-agent-connection')));
+      await tester.pumpAndSettle();
+      expect(gateway.lastSetup!['kind'], 'codex-cli');
+      expect(gateway.lastSetup!['model'], 'codex-default');
+      expect(gateway.lastSetup!.containsKey('api_key'), false);
+      expect(gateway.lastSetup!.containsKey('base_url'), false);
+      expect(gateway.lastSetup!.containsKey('agent_url'), false);
+      expect(
+        jsonEncode(gateway.lastSetup),
+        isNot(contains('test-only-old-secret')),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  test(
+    'Codex quota failure preserves feedback and does not retry on reconnect',
+    () async {
+      final gateway = _codexGateway();
+      final app = await _pendingReviewApp(gateway);
+      final agent = app.automaticAgent!, strategy = app.strategyController;
+      addTearDown(agent.dispose);
+      addTearDown(strategy.dispose);
+      final saved = jsonEncode(gateway.events);
+      final outcome = strategy.outcomeId;
+      gateway.failure = const AgentGatewayException(
+        'codex_usage_limit_reached',
+      );
+      expect(await agent.resumePending(), true);
+      expect(agent.error, contains('订阅额度已达上限'));
+      expect(jsonEncode(gateway.events), saved);
+      expect(strategy.outcomeId, outcome);
+      final calls = gateway.stages.length;
+      expect(await agent.reconnectAndResume(), false);
+      expect(gateway.stages.length, calls);
+      expect(agent.error, contains('订阅额度已达上限'));
+      gateway.failure = null;
+      await agent.generate();
+      expect(strategy.hasPendingReview, true);
+      expect(_eventPayloads(gateway, 'execution.recorded').length, 1);
+      expect(_eventPayloads(gateway, 'outcome.recorded').length, 1);
+    },
+  );
+
+  test('Codex login and runtime status errors are actionable and redacted',
+      () async {
+    for (final entry in <String, String>{
+      'codex_chatgpt_login_required': 'API Key',
+      'codex_cli_not_installed': '网关部署',
+      'codex_cli_unavailable': '网关部署',
+      'unrecognized-private-error': 'AI 请求失败',
+    }.entries) {
+      final gateway = _codexGateway()
+        ..connected = false
+        ..statusError = entry.key;
+      final app = AppComposition.localAgent(
+        gateway: gateway,
+        eventStore: InMemoryEventStore(),
+      );
+      addTearDown(app.strategyController.dispose);
+      addTearDown(app.automaticAgent!.dispose);
+      await app.automaticAgent!.connect();
+      expect(app.automaticAgent!.error, contains(entry.value));
+      expect(
+        app.automaticAgent!.error,
+        isNot(contains('unrecognized-private-error')),
+      );
+      expect(gateway.stages, isEmpty);
+    }
+  });
+
   testWidgets('one phone feedback click records the chosen status and reviews',
       (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -1021,6 +1179,18 @@ void main() {
 }
 
 // Test-only inference. Production localAgent composition has no fixture model.
+_TestGateway _codexGateway() => _TestGateway()
+  ..provider = 'codex-cli'
+  ..connectionId = 'codex'
+  ..connections = <Map<String, Object?>>[
+    <String, Object?>{
+      'id': 'codex',
+      'label': 'Codex · ChatGPT 订阅',
+      'kind': 'codex-cli',
+      'model': 'codex-default',
+    },
+  ];
+
 Future<AppComposition> _pendingReviewApp(_TestGateway gateway) async {
   final store = LocalAgentEventStore(gateway);
   await store.load();
@@ -1044,6 +1214,7 @@ List<Map> _eventPayloads(_TestGateway gateway, String type) => gateway.events
 
 final class _TestGateway implements AutomaticAgentGateway {
   bool connected = true;
+  String? statusError;
   String connectionRevision = 'test-revision-1';
   String? replyStrategyId;
   bool rejectNextHistoryWrite = false;
@@ -1079,6 +1250,7 @@ final class _TestGateway implements AutomaticAgentGateway {
   Future<Map<String, Object?>> status() async => <String, Object?>{
         'connected': connected,
         'provider': provider,
+        if (statusError != null) 'error': statusError,
         'connection_id': connectionId,
         'connection_revision': connectionRevision,
         'connection_name': currentConnection?['label'],
