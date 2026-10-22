@@ -13,10 +13,10 @@ import tarfile
 import tempfile
 import zipfile
 
-WEB_SHA256 = '801bfa70479062cc1f51c8ede7ec90e5269ca1e484fdeea729096dcdc564b1a8'
-# Previous deployment archives contain the 19cacae Web UI. Do not relabel those
-# bytes as this candidate after the account-mode UI fixes. Pin a compatible
-# future archive explicitly before permitting --base-bundle reuse again.
+WEB_SHA256 = '5ccac0342721f2ebd5cfc31ea604cfbf92003aa8c83785fd982d7d46ed7566f5'
+# Previous deployment archives predate the empty-model recovery fix. Do not
+# relabel those Web bytes as this candidate. Pin a compatible future archive
+# explicitly before permitting --base-bundle reuse again.
 BASE_SHA256: set[str] = set()
 RUNTIME = ['server.mjs', 'chatgpt-auth.mjs', 'connections.mjs', 'providers.mjs',
            'codex-cli.mjs', 'diagnostics.mjs', 'acceptance.mjs', 'protected-store.mjs', 'package.json']
@@ -98,10 +98,10 @@ def prepare(archive: Path, output: Path, commit: str, *, base_bundle: bool = Fal
             target.write_bytes(content)
             target.chmod(0o755 if name.endswith('.sh') else 0o644)
         manifest = {
-            'source_commit_remote': 'f8500d6beed984c2034ecd50ce3782564daed2ec',
-            'source_tree': 'b3086b47578db5c4072802d6316737b6416dd1eb',
+            'source_commit_remote': '247307d639da1376de6803a1d5f6385738b75001',
+            'source_tree': 'c4d28a3e53e662fd15d20fab66f2d8b4a11398fa',
             'web_artifact_sha256': WEB_SHA256,
-            'web_workflow_run': 39723058694,
+            'web_workflow_run': 39760902598,
             'gateway_source_commit': commit,
             'codex_cli_version': '0.162.1',
             'scope': 'private loopback gateway via SSH; ChatGPT-login Codex CLI; cloud/inference validation pending',
