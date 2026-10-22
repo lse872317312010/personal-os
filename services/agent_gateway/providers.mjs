@@ -1,4 +1,5 @@
 import { AgentError } from './chatgpt-auth.mjs';
+import { CodexCli } from './codex-cli.mjs';
 
 const allowedErrors = new Set(['subscription_sharing_usage_limit_exceeded', 'subscription_sharing_usage_unavailable', 'rate_limit_exceeded', 'insufficient_quota', 'invalid_api_key']);
 function providerError(code) { return new AgentError(allowedErrors.has(code) ? code : 'provider_request_failed', 502); }
@@ -44,14 +45,20 @@ export async function completedResponse(body) {
 export class AgentProviders {
   constructor(auth, config = {}, fetcher = fetch) {
     this.auth = auth; this.fetcher = fetcher; this.config = config;
+    if (this.id === 'codex-cli') this.cli = new CodexCli();
     if (config.baseUrl) this.base = endpoint(config.baseUrl);
     if (config.agentUrl) this.agentUrl = endpoint(config.agentUrl);
-    if ((['responses', 'chat-completions'].includes(this.id) && !this.base) || (this.id === 'agent-http' && !this.agentUrl) || !['chatgpt', 'responses', 'chat-completions', 'agent-http'].includes(this.id)) throw new AgentError('invalid_provider_configuration');
+    if ((['responses', 'chat-completions'].includes(this.id) && !this.base) || (this.id === 'agent-http' && !this.agentUrl) || !['chatgpt', 'codex-cli', 'responses', 'chat-completions', 'agent-http'].includes(this.id)) throw new AgentError('invalid_provider_configuration');
   }
   get id() { return this.config.kind || 'chatgpt'; }
-  get connected() { return this.id === 'chatgpt' ? this.auth.connected : !!(this.config.model && (this.agentUrl || this.base)); }
+  get connected() { return this.cli ? this.cli.connected : this.id === 'chatgpt' ? this.auth.connected : !!(this.config.model && (this.agentUrl || this.base)); }
+  async status(signal) { return this.cli ? this.cli.status(signal) : { connected: this.connected }; }
   async credential() { return this.id === 'chatgpt' ? this.auth.accessToken() : this.config.apiKey; }
   async models() {
+    if (this.cli) {
+      await this.cli.status();
+      return this.connected ? [{ id: this.config.model || 'codex-default', name: this.config.model || 'Codex 默认模型（ChatGPT 登录）' }] : [];
+    }
     if (this.id !== 'chatgpt') return this.connected ? [{ id: this.config.model, name: this.config.model }] : [];
     const response = await this.fetcher('https://api.openai.com/v1/models', { headers: { Authorization: `Bearer ${await this.credential()}` }, signal: AbortSignal.timeout(30_000), redirect: 'error' });
     if (!response.ok) throw providerError((await response.json()).error?.code);
@@ -63,6 +70,7 @@ export class AgentProviders {
     const models = await this.models();
     if (!models.some(m => m.id === model)) throw new AgentError('model_not_available');
     if (!['proposal', 'review', 'revision'].includes(stage) || typeof prompt !== 'string' || !prompt.trim() || typeof context !== 'string') throw new AgentError('invalid_agent_request');
+    if (this.cli) return this.cli.request({ model, prompt }, signal);
     const headers = { 'Content-Type': 'application/json' };
     const credential = await this.credential();
     if (credential) headers.Authorization = `Bearer ${credential}`;

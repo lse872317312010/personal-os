@@ -47,13 +47,17 @@ final class _AgentConnectionDialogState extends State<AgentConnectionDialog> {
       if (widget.connection != null) 'id': widget.connection!['id'],
       'label': _name.text.trim(),
       'kind': _kind,
-      'model': _model.text.trim(),
-      if (_kind == 'agent-http')
-        'agent_url': _url.text.trim()
-      else
-        'base_url': _url.text.trim(),
-      'api_key': _key.text.trim(),
-      'clear_api_key': _clearKey,
+      'model': _kind == 'codex-cli' && _model.text.trim().isEmpty
+          ? 'codex-default'
+          : _model.text.trim(),
+      if (_kind != 'codex-cli') ...<String, Object?>{
+        if (_kind == 'agent-http')
+          'agent_url': _url.text.trim()
+        else
+          'base_url': _url.text.trim(),
+        'api_key': _key.text.trim(),
+        'clear_api_key': _clearKey,
+      },
     });
     if (saved && mounted) {
       _key.clear();
@@ -106,6 +110,10 @@ final class _AgentConnectionDialogState extends State<AgentConnectionDialog> {
                         decoration: const InputDecoration(labelText: '服务类型'),
                         items: const <DropdownMenuItem<String>>[
                           DropdownMenuItem(
+                            value: 'codex-cli',
+                            child: Text('Codex · ChatGPT 账号'),
+                          ),
+                          DropdownMenuItem(
                               value: 'chat-completions',
                               child: Text('OpenAI 兼容 API')),
                           DropdownMenuItem(
@@ -116,55 +124,80 @@ final class _AgentConnectionDialogState extends State<AgentConnectionDialog> {
                         ],
                         onChanged: widget.agent.busy
                             ? null
-                            : (value) => setState(() => _kind = value!),
+                            : (value) => setState(() {
+                                  final wasCodex = _kind == 'codex-cli';
+                                  _kind = value!;
+                                  if (_kind == 'codex-cli') {
+                                    _key.clear();
+                                    _clearKey = false;
+                                    _model.text = 'codex-default';
+                                  } else if (wasCodex) {
+                                    _model.clear();
+                                  }
+                                }),
                       ),
+                      if (_kind == 'codex-cli')
+                        const Padding(
+                          padding: EdgeInsets.only(top: 12),
+                          child: Text(
+                            '使用网关所在服务器已登录的 ChatGPT 账号和订阅额度，无需填写 API 地址或密钥。',
+                          ),
+                        ),
                       const SizedBox(height: 12),
-                      TextFormField(
-                        key: const Key('connection-url'),
-                        controller: _url,
-                        enabled: !widget.agent.busy,
-                        keyboardType: TextInputType.url,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        validator: _required,
-                        decoration: InputDecoration(
-                            labelText:
-                                _kind == 'agent-http' ? 'Agent 地址' : 'API 基础地址',
-                            hintText: _kind == 'agent-http'
-                                ? 'http://127.0.0.1:9000/agent'
-                                : 'https://api.example.com/v1',
-                            helperText: _kind == 'agent-http'
-                                ? '填写接收 Agent 请求的完整地址'
-                                : '填写基础地址，通常以 /v1 结尾'),
-                      ),
+                      if (_kind != 'codex-cli')
+                        TextFormField(
+                          key: const Key('connection-url'),
+                          controller: _url,
+                          enabled: !widget.agent.busy,
+                          keyboardType: TextInputType.url,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          validator: _required,
+                          decoration: InputDecoration(
+                              labelText: _kind == 'agent-http'
+                                  ? 'Agent 地址'
+                                  : 'API 基础地址',
+                              hintText: _kind == 'agent-http'
+                                  ? 'http://127.0.0.1:9000/agent'
+                                  : 'https://api.example.com/v1',
+                              helperText: _kind == 'agent-http'
+                                  ? '填写接收 Agent 请求的完整地址'
+                                  : '填写基础地址，通常以 /v1 结尾'),
+                        ),
                       const SizedBox(height: 12),
                       TextFormField(
                           key: const Key('connection-model'),
                           controller: _model,
                           enabled: !widget.agent.busy,
-                          validator: _required,
+                          validator: _kind == 'codex-cli' ? null : _required,
                           autocorrect: false,
                           enableSuggestions: false,
-                          decoration: const InputDecoration(
-                              labelText: '模型名称', hintText: '填写服务提供的模型 ID')),
+                          decoration: InputDecoration(
+                              labelText:
+                                  _kind == 'codex-cli' ? '模型（可选）' : '模型名称',
+                              hintText: _kind == 'codex-cli'
+                                  ? '留空使用 Codex 默认模型'
+                                  : '填写服务提供的模型 ID')),
                       const SizedBox(height: 12),
-                      TextFormField(
-                        key: const Key('connection-key'),
-                        controller: _key,
-                        enabled: !widget.agent.busy,
-                        obscureText: true,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        autofillHints: const <String>[],
-                        decoration: InputDecoration(
-                            labelText: 'API Key（服务需要时填写）',
-                            helperMaxLines: 3,
-                            helperText:
-                                widget.connection?['has_api_key'] == true
-                                    ? '已保存密钥，留空保持。地址或服务类型改变时请重新填写。'
-                                    : '只填密钥，不带 Bearer。保存后加密留在本机。'),
-                      ),
-                      if (widget.connection?['has_api_key'] == true)
+                      if (_kind != 'codex-cli')
+                        TextFormField(
+                          key: const Key('connection-key'),
+                          controller: _key,
+                          enabled: !widget.agent.busy,
+                          obscureText: true,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          autofillHints: const <String>[],
+                          decoration: InputDecoration(
+                              labelText: 'API Key（服务需要时填写）',
+                              helperMaxLines: 3,
+                              helperText:
+                                  widget.connection?['has_api_key'] == true
+                                      ? '已保存密钥，留空保持。地址或服务类型改变时请重新填写。'
+                                      : '只填密钥，不带 Bearer。保存后加密留在本机。'),
+                        ),
+                      if (_kind != 'codex-cli' &&
+                          widget.connection?['has_api_key'] == true)
                         CheckboxListTile(
                             contentPadding: EdgeInsets.zero,
                             title: const Text('清除已保存的密钥'),

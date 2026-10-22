@@ -2,7 +2,7 @@ name: Flutter Web and Agent browser validation
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feature/structured-web-profile-20261008]
     paths:
       - ".github/workflows/flutter-web-preview.yml"
       - "apps/personal_os_app/**"

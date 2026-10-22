@@ -100,6 +100,9 @@ final class AutomaticAgentController extends ChangeNotifier {
       if (!_current(epoch)) return;
       connected = state['connected'] == true;
       provider = state['provider'] as String;
+      if (!connected && state['error'] is String) {
+        error = _message(AgentGatewayException(state['error'] as String));
+      }
       account = state['account'] as String?;
       accounts = ((state['accounts'] as List?) ?? <Object?>[])
           .map((e) => Map<String, Object?>.from(e as Map))
@@ -113,6 +116,9 @@ final class AutomaticAgentController extends ChangeNotifier {
       final catalog =
           connected ? await gateway.models() : <Map<String, Object?>>[];
       if (!_current(epoch)) return;
+      if (connected && catalog.isEmpty) {
+        throw const AgentGatewayException('models_unavailable');
+      }
       models = catalog;
       if (!models.any((e) => e['id'] == model)) {
         model = models.isEmpty ? null : models.first['id'] as String;
@@ -163,7 +169,7 @@ final class AutomaticAgentController extends ChangeNotifier {
       }
       connectionCheckMessage = 'AI 服务已响应。';
     } on Object catch (failure) {
-      if (_current(epoch)) error = _message(failure);
+      if (_current(epoch)) _recordRequestFailure(failure);
     } finally {
       if (_current(epoch)) {
         busy = false;
@@ -321,7 +327,7 @@ final class AutomaticAgentController extends ChangeNotifier {
       _requestFingerprint = fingerprint;
       connectionCheckMessage = '最近一次 AI 请求已完成。';
     } on Object catch (failure) {
-      if (_current(epoch)) error = _message(failure);
+      if (_current(epoch)) _recordRequestFailure(failure);
     } finally {
       if (_current(epoch)) {
         busy = false;
@@ -434,11 +440,38 @@ final class AutomaticAgentController extends ChangeNotifier {
     super.dispose();
   }
 
+  void _recordRequestFailure(Object failure) {
+    if (failure is AgentGatewayException &&
+        const <String>{
+          'sign_in_required',
+          'invalid_grant',
+          'invalid_api_key',
+          'codex_chatgpt_login_required',
+        }.contains(failure.code)) {
+      connected = false;
+      models = [];
+      model = null;
+    }
+    error = _message(failure);
+  }
+
   String _message(Object failure) {
     final code = failure is AgentGatewayException
         ? failure.code
         : 'invalid_agent_bundle';
     return switch (code) {
+      'codex_chatgpt_login_required' =>
+        'Codex 当前使用 API Key 登录。请在服务器退出后改用 ChatGPT 账号登录，再刷新连接。',
+      'codex_cli_not_installed' ||
+      'codex_cli_unavailable' =>
+        '服务器上的 Codex CLI 不可用，请检查网关部署后刷新连接。',
+      'codex_usage_limit_reached' =>
+        'ChatGPT/Codex 订阅额度已达上限。目标、计划和反馈已保留；查看用量或等待额度恢复后再重试。',
+      'codex_cli_timeout' => 'Codex 本次响应超时。已有计划和反馈已保留，请检查服务器网络后重试。',
+      'codex_cli_request_failed' => 'Codex 未能完成请求。请检查账号用量、模型权限和服务器网络；目标与反馈已保留。',
+      'codex_cli_tools_not_allowed' => 'Codex 回复尝试使用未授权工具，本次回复未导入。已有计划和反馈已保留。',
+      'sign_in_required' when provider == 'codex-cli' =>
+        '请先在服务器完成 ChatGPT 账号登录，再刷新连接。目标和反馈已保留。',
       'sign_in_required' ||
       'invalid_grant' ||
       'invalid_api_key' =>
@@ -450,6 +483,7 @@ final class AutomaticAgentController extends ChangeNotifier {
       'provider_request_failed' => 'AI 服务未能完成请求，请检查模型权限和密钥后重试。',
       'connection_name_required' => '请给这个连接起一个名字。',
       'connection_model_required' => '请填写服务提供的模型名称。',
+      'models_unavailable' => '当前连接未返回可用模型。请检查账号登录和模型配置后刷新连接；目标和反馈已保留。',
       'invalid_connection' => '连接配置无效，请检查名称、模型和地址。',
       'connection_limit' => '已保存的连接太多，请先删除不用的连接。',
       'connection_changed' => 'AI 连接已在另一页面切换，请刷新连接后重试。',
@@ -457,7 +491,7 @@ final class AutomaticAgentController extends ChangeNotifier {
       'local_service_unavailable' ||
       'service_unavailable' ||
       'connection_settings_unavailable' =>
-        '无法连接本机 AI 服务。请启动 Personal OS 本机版。',
+        '无法连接 Personal OS 网关。请检查服务是否启动；如使用云端部署，也请检查 SSH 隧道。',
       'subscription_sharing_usage_limit_exceeded' ||
       'subscription_sharing_usage_unavailable' ||
       'insufficient_quota' ||

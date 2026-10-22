@@ -1,0 +1,49 @@
+name: Oracle private gateway
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'services/agent_gateway/**'
+      - 'tool/oracle/**'
+      - '.github/workflows/oracle-experiment.yml'
+  pull_request:
+    paths:
+      - 'services/agent_gateway/**'
+      - 'tool/oracle/**'
+      - '.github/workflows/oracle-experiment.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gateway:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Gateway and account-boundary tests (no inference)
+        run: node --test services/agent_gateway/test/*.test.mjs
+      - name: Deployment packager tests
+        run: python3 tool/oracle/test-prepare-experiment.py
+      - name: Backup archive safety tests
+        run: python3 tool/oracle/test-backup-format.py
+      - name: Server controls routing tests (no Docker or inference)
+        run: python3 tool/oracle/test-controls.py
+      - name: Shell syntax
+        run: bash -n tool/oracle/install-docker-ubuntu.sh tool/oracle/backup-data.sh tool/oracle/restore-data.sh tool/oracle/personal-os.sh
+  container-arm64:
+    needs: gateway
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Real Arm64 Docker build, private runtime and backup/restore (no inference)
+        run: python3 tool/oracle/test-container.py --run-docker-tests --expected-arch arm64
