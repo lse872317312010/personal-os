@@ -3,22 +3,7 @@
 set -Eeuo pipefail
 archive=${1:?Provide an absolute backup filename}
 [[ "$archive" == /* && -f "$archive" ]] || { echo 'Provide an existing absolute file.' >&2; exit 1; }
-python3 - "$archive" <<'PY'
-import sys, tarfile
-from pathlib import PurePosixPath
-with tarfile.open(sys.argv[1], 'r:gz') as bundle:
-    roots = set()
-    for item in bundle:
-        path = PurePosixPath(item.name)
-        if (path.is_absolute() or '..' in path.parts or not path.parts
-            or path.parts[0] not in {'history', 'codex-auth'}
-            or not (item.isfile() or item.isdir())
-            or path == PurePosixPath('history/runtime.lock')):
-            raise SystemExit('Unsafe backup; nothing restored')
-        roots.add(path.parts[0])
-    if roots != {'history', 'codex-auth'}:
-        raise SystemExit('Incomplete backup; nothing restored')
-PY
+python3 "$(dirname -- "${BASH_SOURCE[0]}")/validate-backup.py" "$archive"
 docker_cmd=(docker)
 docker info >/dev/null 2>&1 || docker_cmd=(sudo docker)
 container=$("${docker_cmd[@]}" compose ps -a -q gateway)

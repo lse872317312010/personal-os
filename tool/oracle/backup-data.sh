@@ -25,8 +25,10 @@ if [[ "$running" == true ]]; then "${docker_cmd[@]}" stop --time 30 "$container"
 "${docker_cmd[@]}" run --rm --network none --read-only --user 0:0 \
   --mount "type=volume,src=$history,dst=/backup/history,readonly" \
   --mount "type=volume,src=$auth,dst=/backup/codex-auth,readonly" \
-  --entrypoint tar "$image" -czf - --exclude=history/runtime.lock -C /backup history codex-auth > "$temporary"
-tar -tzf "$temporary" >/dev/null
+  --entrypoint tar "$image" -czf - --exclude=history/runtime.lock --exclude=codex-auth/tmp -C /backup history codex-auth > "$temporary"
+# Codex puts process wrappers/symlinks in its tmp directory. They are disposable,
+# not credentials. Reject any other unsafe entry before reporting backup success.
+python3 "$(dirname -- "${BASH_SOURCE[0]}")/validate-backup.py" "$temporary"
 # A hard link refuses to overwrite a file created since the initial check.
 ln -- "$temporary" "$target"
 echo "Private backup saved: $target"

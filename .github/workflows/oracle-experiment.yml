@@ -30,6 +30,8 @@ jobs:
         run: node --test services/agent_gateway/test/*.test.mjs
       - name: Deployment packager tests
         run: python3 tool/oracle/test-prepare-experiment.py
+      - name: Backup archive safety tests
+        run: python3 tool/oracle/test-backup-format.py
       - name: Shell syntax
         run: bash -n tool/oracle/install-docker-ubuntu.sh tool/oracle/backup-data.sh tool/oracle/restore-data.sh
   container-arm64:
