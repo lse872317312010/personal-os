@@ -41,7 +41,7 @@ compose=("${docker_cmd[@]}" compose --project-directory "$directory" -f "$direct
 case "$command" in
   start)
     "${compose[@]}" config --quiet
-    "${compose[@]}" up --build -d --wait --wait-timeout 90
+    "${compose[@]}" up --build -d --force-recreate --wait --wait-timeout 90
     echo '网关已健康启动；接着运行 login、status，再按需运行 test-ai。网页仍需 SSH 隧道。'
     ;;
   status) "${compose[@]}" exec -T gateway node diagnostics.mjs ;;

@@ -54,7 +54,7 @@ sys.exit(0)
         self.assertEqual(calls[0], ['info'])
         for call in calls[1:]:
             self.assertEqual(call[:5], ['compose', '--project-directory', str(self.bundle), '-f', str(self.bundle / 'compose.yaml')])
-        self.assertEqual(calls[-1][5:], ['up', '--build', '-d', '--wait', '--wait-timeout', '90'])
+        self.assertEqual(calls[-1][5:], ['up', '--build', '-d', '--force-recreate', '--wait', '--wait-timeout', '90'])
         self.assertFalse(any('acceptance.mjs' in call or 'login' in call for call in calls))
 
     def test_corrupt_or_missing_manifest_stops_before_docker(self):
