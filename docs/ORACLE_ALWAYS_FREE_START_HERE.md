@@ -1,6 +1,6 @@
 # Oracle Always Free：开通服务器与启动 Personal OS
 
-更新：2026-10-22（Asia/Shanghai）；免费资源规格沿用 2026-10-13 核对的方案，创建前以账号控制台的免费标签和剩余配额为准。
+更新：2026-10-25（Asia/Shanghai）；免费资源规格沿用 2026-10-13 核对的方案，创建前以账号控制台的免费标签和剩余配额为准。
 
 ## 这套方案的范围
 
@@ -14,8 +14,8 @@ Web 网关通过 `codex exec` 自动提交上下文、接收计划/复盘/修订
 
 网关 32 项、打包器 7 项及归档安全 5 项测试已通过 CI。原生 Arm64 Docker
 已完成镜像构建、CLI 兼容性、只读运行、私有卷、强制停止恢复及真实备份恢复
-共 7 项检查，使用合成资料和测试网页文件，没有登录账号或发起 AI 推理。
-[容器验收记录](https://github.com/lse872317312010/personal-os/actions/runs/39797256850)。
+加上镜像升级与回滚，共 9 项检查，使用合成资料和测试网页文件，没有登录账号或发起 AI 推理。
+[容器验收记录](https://github.com/lse872317312010/personal-os/actions/runs/40166775128)。
 部署包的 Web 产物来源也已核对。尚未在 OCI 实例执行，下列是待上机完成的流程。
 
 本版网页已通过 153 项应用测试、44 项 Chrome 测试及手机/桌面编译页面验收。
@@ -268,7 +268,7 @@ http://127.0.0.1:8787
 | 操作 | 命令 |
 | --- | --- |
 | 再次启动 | `sudo docker compose up -d` |
-| 校验包、构建并等待健康启动 | `bash personal-os.sh start` |
+| 校验包、构建并重建容器，等待健康启动 | `bash personal-os.sh start` |
 | 查看状态 | `sudo docker compose ps` |
 | 无 AI 额度消耗的部署诊断 | `bash personal-os.sh status` |
 | ChatGPT 设备码登录，需要交互式 SSH 终端 | `bash personal-os.sh login` |
@@ -277,6 +277,9 @@ http://127.0.0.1:8787
 | 重启网关 | `sudo docker compose restart gateway` |
 | 停止网关，保留资料与登录卷 | `bash personal-os.sh stop` |
 | 停止并移除容器、保留历史卷 | `sudo docker compose down` |
+
+`start` 每次都会重建网关容器以应用新镜像，服务会短暂中断；两个命名资料卷保留。
+仅需日常启动已有容器时，使用表中的 `sudo docker compose up -d`。
 
 Docker 与容器重启策略已启用，正常 VM 重启后服务会重新运行；本机 SSH
 隧道仍需重新打开。不执行 `docker compose down -v`，它会删除历史卷。
