@@ -34,6 +34,8 @@ class ContainerTest:
         self.project = 'pos-container-test-' + suffix
         self.recovery = self.project + '-recovery'
         self.steps = []
+        self.rollback_image = self.project + '-rollback:fixture'
+        self.rollback_tagged = False
 
     def run(self, args, *, project=None, expected=0, timeout=120, stream=False):
         env = dict(os.environ, COMPOSE_PROJECT_NAME=project or self.project)
@@ -93,7 +95,10 @@ class ContainerTest:
             path = self.context / 'web' / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('container-test-fixture:' + name)
-        files = sorted(path for path in self.context.rglob('*') if path.is_file())
+        self.checksums()
+
+    def checksums(self):
+        files = sorted(path for path in self.context.rglob('*') if path.is_file() and path.name != 'SHA256SUMS')
         (self.context / 'SHA256SUMS').write_text(''.join(f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.relative_to(self.context).as_posix()}\n' for path in files))
 
     def test(self):
@@ -145,6 +150,39 @@ class ContainerTest:
             assert self.request('/api/history') == {'revision': 1, 'events': [event]}
             self.passed('encrypted history survives abrupt stop and PID reuse')
 
+            original = self.inspect()
+            original_image = original['Image']
+            compose_image = original['Config']['Image']
+            volumes = {m['Destination']: m['Name'] for m in original['Mounts'] if m['Type'] == 'volume'}
+            self.run(['docker', 'image', 'tag', original_image, self.rollback_image])
+            self.rollback_tagged = True
+            index = self.context / 'web/index.html'
+            previous_web = index.read_text()
+            index.write_text('container-test-upgraded-web')
+            self.checksums()
+            self.run(['bash', 'personal-os.sh', 'start'], timeout=720, stream=True)
+            self.ready()
+            upgraded = self.inspect()
+            assert upgraded['Image'] != original_image
+            assert {m['Destination']: m['Name'] for m in upgraded['Mounts'] if m['Type'] == 'volume'} == volumes
+            assert self.execute('cat', '/opt/personal-os/web/index.html').strip() == 'container-test-upgraded-web'
+            assert self.request('/api/history') == {'revision': 1, 'events': [event]}
+            assert self.execute('cat', '/home/node/.codex/backup-fixture.txt').strip() == 'synthetic-auth-volume-fixture'
+            self.passed('image upgrade preserves encrypted history and the independent auth volume')
+
+            self.run(['docker', 'image', 'tag', self.rollback_image, compose_image])
+            self.compose('up', '-d', '--no-build', '--force-recreate', '--wait', '--wait-timeout', '90')
+            self.ready()
+            rolled_back = self.inspect()
+            assert rolled_back['Image'] == original_image
+            assert {m['Destination']: m['Name'] for m in rolled_back['Mounts'] if m['Type'] == 'volume'} == volumes
+            assert self.execute('cat', '/opt/personal-os/web/index.html').strip() == previous_web
+            assert self.request('/api/history') == {'revision': 1, 'events': [event]}
+            assert self.execute('cat', '/home/node/.codex/backup-fixture.txt').strip() == 'synthetic-auth-volume-fixture'
+            index.write_text(previous_web)
+            self.checksums()
+            self.passed('pinned previous image rollback preserves both persistent volumes')
+
             archive = self.directory / 'synthetic-private-backup.tar.gz'
             self.run(['bash', 'backup-data.sh', str(archive)])
             self.ready()
@@ -189,6 +227,11 @@ class ContainerTest:
                     self.compose('down', '--volumes', '--remove-orphans', project=project)
                 except (RuntimeError, subprocess.SubprocessError):
                     print('Fixture cleanup failed for ' + project, flush=True)
+            if self.rollback_tagged:
+                try:
+                    self.run(['docker', 'image', 'rm', self.rollback_image])
+                except (RuntimeError, subprocess.SubprocessError):
+                    print('Fixture rollback image cleanup failed', flush=True)
 
 
 def main():

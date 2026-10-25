@@ -45,5 +45,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Real Arm64 Docker build, private runtime and backup/restore (no inference)
+      - name: Real Arm64 Docker build, upgrade/rollback and backup/restore (no inference)
         run: python3 tool/oracle/test-container.py --run-docker-tests --expected-arch arm64
