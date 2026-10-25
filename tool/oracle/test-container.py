@@ -152,7 +152,6 @@ class ContainerTest:
 
             original = self.inspect()
             original_image = original['Image']
-            compose_image = original['Config']['Image']
             volumes = {m['Destination']: m['Name'] for m in original['Mounts'] if m['Type'] == 'volume'}
             self.run(['docker', 'image', 'tag', original_image, self.rollback_image])
             self.rollback_tagged = True
@@ -170,8 +169,9 @@ class ContainerTest:
             assert self.execute('cat', '/home/node/.codex/backup-fixture.txt').strip() == 'synthetic-auth-volume-fixture'
             self.passed('image upgrade preserves encrypted history and the independent auth volume')
 
-            self.run(['docker', 'image', 'tag', self.rollback_image, compose_image])
-            self.compose('up', '-d', '--no-build', '--force-recreate', '--wait', '--wait-timeout', '90')
+            override = self.directory / 'rollback.yaml'
+            override.write_text('services:\n  gateway:\n    image: ' + self.rollback_image + '\n')
+            self.compose('-f', 'compose.yaml', '-f', str(override), 'up', '-d', '--no-build', '--force-recreate', '--wait', '--wait-timeout', '90')
             self.ready()
             rolled_back = self.inspect()
             assert rolled_back['Image'] == original_image

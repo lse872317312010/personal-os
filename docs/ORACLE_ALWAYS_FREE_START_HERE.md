@@ -327,6 +327,42 @@ sudo docker compose up -d
 CLI 登录和网页；若登录过期，重新设备码登录。合成数据已在真实 Arm64 Docker
 完成备份恢复；账号会话能否继续使用仍需在你的实例上验证。
 
+### 9.3 更新版本与回滚
+
+在旧部署目录操作，先结束登录、AI 请求和网页编辑；更新期间暂停使用网页。
+先保存新文件名的私有备份，并保留旧版本完整部署包。不要直接把新包覆盖解压
+到旧目录，否则可能混入已被新版本移除的文件。
+
+```bash
+bash backup-data.sh "$PWD/../personal-os-before-upgrade-$(date -u +%Y%m%dT%H%M%SZ).tar.gz"
+old_container=$(sudo docker compose ps -q gateway)
+test -n "$old_container"
+old_image=$(sudo docker inspect --format '{{.Image}}' "$old_container")
+rollback_image="personal-os-rollback:$(date -u +%Y%m%dT%H%M%SZ)"
+sudo docker image tag "$old_image" "$rollback_image"
+printf 'services:\n  gateway:\n    image: %s\n' "$rollback_image" > ../personal-os-rollback.yaml
+```
+
+把新包解压到旧部署目录同级的另一个空目录后，进入新部署目录运行 `bash personal-os.sh start`。
+保持 Compose 的项目名为 `personal-os-oracle-experiment`；如果旧部署使用了
+`COMPOSE_PROJECT_NAME`，新目录也必须使用相同的值，才能连接原来的两个卷。
+不要删除卷、清理旧镜像或执行 `down -v`。
+
+启动后运行 `bash personal-os.sh status`，刷新网页核对历史与当前行动。登录
+已过期时重新运行 `login`；`test-ai` 仍须显式执行，升级不会自动调用 AI。
+
+如果新版本启动或页面检查失败，进入保留的旧部署目录，使用刚保存的镜像回滚：
+
+```bash
+sudo docker compose -f compose.yaml -f ../personal-os-rollback.yaml up -d --no-build --force-recreate --wait --wait-timeout 90
+bash personal-os.sh status
+```
+
+回滚使用已保留的旧镜像并继续挂载原卷；不会重新构建镜像或自动恢复备份。
+旧目录、回滚配置和原项目名必须保持对应。此流程适用于数据格式兼容的更新；
+若未来版本引入不兼容的数据迁移，须按该版本的迁移方案操作，不能假定旧镜像
+可以读取新数据。需要恢复升级前快照时，应按 9.2 使用全新空卷，保留现有卷。
+
 ## 常见阻塞
 
 | 现象 | 优先检查 |
