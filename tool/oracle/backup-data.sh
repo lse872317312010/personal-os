@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # Run as the SSH user: bash backup-data.sh /absolute/new-backup.tar.gz
 set -Eeuo pipefail
+directory=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 target=${1:?Provide a new absolute backup filename}
 [[ "$target" == /* && ! -e "$target" && ! -L "$target" ]] || { echo 'Use a new absolute filename.' >&2; exit 1; }
+[[ -f "$directory/compose.yaml" ]] || { echo 'Missing deployment compose.yaml.' >&2; exit 1; }
+cd -- "$directory"
 umask 077
 mkdir -p -- "$(dirname -- "$target")"
 docker_cmd=(docker)
 docker info >/dev/null 2>&1 || docker_cmd=(sudo docker)
-container=$("${docker_cmd[@]}" compose ps -a -q gateway)
+compose=("${docker_cmd[@]}" compose --project-directory "$directory" -f "$directory/compose.yaml")
+container=$("${compose[@]}" ps -a -q gateway)
 [[ -n "$container" ]] || { echo 'Create the gateway container first.' >&2; exit 1; }
 image=$("${docker_cmd[@]}" inspect --format '{{.Image}}' "$container")
 history=$("${docker_cmd[@]}" inspect --format '{{range .Mounts}}{{if eq .Destination "/var/lib/personal-os"}}{{.Name}}{{end}}{{end}}' "$container")
@@ -28,7 +32,7 @@ if [[ "$running" == true ]]; then "${docker_cmd[@]}" stop --time 30 "$container"
   --entrypoint tar "$image" -czf - --exclude=history/runtime.lock --exclude=codex-auth/tmp -C /backup history codex-auth > "$temporary"
 # Codex puts process wrappers/symlinks in its tmp directory. They are disposable,
 # not credentials. Reject any other unsafe entry before reporting backup success.
-python3 "$(dirname -- "${BASH_SOURCE[0]}")/validate-backup.py" "$temporary"
+python3 "$directory/validate-backup.py" "$temporary"
 # A hard link refuses to overwrite a file created since the initial check.
 ln -- "$temporary" "$target"
 echo "Private backup saved: $target"

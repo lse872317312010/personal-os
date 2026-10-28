@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import tarfile
 import unittest
 
 
@@ -82,6 +83,45 @@ sys.exit(0)
         before = self.calls()
         self.assertEqual(self.run_control('login').returncode, 2)
         self.assertEqual(self.calls(), before)
+
+    def backup_scripts(self):
+        for name in ['backup-data.sh', 'restore-data.sh', 'validate-backup.py']:
+            shutil.copyfile(Path(__file__).with_name(name), self.bundle / name)
+        archive = self.root / 'fixture.tar.gz'
+        with tarfile.open(archive, 'w:gz') as bundle:
+            for name in ['history', 'codex-auth']:
+                info = tarfile.TarInfo(name)
+                info.type = tarfile.DIRTYPE
+                bundle.addfile(info)
+        return archive
+
+    def test_backup_restore_pin_their_deployment_before_container_lookup(self):
+        archive = self.backup_scripts()
+        for name, target, message in [
+            ('backup-data.sh', self.root / 'new-backup.tar.gz', 'Create the gateway container first'),
+            ('restore-data.sh', archive, 'Stop the gateway before restore'),
+        ]:
+            with self.subTest(script=name):
+                self.trace.unlink(missing_ok=True)
+                result = subprocess.run(['bash', str(self.bundle / name), str(target)], cwd=self.root, env=self.env, text=True, capture_output=True)
+                # The Docker fixture has no real container. Verify safe routing
+                # and refusal here; native CI covers successful data transfer.
+                self.assertEqual(result.returncode, 1)
+                self.assertIn(message, result.stderr)
+                compose_calls = [call for call in self.calls() if call[0] == 'compose']
+                self.assertTrue(compose_calls)
+                for call in compose_calls:
+                    self.assertEqual(call[:5], ['compose', '--project-directory', str(self.bundle), '-f', str(self.bundle / 'compose.yaml')])
+                self.assertFalse(any(call[0] == 'run' for call in self.calls()))
+
+    def test_backup_restore_missing_deployment_never_contact_docker(self):
+        archive = self.backup_scripts()
+        (self.bundle / 'compose.yaml').unlink()
+        for name, target in [('backup-data.sh', self.root / 'new.tar.gz'), ('restore-data.sh', archive)]:
+            result = subprocess.run(['bash', str(self.bundle / name), str(target)], cwd=self.root, env=self.env, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('Missing deployment compose.yaml', result.stderr)
+        self.assertEqual(self.calls(), [])
 
 
 if __name__ == '__main__':

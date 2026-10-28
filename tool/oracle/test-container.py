@@ -37,9 +37,10 @@ class ContainerTest:
         self.rollback_image = self.project + '-rollback:fixture'
         self.rollback_tagged = False
 
-    def run(self, args, *, project=None, expected=0, timeout=120, stream=False):
+    def run(self, args, *, project=None, expected=0, timeout=120, stream=False, cwd=None, extra_env=None):
         env = dict(os.environ, COMPOSE_PROJECT_NAME=project or self.project)
-        result = subprocess.run(args, cwd=self.context, env=env, text=True, capture_output=not stream, timeout=timeout)
+        env.update(extra_env or {})
+        result = subprocess.run(args, cwd=cwd or self.context, env=env, text=True, capture_output=not stream, timeout=timeout)
         if result.returncode != expected:
             # The context, volumes and command output belong exclusively to
             # this synthetic test; no account is ever logged in here.
@@ -184,7 +185,8 @@ class ContainerTest:
             self.passed('pinned previous image rollback preserves both persistent volumes')
 
             archive = self.directory / 'synthetic-private-backup.tar.gz'
-            self.run(['bash', 'backup-data.sh', str(archive)])
+            unrelated = {'COMPOSE_FILE': str(self.directory / 'nonexistent-compose.yaml')}
+            self.run(['bash', str(self.context / 'backup-data.sh'), str(archive)], cwd=self.directory, extra_env=unrelated)
             self.ready()
             assert archive.stat().st_mode & 0o777 == 0o600
             with tarfile.open(archive) as bundle:
@@ -196,18 +198,18 @@ class ContainerTest:
                 assert not any(name == 'codex-auth/tmp' or name.startswith('codex-auth/tmp/') for name in names)
                 unsupported = [(item.name, repr(item.type)) for item in bundle if not (item.isfile() or item.isdir())]
                 assert not unsupported, 'Backup contains entries the restore validator would reject'
-            self.passed('real stopped-write backup captures both volumes and resumes service')
+            self.passed('backup from another directory ignores stale COMPOSE_FILE, captures both volumes and resumes service')
 
             self.run(['bash', 'personal-os.sh', 'stop'])
             # A second project guarantees empty, separately named volumes.
             self.compose('build', 'gateway', project=self.recovery, timeout=600)
-            self.run(['bash', 'restore-data.sh', str(archive)], project=self.recovery)
+            self.run(['bash', str(self.context / 'restore-data.sh'), str(archive)], project=self.recovery, cwd=self.directory, extra_env=unrelated)
             assert self.inspect(self.recovery)['State']['Running'] is False
             self.compose('up', '-d', '--wait', '--wait-timeout', '90', project=self.recovery)
             self.ready(self.recovery)
             assert self.request('/api/history') == {'revision': 1, 'events': [event]}
             assert self.execute('cat', '/home/node/.codex/backup-fixture.txt', project=self.recovery).strip() == 'synthetic-auth-volume-fixture'
-            self.passed('real restore decrypts history and restores the independent auth volume')
+            self.passed('restore from another directory ignores stale COMPOSE_FILE and preserves explicit project isolation')
 
             before = self.inspect(self.recovery)['Id']
             self.run(['bash', 'restore-data.sh', str(archive)], project=self.recovery, expected=1)

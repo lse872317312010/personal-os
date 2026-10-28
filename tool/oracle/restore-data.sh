@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 # Only restore into empty volumes. Existing user data is never replaced.
 set -Eeuo pipefail
+directory=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 archive=${1:?Provide an absolute backup filename}
 [[ "$archive" == /* && -f "$archive" ]] || { echo 'Provide an existing absolute file.' >&2; exit 1; }
-python3 "$(dirname -- "${BASH_SOURCE[0]}")/validate-backup.py" "$archive"
+python3 "$directory/validate-backup.py" "$archive"
+[[ -f "$directory/compose.yaml" ]] || { echo 'Missing deployment compose.yaml.' >&2; exit 1; }
+cd -- "$directory"
 docker_cmd=(docker)
 docker info >/dev/null 2>&1 || docker_cmd=(sudo docker)
-container=$("${docker_cmd[@]}" compose ps -a -q gateway)
+compose=("${docker_cmd[@]}" compose --project-directory "$directory" -f "$directory/compose.yaml")
+container=$("${compose[@]}" ps -a -q gateway)
 if [[ -n "$container" ]]; then
   [[ $("${docker_cmd[@]}" inspect --format '{{.State.Running}}' "$container") == false ]] || { echo 'Stop the gateway before restore; nothing changed.' >&2; exit 1; }
 else
-  "${docker_cmd[@]}" compose create gateway >/dev/null
-  container=$("${docker_cmd[@]}" compose ps -a -q gateway)
+  "${compose[@]}" create gateway >/dev/null
+  container=$("${compose[@]}" ps -a -q gateway)
 fi
 [[ $("${docker_cmd[@]}" inspect --format '{{.State.Running}}' "$container") == false ]] || { echo 'Stop the gateway before restore.' >&2; exit 1; }
 image=$("${docker_cmd[@]}" inspect --format '{{.Image}}' "$container")
