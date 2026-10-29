@@ -19,15 +19,22 @@ Ubuntu Arm 实例运行，再由 SSH 隧道访问。云实例尚未实际部署�
 
 | 内容 | 固定版本 / 结果 | 边界 |
 | --- | --- | --- |
-| 编译网页 | `3144ebe802e1ee0f506d4e3147634a6c49194b67`，[Web CI #214](https://github.com/lse872317312010/personal-os/actions/runs/40887037864) | 155 项应用测试、46 项 Chrome 测试、手机 390×844 和桌面 1440×900 编译页面闭环通过；使用 fixture Agent |
-| Web ZIP | `personal-os-agent-web`，SHA-256 `2f243a18c59ecc135dd023e9c04d6146f3f123f4a139c27d32b4d0bb8395c7a4` | 部署包内 33 个 Web 文件与该产物逐字节一致；后续部署修复未改变应用代码 |
-| 网关与部署文件 | `3144ebe802e1ee0f506d4e3147634a6c49194b67` | [Web](https://github.com/lse872317312010/personal-os/actions/runs/40887037864)、[核心](https://github.com/lse872317312010/personal-os/actions/runs/40887038147)、[契约](https://github.com/lse872317312010/personal-os/actions/runs/40887038052)、[Oracle](https://github.com/lse872317312010/personal-os/actions/runs/40887037866) CI 均通过 |
-| 网关与部署测试 | 32 项网关、7 项打包、5 项归档安全、8 项命令路由测试，共 52 项 | 固定调用验收、凭据边界、归档校验、脚本路由；不调用真实模型 |
-| 原生 Arm64 Docker | 9 项检查通过，[Oracle CI #28](https://github.com/lse872317312010/personal-os/actions/runs/40887037866) | 构建/健康、CLI、私有只读运行、强制停止恢复、升级、回滚、备份、恢复、拒绝不安全恢复；合成历史与登录卷标记 |
-| 完整部署包 | `personal-os-oracle-experiment-20261013.tar.gz`，52 个文件带校验清单 | Web 输入哈希固定如上，源码见包内 `candidate.json`；不含账号凭据、SSH 私钥或个人历史 |
+| 编译网页 | `29345cf002db9c6ecbf5ba98c388626e05b5fc8f`，[Web CI #216](https://github.com/lse872317312010/personal-os/actions/runs/40908800843) | 155 项应用测试、46 项 Chrome 测试、手机 390×844 和桌面 1440×900 编译页面闭环通过；使用 fixture Agent |
+| Web ZIP | `personal-os-agent-web`，SHA-256 `21249c8864e46e83e3d252c43d21bf7e7785a313f8f69af9721ec9330d757d3b` | 部署包内 33 个 Web 文件与该产物逐字节一致；后续部署修复未改变应用代码 |
+| 网关与部署文件 | `29345cf002db9c6ecbf5ba98c388626e05b5fc8f` | [Web](https://github.com/lse872317312010/personal-os/actions/runs/40908800843)、[契约](https://github.com/lse872317312010/personal-os/actions/runs/40908800491)、[Oracle](https://github.com/lse872317312010/personal-os/actions/runs/40908800438) CI 通过；[核心 CI](https://github.com/lse872317312010/personal-os/actions/runs/40908800445) 仍在排队 |
+| 网关与部署测试 | 36 项网关、7 项打包、5 项归档安全、8 项命令路由测试，共 56 项 | 固定调用验收、凭据边界、归档校验、脚本路由；不调用真实模型 |
+| 原生 Arm64 Docker | 9 项检查通过，[Oracle CI #30](https://github.com/lse872317312010/personal-os/actions/runs/40908800438) | 构建/健康、CLI、私有只读运行、强制停止恢复、升级、回滚、备份、恢复、拒绝不安全恢复；合成历史与登录卷标记 |
+| 完整部署包 | `personal-os-oracle-experiment-20261013.tar.gz`，53 个文件带校验清单 | Web 输入哈希固定如上，源码见包内 `candidate.json`；不含账号凭据、SSH 私钥或个人历史 |
 
-以上版本固定的是已验证候选，不随本文后续的文档提交改变。截图产物曾由 CI
-生成，本轮已查看手机/桌面展开依据的合成页面截图；这不替代真实用户试用。自动化测试中的执行与结果不是用户事实。
+以上版本固定的是已验证候选，不随本文后续的文档提交改变。编译页面在手机和
+桌面浏览器实际下载 JSON，并逐项比较事件、引用、源修订号，确认没有历史写入
+或新增 AI 请求。截图产物曾由 CI 生成；此前的调整依据截图已查看。这不替代
+真实用户试用，自动化测试中的执行与结果不是用户事实。
+
+后续源码新增只读导入预检 `WebHistoryCodec.preview`：复用严格事件解码器及
+核心 reducer，保留文本和引用，拒绝重复 ID、D4、超限和无法重放的版本/状态顺序。
+8 项新测试、事件包全部 32 项测试和静态检查在本地通过；尚未接入网页文件选择
+或恢复写入，因此不宣称 W4 恢复已完成。导入格式与后续边界见 [历史文件约定](WEB_HISTORY.md)。
 
 ## 已实现与修复
 
