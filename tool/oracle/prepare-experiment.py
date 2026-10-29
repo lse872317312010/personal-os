@@ -13,8 +13,8 @@ import tarfile
 import tempfile
 import zipfile
 
-WEB_SHA256 = '8c9077d43c0ac0469e59e8e935742468b82cde46c49984a807e3a5ea288ea378'
-# Previous deployment archives predate the empty-model recovery fix. Do not
+WEB_SHA256 = '2f243a18c59ecc135dd023e9c04d6146f3f123f4a139c27d32b4d0bb8395c7a4'
+# Previous deployment archives predate the revision-evidence UI. Do not
 # relabel those Web bytes as this candidate. Pin a compatible future archive
 # explicitly before permitting --base-bundle reuse again.
 BASE_SHA256: set[str] = set()
@@ -98,10 +98,10 @@ def prepare(archive: Path, output: Path, commit: str, *, base_bundle: bool = Fal
             target.write_bytes(content)
             target.chmod(0o755 if name.endswith('.sh') else 0o644)
         manifest = {
-            'source_commit_remote': '84dbc19ab105cd837e7406c8c380a918b9dd1a32',
-            'source_tree': 'a95b019e6ec2db9bb972234b58e93ca8db33ff34',
+            'source_commit_remote': '3144ebe802e1ee0f506d4e3147634a6c49194b67',
+            'source_tree': '23e3d907c2217551fc1c8834f81adb76f8ebeb9d',
             'web_artifact_sha256': WEB_SHA256,
-            'web_workflow_run': 39797256169,
+            'web_workflow_run': 40887037864,
             'gateway_source_commit': commit,
             'codex_cli_version': '0.162.1',
             'scope': 'private loopback gateway via SSH; ChatGPT-login Codex CLI; cloud/inference validation pending',

@@ -19,21 +19,22 @@ Ubuntu Arm 实例运行，再由 SSH 隧道访问。云实例尚未实际部署�
 
 | 内容 | 固定版本 / 结果 | 边界 |
 | --- | --- | --- |
-| 编译网页 | `84dbc19ab105cd837e7406c8c380a918b9dd1a32`，[Web CI #201](https://github.com/lse872317312010/personal-os/actions/runs/39797256169) | 153 项应用测试、44 项 Chrome 测试、手机 390×844 和桌面 1440×900 编译页面闭环通过；使用 fixture Agent |
-| Web ZIP | `personal-os-agent-web`，SHA-256 `8c9077d43c0ac0469e59e8e935742468b82cde46c49984a807e3a5ea288ea378` | 部署包内 33 个 Web 文件与该产物逐字节一致；后续部署修复未改变应用代码 |
-| 网关与部署文件 | `4343e99f986379366164ce0cbd6b89ee3df0aba4` | [Web](https://github.com/lse872317312010/personal-os/actions/runs/40650207070)、[核心](https://github.com/lse872317312010/personal-os/actions/runs/40650207032)、[契约](https://github.com/lse872317312010/personal-os/actions/runs/40650207023)、[Oracle](https://github.com/lse872317312010/personal-os/actions/runs/40650207010) CI 均通过 |
+| 编译网页 | `3144ebe802e1ee0f506d4e3147634a6c49194b67`，[Web CI #214](https://github.com/lse872317312010/personal-os/actions/runs/40887037864) | 155 项应用测试、46 项 Chrome 测试、手机 390×844 和桌面 1440×900 编译页面闭环通过；使用 fixture Agent |
+| Web ZIP | `personal-os-agent-web`，SHA-256 `2f243a18c59ecc135dd023e9c04d6146f3f123f4a139c27d32b4d0bb8395c7a4` | 部署包内 33 个 Web 文件与该产物逐字节一致；后续部署修复未改变应用代码 |
+| 网关与部署文件 | `3144ebe802e1ee0f506d4e3147634a6c49194b67` | [Web](https://github.com/lse872317312010/personal-os/actions/runs/40887037864)、[核心](https://github.com/lse872317312010/personal-os/actions/runs/40887038147)、[契约](https://github.com/lse872317312010/personal-os/actions/runs/40887038052)、[Oracle](https://github.com/lse872317312010/personal-os/actions/runs/40887037866) CI 均通过 |
 | 网关与部署测试 | 32 项网关、7 项打包、5 项归档安全、8 项命令路由测试，共 52 项 | 固定调用验收、凭据边界、归档校验、脚本路由；不调用真实模型 |
-| 原生 Arm64 Docker | 9 项检查通过，[Oracle CI #21](https://github.com/lse872317312010/personal-os/actions/runs/40649513688) | 构建/健康、CLI、私有只读运行、强制停止恢复、升级、回滚、备份、恢复、拒绝不安全恢复；合成历史与登录卷标记 |
-| 完整部署包 | `personal-os-oracle-experiment-20261013.tar.gz`，52 个文件带校验清单 | SHA-256 `dbc000a237dbe4b0d4995f1b9231ce875dc8e5ac511083eb07d323fdb1f97e14`；不含账号凭据、SSH 私钥或个人历史 |
+| 原生 Arm64 Docker | 9 项检查通过，[Oracle CI #28](https://github.com/lse872317312010/personal-os/actions/runs/40887037866) | 构建/健康、CLI、私有只读运行、强制停止恢复、升级、回滚、备份、恢复、拒绝不安全恢复；合成历史与登录卷标记 |
+| 完整部署包 | `personal-os-oracle-experiment-20261013.tar.gz`，52 个文件带校验清单 | Web 输入哈希固定如上，源码见包内 `candidate.json`；不含账号凭据、SSH 私钥或个人历史 |
 
 以上版本固定的是已验证候选，不随本文后续的文档提交改变。截图产物曾由 CI
-生成，未据此声称追加了人工视觉复核。自动化测试中的执行与结果不是用户事实。
+生成，本轮已查看手机/桌面展开依据的合成页面截图；这不替代真实用户试用。自动化测试中的执行与结果不是用户事实。
 
 ## 已实现与修复
 
 - 自动发送结构化目标、成功标准、现状、限制和历史，接收计划/复盘/修订；无需手动搬运 JSON。
 - 计划与复盘等待用户确认，完成与跳过由用户明确反馈；事实追加保存，切换 Agent 保留历史。
 - 刷新恢复资料、行动和待完成请求；保存失败保留输入，重试不重复写入结果。
+- 修订计划可展开“这轮为什么调整”，分别查看 AI 理由、已接受复盘建议和精确版本的结果原文；缺失/歧义明确提示。
 - Codex 连接表单隐藏 API 地址与密钥；未登录显示服务器登录命令。
 - 模型列表为空或请求中授权失效时清除失效就绪状态；额度耗尽保留计划和反馈。
 - 重新登录和重连不重复已失败的自动复盘，显式重试后才再次请求。
@@ -48,7 +49,7 @@ Ubuntu Arm 实例运行，再由 SSH 隧道访问。云实例尚未实际部署�
 | W0：可复现候选 | 已完成自动化验证 | 固定网页与部署源码、产物校验、CI 和原生容器恢复证据；不等于已经上线 |
 | W1：真实账号自动接入 | 待实例访问与账号登录 | `status` 就绪后显式运行 `test-ai` 成功，再在网页收到通过协议校验的真实计划 |
 | W2：同一目标两轮实际使用 | 待 W1 与用户实际反馈 | 计划 v1 → 明确完成/跳过 → 复盘 → 计划 v2；v2 使用第一轮证据，刷新与网关重启不丢历史、不重复事实 |
-| W3：变化展示与跨 Agent | 待完成 | 说明 v1→v2 改变及依据，第二个真实服务沿同一资料/历史继续；不以 fixture 切换替代 |
+| W3：变化展示与跨 Agent | 展示已实现，真实接续待验收 | 说明 v1→v2 改变及依据，第二个真实服务沿同一资料/历史继续；不以 fixture 切换替代 |
 | W4：Web 历史导出恢复 | 待完成 | 从网页导出不含登录凭据的历史，在空白环境恢复版本链；异常导入不破坏原数据 |
 
 服务器两个卷的备份恢复已验证，但备份包含安装密钥和登录凭据，不能把它当成
