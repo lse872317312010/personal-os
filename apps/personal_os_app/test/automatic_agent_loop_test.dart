@@ -125,14 +125,22 @@ void main() {
                 'data': <String, Object?>{'observation': '用户原文：二十分钟太长'},
               },
               <String, Object?>{
-                'ref': <String, Object?>{...outcome, 'revision': 2},
+                'ref': <String, Object?>{
+                  'type': 'outcome',
+                  'id': 'result',
+                  'revision': 2
+                },
                 'data': <String, Object?>{'observation': '其他版本的结果'},
               },
               <String, Object?>{
                 'ref': <String, Object?>{'type': 'review'},
                 'data': <String, Object?>{
                   'state': 'accepted',
-                  'strategy_ref': <String, Object?>{...parent, 'revision': 4},
+                  'strategy_ref': <String, Object?>{
+                    'type': 'strategy',
+                    'id': 'parent',
+                    'revision': 4
+                  },
                   'summary': '其他轮次的复盘',
                 },
               },
