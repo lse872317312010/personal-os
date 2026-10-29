@@ -114,7 +114,7 @@ try {
         Object.assign(bundle, { review_id: 'ci-quick-feedback-review', review: {
           strategy_ref: refs('strategy').at(-1), summary: 'CI 复盘：只验证用户反馈进入闭环，不判断真实效果。',
           conclusion: 'inconclusive', execution_refs: refs('execution'), outcome_refs: refs('outcome'),
-          feedback_refs: [], keep: [], change: [], unknowns: ['CI fixture, not real inference'],
+          feedback_refs: [], keep: [], change: ['CI 调整：保留明确反馈'], unknowns: ['CI fixture, not real inference'],
         } });
       } else {
         const revision = body.stage === 'revision';
@@ -324,6 +324,17 @@ try {
   const resumeScreenshot = await call('Page.captureScreenshot', { format: 'png' });
   await writeFile(screenshotPath('resume'), Buffer.from(resumeScreenshot.data, 'base64'));
   console.log('Compiled app resumed a saved accepted review after reload, preserved evidence and left the next plan awaiting the user.');
+  await clickButton('这轮为什么调整', { expand: true });
+  await delay(250);
+  const evidenceTree = await call('Accessibility.getFullAXTree');
+  const evidenceText = evidenceTree.nodes.map(n => n.name?.value || '').join('\n');
+  assert.ok(evidenceText.includes('依据你已接受的上一轮复盘'));
+  assert.ok(evidenceText.includes('CI 调整：保留明确反馈'));
+  const savedObservation = afterResume.events.find(e => e.event_type === 'outcome.recorded').payload.observation;
+  assert.ok(evidenceText.includes(savedObservation), 'Revision evidence omitted the saved outcome');
+  const evidenceScreenshot = await call('Page.captureScreenshot', { format: 'png' });
+  await writeFile(screenshotPath('revision-evidence'), Buffer.from(evidenceScreenshot.data, 'base64'));
+  console.log('Compiled app shows the accepted parent review and exact saved feedback behind its revised plan.');
   console.log(`Compiled automatic app passed the ${viewportName} Web journey with local fonts/renderer and no external startup requests. No account grant or real model inference was made.`);
 } catch (error) {
   if (call) {

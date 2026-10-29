@@ -86,19 +86,19 @@ void main() {
 
   testWidgets('revision explanation uses only its accepted pinned evidence',
       (tester) async {
-    final parent = <String, Object?>{
+    const parent = <String, Object?>{
       'type': 'strategy',
       'id': 'parent',
       'revision': 3
     };
-    final outcome = <String, Object?>{
+    const outcome = <String, Object?>{
       'type': 'outcome',
       'id': 'result',
       'revision': 1
     };
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
-        body: ListView(children: <Widget>[
+        body: ListView(children: const <Widget>[
           StrategyRevisionEvidence(
             parentRef: 'strategy:parent@3',
             rationale: '本轮减少行动时间',
