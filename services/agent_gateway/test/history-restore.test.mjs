@@ -63,6 +63,7 @@ test('shared write lock prevents competing restore or append, then permits norma
   try {
     assert.equal((await post({ revision: 0, events: [] })).status, 409);
     assert.equal((await post({ revision: 0, events: [] }, {}, '/api/history')).status, 409);
+    assert.equal((await post({}, {}, '/api/agent/request')).status, 409);
   } finally { release(); }
   assert.equal((await first).status, 200);
   state.pause = null;

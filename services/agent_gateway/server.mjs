@@ -148,7 +148,7 @@ export function createGateway({ auth, providers, connections = null, store, webR
           } finally { historyWriting = false; } return;
         }
         if (['/api/agent/request', '/api/agent/check'].includes(url.pathname) && request.method === 'POST') {
-          if (busy || authBusy || connectionWriting) throw new AgentError('agent_busy', 409);
+          if (busy || authBusy || connectionWriting || historyWriting) throw new AgentError('agent_busy', 409);
           const checking = url.pathname === '/api/agent/check';
           busy = controller;
           const timeout = setTimeout(() => controller.abort(), checking ? 30_000 : 180_000);

@@ -17,7 +17,7 @@ Future<String?> pickHistoryFile() async {
     try {
       final files = input.files;
       if (files == null || files.isEmpty) {
-        result.complete(null);
+        if (!result.isCompleted) result.complete(null);
         return;
       }
       final file = files.single;
@@ -30,10 +30,14 @@ Future<String?> pickHistoryFile() async {
       if (reader.error != null || reader.result is! ByteBuffer) {
         throw const WebHistoryException('history.file_unavailable');
       }
-      result
-          .complete(utf8.decode((reader.result! as ByteBuffer).asUint8List()));
+      if (!result.isCompleted) {
+        result.complete(
+            utf8.decode((reader.result! as ByteBuffer).asUint8List()));
+      }
     } on Object {
-      result.completeError(const WebHistoryException('history.file_invalid'));
+      if (!result.isCompleted) {
+        result.completeError(const WebHistoryException('history.file_invalid'));
+      }
     }
   });
   cancelled = input.on['cancel'].listen((_) {

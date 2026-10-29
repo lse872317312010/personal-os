@@ -45,6 +45,7 @@ final class _HistoryRestoreScreenState extends State<HistoryRestoreScreen> {
   }
 
   Future<void> _pick() async {
+    if (_busy) return;
     setState(() {
       _busy = true;
       _prepared = null;
@@ -69,6 +70,7 @@ final class _HistoryRestoreScreenState extends State<HistoryRestoreScreen> {
   }
 
   Future<void> _confirm() async {
+    if (_busy) return;
     final prepared = _prepared;
     if (prepared == null) return;
     setState(() {
@@ -104,6 +106,7 @@ final class _HistoryRestoreScreenState extends State<HistoryRestoreScreen> {
   }
 
   Future<void> _continue() async {
+    if (_busy) return;
     setState(() => _busy = true);
     try {
       await widget.onContinue();
