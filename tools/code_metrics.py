@@ -80,25 +80,32 @@ def tracked_sources(root):
 def count_files(root, paths):
     if not paths:
         return {}
-    with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt") as file:
-        for name in paths:
-            if "\n" in name or "\r" in name:
-                raise ValueError("newline in tracked source path")
-            file.write(name + "\n")
-        file.flush()
-        output = subprocess.check_output(
-            ["cloc", "--json", "--by-file", "--skip-uniqueness",
-             "--quiet", "--list-file=" + file.name],
-            cwd=root, text=True,
-        )
-    data = json.loads(output)
+    # Count independently by source suffix. A Python tooling addition must not
+    # change the way cloc classifies unchanged Dart/Rust/Kotlin source files.
+    groups = {}
+    for path in paths:
+        groups.setdefault(PurePosixPath(path).suffix.lower(), []).append(path)
     result = {}
-    for name, item in data.items():
-        if name in ("header", "SUM") or not isinstance(item, dict) or "code" not in item:
-            continue
-        result[name.removeprefix("./")] = {
-            "language": item["language"], **{field: int(item[field]) for field in FIELDS}
-        }
+    for extension, group in sorted(groups.items()):
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".txt") as file:
+            for name in group:
+                if "\n" in name or "\r" in name:
+                    raise ValueError("newline in tracked source path")
+                file.write(name + "\n")
+            file.flush()
+            output = subprocess.check_output(
+                ["cloc", "--json", "--by-file", "--skip-uniqueness",
+                 "--quiet", "--list-file=" + file.name],
+                cwd=root, text=True,
+            )
+        data = json.loads(output)
+        for name, item in data.items():
+            if name in ("header", "SUM") or not isinstance(item, dict) or "code" not in item:
+                continue
+            result[name.removeprefix("./")] = {
+                "language": item["language"],
+                **{field: int(item[field]) for field in FIELDS},
+            }
     missed = set(paths) - set(result)
     # cloc intentionally omits zero-length files; preserve them as zero-LOC
     # tracked sources rather than treating an empty package marker as a failure.
