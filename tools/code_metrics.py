@@ -99,6 +99,14 @@ def count_files(root, paths):
             "language": item["language"], **{field: int(item[field]) for field in FIELDS}
         }
     missed = set(paths) - set(result)
+    # cloc intentionally omits zero-length files; preserve them as zero-LOC
+    # tracked sources rather than treating an empty package marker as a failure.
+    for name in sorted(missed):
+        if not (root / name).read_bytes().strip():
+            result[name] = {
+                "language": "Empty source", "code": 0, "comment": 0, "blank": 0,
+            }
+    missed = set(paths) - set(result)
     if missed:
         raise RuntimeError("cloc did not classify these tracked files: "
                            + repr(sorted(missed)[:8]))
