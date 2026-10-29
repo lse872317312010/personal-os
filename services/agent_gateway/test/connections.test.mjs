@@ -194,3 +194,4 @@ test('HTTP Agent probe discards replies, preserves history and enforces CSRF, re
   assert.equal(failed.status, 502); assert.deepEqual(await failed.json(), { error: 'invalid_api_key' });
   assert.deepEqual(await store.read('history'), history);
 });
+

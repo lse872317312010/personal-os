@@ -5,3 +5,4 @@ export 'src/event_envelope.dart';
 export 'src/event_types.dart';
 export 'src/json_codec.dart';
 export 'src/reducer.dart';
+export 'src/web_history_codec.dart';

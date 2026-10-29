@@ -1,6 +1,6 @@
 // Production-build smoke test in a disposable CI browser/profile. It makes no
 // real model inference and has no user credentials. External hosts cannot resolve.
-import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -31,7 +31,7 @@ const browser = spawn(process.env.CHROME_EXECUTABLE || 'google-chrome', [
   '--remote-debugging-port=0', `--user-data-dir=${join(profile, 'browser')}`, origin,
 ], { stdio: 'ignore' });
 const browserExited = new Promise(resolve => browser.once('exit', resolve));
-let socket, fixture, call;
+let socket, fixture, call, restoreGateway;
 try {
   let port;
   const deadline = Date.now() + 45_000;
@@ -57,10 +57,22 @@ try {
   await call('Page.enable');
   await call('Emulation.setDeviceMetricsOverride', viewport);
   await call('Page.reload', { ignoreCache: true });
-  let ready = false;
+  let ready = false, startedNew = false;
   while (Date.now() < deadline && !ready) {
     const value = await call('Runtime.evaluate', { expression: "document.querySelector('flt-semantics-placeholder')?.click(); document.body.outerHTML", returnByValue: true });
     const html = value.result.value || '';
+    if (!startedNew && html.includes('开始新的记录')) {
+      assert.deepEqual(await store.read('history', { revision: 0, events: [] }), { revision: 0, events: [] }, 'Startup created a session before restore choice');
+      const ax = await call('Accessibility.getFullAXTree');
+      const button = ax.nodes.find(n => n.role?.value === 'button' && n.name?.value?.includes('开始新的记录'));
+      if (button?.backendDOMNodeId) {
+        const { model } = await call('DOM.getBoxModel', { backendNodeId: button.backendDOMNodeId });
+        const x = (model.content[0] + model.content[2]) / 2, y = (model.content[1] + model.content[5]) / 2;
+        await call('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+        await call('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+        startedNew = true;
+      }
+    }
     if (html.includes('Continue with ChatGPT') && html.includes('你想达成什么')) {
       const ax = await call('Accessibility.getFullAXTree');
       ready = ax.nodes.some(n => ['button', 'link'].includes(n.role?.value)
@@ -114,7 +126,7 @@ try {
         Object.assign(bundle, { review_id: 'ci-quick-feedback-review', review: {
           strategy_ref: refs('strategy').at(-1), summary: 'CI 复盘：只验证用户反馈进入闭环，不判断真实效果。',
           conclusion: 'inconclusive', execution_refs: refs('execution'), outcome_refs: refs('outcome'),
-          feedback_refs: [], keep: [], change: [], unknowns: ['CI fixture, not real inference'],
+          feedback_refs: [], keep: [], change: ['CI 调整：保留明确反馈'], unknowns: ['CI fixture, not real inference'],
         } });
       } else {
         const revision = body.stage === 'revision';
@@ -166,7 +178,7 @@ try {
       await delay(150);
     }
     const unavailable = await call('Accessibility.getFullAXTree');
-    console.log('Fixture controls after failed activation:', JSON.stringify(unavailable.nodes.filter(n => n.role?.value === 'button').map(n => ({ name: n.name?.value, properties: n.properties }))));
+    console.log('Fixture controls after failed activation:', JSON.stringify(unavailable.nodes.filter(n => n.name?.value).map(n => ({ role: n.role?.value, name: n.name?.value, properties: n.properties }))));
     throw Error(`Compiled app button unavailable: ${label}`);
   };
   const enterText = async (label, text) => {
@@ -324,6 +336,109 @@ try {
   const resumeScreenshot = await call('Page.captureScreenshot', { format: 'png' });
   await writeFile(screenshotPath('resume'), Buffer.from(resumeScreenshot.data, 'base64'));
   console.log('Compiled app resumed a saved accepted review after reload, preserved evidence and left the next plan awaiting the user.');
+  await clickButton('这轮为什么调整');
+  await delay(250);
+  const evidenceTree = await call('Accessibility.getFullAXTree');
+  const evidenceText = evidenceTree.nodes.map(n => n.name?.value || '').join('\n');
+  assert.ok(evidenceText.includes('依据你已接受的上一轮复盘'));
+  assert.ok(evidenceText.includes('CI 调整：保留明确反馈'));
+  const savedObservation = afterResume.events.find(e => e.event_type === 'outcome.recorded').payload.observation;
+  assert.ok(evidenceText.includes(savedObservation), 'Revision evidence omitted the saved outcome');
+  const evidenceScreenshot = await call('Page.captureScreenshot', { format: 'png' });
+  await writeFile(screenshotPath('revision-evidence'), Buffer.from(evidenceScreenshot.data, 'base64'));
+  console.log('Compiled app shows the accepted parent review and exact saved feedback behind its revised plan.');
+  // Exercise the actual download script against the real gateway. Navigation
+  // to the public shell must not expose history or make an inference request.
+  const beforeExport = await store.read('history');
+  const inferenceCount = checks.length;
+  const aiHttpCount = () => requests.filter(u => u.includes('/api/agent/request') || u.includes('/api/agent/check')).length;
+  const aiRequestsBeforeExport = aiHttpCount();
+  const downloadDir = join(profile, 'downloads');
+  await mkdir(downloadDir);
+  await call('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: downloadDir });
+  await call('Page.navigate', { url: `${origin}/history-export` });
+  let downloadReady = false;
+  for (let attempt = 0; attempt < 50 && !downloadReady; attempt++) {
+    const result = await call('Runtime.evaluate', { expression: "!!document.querySelector('#download')", returnByValue: true });
+    downloadReady = result.result.value === true;
+    if (!downloadReady) await delay(100);
+  }
+  assert.ok(downloadReady, 'History download page did not load');
+  await call('Runtime.evaluate', { expression: "document.querySelector('#download').click()" });
+  let exported, exportFile;
+  for (let attempt = 0; attempt < 80 && !exported; attempt++) {
+    const name = (await readdir(downloadDir)).find(name => /^personal-os-history-.*\.json$/.test(name));
+    if (name) { exportFile = join(downloadDir, name); exported = JSON.parse(await readFile(exportFile, 'utf8')); }
+    if (!exported) await delay(100);
+  }
+  assert.ok(exported, 'Browser did not download history JSON');
+  assert.deepEqual(Object.keys(exported).sort(), ['events', 'exported_at', 'format', 'source_revision']);
+  assert.equal(exported.format, 'personal-os.web-history.v1');
+  assert.equal(exported.source_revision, beforeExport.revision);
+  assert.deepEqual(exported.events, beforeExport.events, 'Download changed event contents or version references');
+  assert.deepEqual(await store.read('history'), beforeExport, 'Export changed stored history');
+  assert.equal(checks.length, inferenceCount, 'Export made an AI request');
+  console.log('Browser downloaded complete history JSON with exact events and references, without changing history or requesting AI.');
+  // Restore that actual download into separate encrypted storage. Connection
+  // settings and auth are deliberately initialized fresh, never copied.
+  const restoredStore = new ProtectedStore(join(profile, 'restored-app'));
+  const restoredAuth = new ChatGPTAuth(restoredStore); await restoredAuth.init();
+  const restoredConnections = await new AgentConnections(restoredStore, restoredAuth).init();
+  restoreGateway = createGateway({ store: restoredStore, auth: restoredAuth,
+    connections: restoredConnections, providers: restoredConnections.provider,
+    webRoot: resolve('apps/personal_os_app/build/web') });
+  const restoredOrigin = await restoreGateway.listen();
+  await call('Page.navigate', { url: restoredOrigin });
+  await call('Page.setInterceptFileChooserDialog', { enabled: true });
+  await clickButton('选择历史 JSON 文件');
+  let fileInput;
+  for (let attempt = 0; attempt < 50 && !fileInput; attempt++) {
+    const { root } = await call('DOM.getDocument');
+    const value = await call('DOM.querySelector', { nodeId: root.nodeId, selector: '#personal-os-history-file' });
+    fileInput = value.nodeId;
+    if (!fileInput) await delay(100);
+  }
+  assert.ok(fileInput, 'Actual browser file input did not open');
+  await call('DOM.setFileInputFiles', { nodeId: fileInput, files: [exportFile] });
+  let previewed = false;
+  for (let attempt = 0; attempt < 80 && !previewed; attempt++) {
+    const ax = await call('Accessibility.getFullAXTree');
+    previewed = ax.nodes.some(n => n.name?.value?.includes('校验通过：'));
+    if (!previewed) await delay(100);
+  }
+  assert.ok(previewed, 'Selected history did not produce a local preview');
+  assert.deepEqual(await restoredStore.read('history', { revision: 0, events: [] }), { revision: 0, events: [] }, 'Selection wrote history before confirmation');
+  // The confirm button appears only after local decoding/replay succeeds.
+  await clickButton('确认恢复到空白网关');
+  let restored = false;
+  for (let attempt = 0; attempt < 80 && !restored; attempt++) {
+    const ax = await call('Accessibility.getFullAXTree');
+    restored = ax.nodes.some(n => n.name?.value === '历史已恢复');
+    if (!restored) await delay(100);
+  }
+  assert.ok(restored, 'Compiled app did not confirm history restoration');
+  assert.deepEqual(await restoredStore.read('history'), { revision: 1, events: beforeExport.events });
+  assert.equal(checks.length, inferenceCount, 'Restore requested AI before user entry');
+  assert.equal(aiHttpCount(), aiRequestsBeforeExport, 'Restore sent an AI HTTP request');
+  const restoredScreenshot = await call('Page.captureScreenshot', { format: 'png' });
+  await writeFile(screenshotPath('history-restored'), Buffer.from(restoredScreenshot.data, 'base64'));
+  await clickButton('确认，进入应用');
+  let restoredPlan = false;
+  for (let attempt = 0; attempt < 100 && !restoredPlan; attempt++) {
+    await call('Runtime.evaluate', { expression: "document.querySelector('flt-semantics-placeholder')?.click()" });
+    const ax = await call('Accessibility.getFullAXTree');
+    restoredPlan = ax.nodes.some(n => n.name?.value?.includes('CI 下一轮行动'));
+    if (!restoredPlan) await delay(100);
+  }
+  assert.ok(restoredPlan, 'Restored next plan did not reload');
+  assert.equal(checks.length, inferenceCount);
+  assert.equal(aiHttpCount(), aiRequestsBeforeExport);
+  const afterEntry = await restoredStore.read('history');
+  assert.deepEqual(afterEntry.events.slice(0, beforeExport.events.length), beforeExport.events);
+  assert.equal(afterEntry.events.filter(e => e.event_type === 'execution.recorded').length, 1);
+  assert.equal(afterEntry.events.filter(e => e.event_type === 'outcome.recorded').length, 1);
+  assert.equal(restoredConnections.summaries.some(c => c.label === 'CI 测试模型'), false, 'Restore copied an AI connection');
+  console.log('Actual downloaded file restored into a fresh gateway, preserved exact two-round events and reloaded the next plan after explicit user entry, without AI or copied credentials.');
   console.log(`Compiled automatic app passed the ${viewportName} Web journey with local fonts/renderer and no external startup requests. No account grant or real model inference was made.`);
 } catch (error) {
   if (call) {
@@ -347,6 +462,7 @@ try {
   browser.kill('SIGTERM');
   try { await browserExited; } finally { clearTimeout(forceExit); }
   await gateway.close();
+  if (restoreGateway) await restoreGateway.close();
   if (fixture) { fixture.closeAllConnections(); await new Promise(resolve => fixture.close(resolve)); }
   await rm(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 }

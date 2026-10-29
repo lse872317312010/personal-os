@@ -1,0 +1,38 @@
+name: personal-os-oracle-experiment
+services:
+  gateway:
+    build: .
+    # Linux only. The unchanged gateway binds 127.0.0.1 on the host.
+    # Access it through SSH forwarding; do not open 8787 in OCI ingress rules.
+    network_mode: host
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 2g
+    restart: unless-stopped
+    volumes:
+      - history:/var/lib/personal-os
+      - codex-auth:/home/node/.codex
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8787/api/health',{headers:{'X-Personal-OS':'1'},signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 1m
+        max-file: "2"
+volumes:
+  history:
+  codex-auth:

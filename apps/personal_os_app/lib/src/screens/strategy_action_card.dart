@@ -284,7 +284,17 @@ final class StrategyActionCard extends StatelessWidget {
                   onPressed: busy ? null : onAskAgent,
                 ),
               ],
-              if (!compact && controller.proposalRationale != null)
+              if (!compact &&
+                  !reviewing &&
+                  controller.parentStrategyRef != null)
+                StrategyRevisionEvidence(
+                  parentRef: controller.parentStrategyRef!,
+                  rationale: controller.proposalRationale,
+                  records: controller.contextRecords,
+                ),
+              if (!compact &&
+                  controller.proposalRationale != null &&
+                  (controller.parentStrategyRef == null || reviewing))
                 Theme(
                   data: Theme.of(context).copyWith(
                     dividerColor: Colors.transparent,
@@ -327,6 +337,123 @@ final class StrategyActionCard extends StatelessWidget {
         child: Text(label,
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
       );
+}
+
+/// Show only evidence linked to this revision's pinned parent strategy.
+final class StrategyRevisionEvidence extends StatefulWidget {
+  const StrategyRevisionEvidence({
+    required this.parentRef,
+    required this.rationale,
+    required this.records,
+    super.key,
+  });
+
+  final String parentRef;
+  final String? rationale;
+  final List<Map<String, Object?>> records;
+
+  @override
+  State<StrategyRevisionEvidence> createState() =>
+      _StrategyRevisionEvidenceState();
+}
+
+final class _StrategyRevisionEvidenceState
+    extends State<StrategyRevisionEvidence> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final matches = widget.records.where((record) {
+      final data = record['data'] as Map?;
+      return (record['ref'] as Map?)?['type'] == 'review' &&
+          data?['state'] == 'accepted' &&
+          _evidenceRef(data?['strategy_ref']) == widget.parentRef;
+    }).toList();
+    final review = matches.length == 1 ? matches.single['data'] as Map : null;
+    final changes = (review?['change'] as List? ?? const <Object?>[])
+        .whereType<String>()
+        .where((value) => value.trim().isNotEmpty);
+    final refs = (review?['outcome_refs'] as List? ?? const <Object?>[])
+        .map(_evidenceRef)
+        .whereType<String>()
+        .toSet();
+    final outcomes = widget.records.where((record) =>
+        (record['ref'] as Map?)?['type'] == 'outcome' &&
+        refs.contains(_evidenceRef(record['ref'])));
+    final observations = outcomes
+        .map((record) => (record['data'] as Map?)?['observation'])
+        .whereType<String>()
+        .where((value) => value.trim().isNotEmpty)
+        .toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        TextButton(
+          key: const Key('strategy-revision-evidence'),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.white,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+          onPressed: () => setState(() => _expanded = !_expanded),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text('这轮为什么调整'),
+                    Text(
+                      review == null ? '上一轮依据暂不可唯一定位' : '依据你已接受的上一轮复盘',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+            ],
+          ),
+        ),
+        if (_expanded)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                if (widget.rationale?.trim().isNotEmpty == true) ...<Widget>[
+                  const Text('AI 给出的本轮理由'),
+                  Text(widget.rationale!),
+                  const SizedBox(height: 12),
+                ],
+                if (review == null)
+                  const Text('未找到唯一匹配的已接受复盘，暂不展示其他轮次的反馈。')
+                else ...<Widget>[
+                  const Text('上一轮已接受的 AI 复盘'),
+                  if (review['summary'] is String)
+                    Text(review['summary'] as String),
+                  for (final change in changes) Text('建议调整：$change'),
+                  const SizedBox(height: 12),
+                  const Text('该复盘引用的实际反馈'),
+                  for (final observation in observations) Text(observation),
+                  if (observations.length != refs.length || refs.isEmpty)
+                    const Text('部分结果证据暂不可读取；可在行动历史中核对。'),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+String? _evidenceRef(Object? value) {
+  if (value is! Map ||
+      value['type'] is! String ||
+      value['id'] is! String ||
+      value['revision'] is! int) {
+    return null;
+  }
+  return '${value['type']}:${value['id']}@${value['revision']}';
 }
 
 String _date(String value) {

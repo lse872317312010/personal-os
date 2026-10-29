@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { AgentError } from './chatgpt-auth.mjs';
 import { AgentProviders, endpoint } from './providers.mjs';
 
-const kinds = new Set(['responses', 'chat-completions', 'agent-http']);
+const kinds = new Set(['responses', 'chat-completions', 'agent-http', 'codex-cli']);
 const defaultConnection = () => ({ id: 'chatgpt', label: 'ChatGPT', config: { kind: 'chatgpt' } });
 function text(value, limit, optional = false) {
   if (value == null && optional) return '';
@@ -21,10 +21,14 @@ export class AgentConnections {
     if (saved) {
       if (saved.version !== 1 || typeof saved.revision !== 'string' || !Array.isArray(saved.entries) || !saved.entries.some(e => e.id === saved.active) || !saved.entries.some(e => e.id === 'chatgpt')) throw new AgentError('invalid_connection_store', 503);
       this.state = saved;
+      if (this.initial.kind === 'codex-cli' && !saved.entries.some(e => e.config.kind === 'codex-cli')) {
+        this.state = { ...saved, revision: randomUUID(), entries: [...saved.entries, { id: randomUUID(), label: 'Codex · ChatGPT 订阅', config: this.normalize({ kind: 'codex-cli', model: this.initial.model }) }] };
+        await this.store.write('connections', this.state);
+      }
     } else {
       this.state = { version: 1, revision: randomUUID(), active: 'chatgpt', entries: [defaultConnection()] };
       if (this.initial.kind && this.initial.kind !== 'chatgpt') {
-        const entry = { id: randomUUID(), label: '启动配置', config: this.normalize({ kind: this.initial.kind, base_url: this.initial.baseUrl, agent_url: this.initial.agentUrl, model: this.initial.model, api_key: this.initial.apiKey }) };
+        const entry = { id: randomUUID(), label: this.initial.kind === 'codex-cli' ? 'Codex · ChatGPT 订阅' : '启动配置', config: this.normalize({ kind: this.initial.kind, base_url: this.initial.baseUrl, agent_url: this.initial.agentUrl, model: this.initial.model, api_key: this.initial.apiKey }) };
         this.state.entries.push(entry); this.state.active = entry.id;
       }
       await this.store.write('connections', this.state);
@@ -38,6 +42,10 @@ export class AgentConnections {
   }
   normalize(body, previous) {
     if (!kinds.has(body.kind)) throw new AgentError('invalid_connection');
+    if (body.kind === 'codex-cli') {
+      if (body.api_key || body.base_url || body.agent_url) throw new AgentError('invalid_connection');
+      return { kind: 'codex-cli', model: text(body.model, 256, true) || 'codex-default' };
+    }
     const model = text(body.model, 256);
     if (!model) throw new AgentError('connection_model_required');
     let url;

@@ -380,10 +380,30 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                             'review'
                           ].contains((e['ref'] as Map?)?['type'])))
                         _records(history: true),
+                      Link(
+                        uri:
+                            agent.gateway.signInPage.resolve('/history-export'),
+                        target: LinkTarget.blank,
+                        builder: (context, followLink) => OutlinedButton.icon(
+                          key: const Key('automatic-export-history'),
+                          onPressed: busy ? null : followLink,
+                          icon: const Icon(Icons.download),
+                          label: const Text('导出个人历史（不含登录凭据）'),
+                        ),
+                      ),
+                      Link(
+                        uri: agent.gateway.signInPage
+                            .resolve('/?restore=history'),
+                        target: LinkTarget.blank,
+                        builder: (context, followLink) => TextButton(
+                          onPressed: busy ? null : followLink,
+                          child: const Text('恢复历史（仅空白网关）'),
+                        ),
+                      ),
                       const Padding(
                           padding: EdgeInsets.fromLTRB(8, 12, 8, 0),
                           child: Text(
-                              '你的资料和行动历史保存在本机。生成计划与复盘时，当前目标、成功标准、现状、执行限制和相关历史会发送给你连接的 AI。',
+                              '你的资料和行动历史保存在当前网关中。生成计划与复盘时，当前目标、成功标准、现状、执行限制和相关历史会发送给你连接的 AI。',
                               style: TextStyle(
                                   fontSize: 12, color: Colors.black54))),
                     ],
@@ -402,11 +422,24 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
             ? '资料已保存，连接后会自动继续计划或复盘'
             : agent.connected
                 ? agent.connectionCheckMessage ?? '已配置，可生成计划或测试 AI 响应'
-                : agent.provider == 'chatgpt'
-                    ? '首次登录一次，以后自动调用'
-                    : '检查服务配置，保存后自动调用'),
+                : agent.provider == 'codex-cli'
+                    ? '在服务器登录 ChatGPT 账号后刷新连接'
+                    : agent.provider == 'chatgpt'
+                        ? '首次登录一次，以后自动调用'
+                        : '检查服务配置，保存后自动调用'),
         childrenPadding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: <Widget>[
+          if (!agent.connected && agent.provider == 'codex-cli') ...<Widget>[
+            const Text('首次在运行网关的服务器部署目录登录你的 ChatGPT 账号：'),
+            const SizedBox(height: 8),
+            const SelectableText(
+              'bash personal-os.sh login',
+              key: Key('automatic-codex-login-command'),
+            ),
+            const SizedBox(height: 8),
+            const Text('登录完成后点击「刷新连接」。调用会使用 ChatGPT/Codex 订阅额度。'),
+            const SizedBox(height: 12),
+          ],
           if (agent.connections.length > 1)
             KeyedSubtree(
                 key: ValueKey(agent.connectionId),
@@ -502,7 +535,7 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                 key: const Key('automatic-refresh-connection'),
                 onPressed: busy ? null : () => _reconnect(retryPending: true),
                 child: const Text('刷新连接')),
-            if (agent.provider == 'chatgpt')
+            if (agent.provider == 'chatgpt' || agent.provider == 'codex-cli')
               Link(
                   uri: Uri.parse('https://chatgpt.com/#settings/Usage'),
                   target: LinkTarget.blank,

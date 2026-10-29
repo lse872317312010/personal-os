@@ -9,6 +9,7 @@ import 'src/agent_interop/automatic_agent_gateway.dart';
 import 'src/agent_interop/local_agent_event_store.dart';
 import 'src/app.dart';
 import 'src/composition/app_composition.dart';
+import 'src/screens/history_restore_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,7 @@ final class _StartState extends State<_Start> {
   AppComposition? _app;
   String? _error;
   bool _fontReady = false;
+  LocalAutomaticAgentGateway? _restoreGateway;
   @override
   void initState() {
     super.initState();
@@ -52,19 +54,27 @@ final class _StartState extends State<_Start> {
         return;
       }
       final gateway = LocalAutomaticAgentGateway(origin: Uri.base);
-      await gateway.status();
-      final store = LocalAgentEventStore(gateway);
-      await store.load();
-      final app =
-          AppComposition.localAgent(gateway: gateway, eventStore: store);
-      if (mounted) setState(() => _app = app);
+      final historyStatus = await gateway.get('/api/history/status');
+      if (historyStatus['empty'] == true ||
+          Uri.base.queryParameters['restore'] == 'history') {
+        if (mounted) setState(() => _restoreGateway = gateway);
+        return;
+      }
+      await _openApp(gateway);
     } on Object {
       if (mounted) {
         setState(() => _error = _fontReady
-            ? '本机服务未启动或历史记录无法读取。请重新启动 Personal OS 本机版。'
+            ? '网关服务或历史记录暂不可用。请检查服务是否启动；如使用云端部署，也请检查 SSH 隧道。'
             : 'Unable to load app resources. Please restart Personal OS.');
       }
     }
+  }
+
+  Future<void> _openApp(LocalAutomaticAgentGateway gateway) async {
+    final store = LocalAgentEventStore(gateway);
+    await store.load();
+    final app = AppComposition.localAgent(gateway: gateway, eventStore: store);
+    if (mounted) setState(() => _app = app);
   }
 
   @override
@@ -77,51 +87,57 @@ final class _StartState extends State<_Start> {
               colorScheme:
                   ColorScheme.fromSeed(seedColor: const Color(0xff315c4c)),
               useMaterial3: true),
-          home: Scaffold(
-              body: Center(
-                  child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 520),
-                      child: Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: <Widget>[
-                                const Icon(Icons.auto_awesome,
-                                    size: 56, color: Color(0xff315c4c)),
-                                const SizedBox(height: 24),
-                                Text(
-                                    _fontReady
-                                        ? 'Personal OS\nAI 帮你想，你负责行动'
-                                        : 'Personal OS',
-                                    style: const TextStyle(
-                                        fontSize: 30,
-                                        fontWeight: FontWeight.w700)),
-                                const SizedBox(height: 16),
-                                Text(_error ?? 'Loading…',
-                                    style: const TextStyle(height: 1.6)),
-                                const SizedBox(height: 24),
-                                if (_error == null)
-                                  const LinearProgressIndicator(),
-                                if (_error != null &&
-                                    Uri.base.host != '127.0.0.1') ...<Widget>[
-                                  Link(
-                                      uri: Uri.parse(
-                                          'https://github.com/lse872317312010/personal-os/releases/tag/automatic-agent-web'),
-                                      target: LinkTarget.blank,
-                                      builder: (context, follow) =>
-                                          FilledButton(
-                                              onPressed: follow,
-                                              child: const Text('下载自动版'))),
-                                  const SizedBox(height: 12),
-                                  const Text(
-                                      'Windows：解压后双击 Start-Personal-OS.cmd。浏览器会自动打开应用。'),
-                                ],
-                                if (_error != null &&
-                                    Uri.base.host == '127.0.0.1')
-                                  FilledButton(
-                                      onPressed: _load,
-                                      child: const Text('重新连接')),
-                              ]))))),
+          home: _restoreGateway != null
+              ? HistoryRestoreScreen(
+                  gateway: _restoreGateway!,
+                  onContinue: () => _openApp(_restoreGateway!))
+              : Scaffold(
+                  body: Center(
+                      child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 520),
+                          child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: <Widget>[
+                                    const Icon(Icons.auto_awesome,
+                                        size: 56, color: Color(0xff315c4c)),
+                                    const SizedBox(height: 24),
+                                    Text(
+                                        _fontReady
+                                            ? 'Personal OS\nAI 帮你想，你负责行动'
+                                            : 'Personal OS',
+                                        style: const TextStyle(
+                                            fontSize: 30,
+                                            fontWeight: FontWeight.w700)),
+                                    const SizedBox(height: 16),
+                                    Text(_error ?? 'Loading…',
+                                        style: const TextStyle(height: 1.6)),
+                                    const SizedBox(height: 24),
+                                    if (_error == null)
+                                      const LinearProgressIndicator(),
+                                    if (_error != null &&
+                                        Uri.base.host !=
+                                            '127.0.0.1') ...<Widget>[
+                                      Link(
+                                          uri: Uri.parse(
+                                              'https://github.com/lse872317312010/personal-os/releases/tag/automatic-agent-web'),
+                                          target: LinkTarget.blank,
+                                          builder: (context, follow) =>
+                                              FilledButton(
+                                                  onPressed: follow,
+                                                  child: const Text('下载自动版'))),
+                                      const SizedBox(height: 12),
+                                      const Text(
+                                          'Windows：解压后双击 Start-Personal-OS.cmd。浏览器会自动打开应用。'),
+                                    ],
+                                    if (_error != null &&
+                                        Uri.base.host == '127.0.0.1')
+                                      FilledButton(
+                                          onPressed: _load,
+                                          child: const Text('重新连接')),
+                                  ]))))),
         );
 }
