@@ -1,0 +1,51 @@
+name: Weekly code metrics
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Mondays at 09:00 JST (00:00 UTC)
+    - cron: '0 0 * * 1'
+  push:
+    paths:
+      - .github/workflows/code-metrics.yml
+      - tools/code_metrics.py
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-code-metrics-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  metrics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install cloc
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends cloc
+          cloc --version
+      - name: Count tracked source and seven-day net changes
+        run: python3 tools/code_metrics.py --output outputs/code-metrics
+      - name: Publish GitHub Actions job summary
+        if: always()
+        run: |
+          if test -f outputs/code-metrics/summary.md; then
+            cat outputs/code-metrics/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Code metrics failed; inspect job logs.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload JSON and Markdown statistics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-code-metrics
+          path: outputs/code-metrics/
+          if-no-files-found: warn
+          retention-days: 90
