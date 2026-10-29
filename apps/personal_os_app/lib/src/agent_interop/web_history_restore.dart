@@ -18,7 +18,16 @@ final class WebHistoryRestore {
   WebHistoryRestore(this.gateway);
   final AutomaticAgentGateway gateway;
 
-  Future<Map<String, Object?>> status() => gateway.get('/api/history/status');
+  Future<Map<String, Object?>> status() async {
+    final value = await gateway.get('/api/history/status');
+    if (value['revision'] is! int ||
+        value['empty'] is! bool ||
+        value['csrf'] is! String ||
+        (value['csrf']! as String).isEmpty) {
+      throw const AgentGatewayException('history_status_unavailable');
+    }
+    return value;
+  }
 
   Future<PreparedHistoryRestore> prepare(String source) async {
     final preview = WebHistoryCodec.preview(source);
@@ -39,9 +48,12 @@ final class WebHistoryRestore {
         destination['revision'] != prepared.destinationRevision) {
       throw const AgentGatewayException('history_conflict');
     }
-    await gateway.post('/api/history/restore', <String, Object?>{
+    final result = await gateway.post('/api/history/restore', <String, Object?>{
       'revision': prepared.destinationRevision,
       'events': jsonDecode(prepared._events),
     });
+    if (result['revision'] != prepared.destinationRevision + 1) {
+      throw const AgentGatewayException('history_restore_uncertain');
+    }
   }
 }

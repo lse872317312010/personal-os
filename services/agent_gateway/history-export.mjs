@@ -21,8 +21,8 @@ export const historyExportPage = `<!doctype html><html lang="zh-CN"><meta charse
 <style>body{font:17px system-ui;max-width:560px;margin:8vh auto;padding:24px;background:#f3f7f3;color:#123c32;line-height:1.6}button{font:inherit;padding:14px 20px;border-radius:12px;background:#123c32;color:white;border:0}a{color:#315c4c}button:disabled{opacity:.6}</style>
 <h1>导出个人历史</h1><p>包含已保存的资料、目标、计划、执行、反馈和复盘事件，保留原始版本与引用。</p>
 <p>网关不会打包 AI 连接配置、API 密钥、CLI 登录文件或安装密钥。你自己写入资料中的内容会原样导出。</p>
-<p>文件是明文，请保存在自己的设备上。本版仅提供导出，尚未提供网页恢复入口；不能替代服务器私有备份。</p>
-<button id="download">下载历史 JSON</button><p id="message" role="status"></p><a href="/">返回应用</a>
+<p>文件是明文，请保存在自己的设备上。可在空白网关选择此文件，校验并确认后恢复个人历史；不能替代包含登录凭据的服务器私有备份。</p>
+<button id="download">下载历史 JSON</button><p id="message" role="status"></p><a href="/">返回应用</a> · <a href="/?restore=history">恢复历史（仅空白网关）</a>
 <script>
 const button=document.querySelector('#download'),message=document.querySelector('#message');
 button.onclick=async()=>{
