@@ -51,7 +51,8 @@ def source_file(path):
     parts = PurePosixPath(path).parts
     lower = [x.lower() for x in parts]
     return (
-        not set(lower[:-1]).intersection(EXCLUDE_DIR)
+        path != "tools/code_metrics.py"  # self-instrumentation is not product growth
+        and not set(lower[:-1]).intersection(EXCLUDE_DIR)
         and not any(g in lower[-1] for g in GENERATED)
         and PurePosixPath(path).suffix.lower() in EXT
     )
