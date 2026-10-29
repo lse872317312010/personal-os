@@ -166,7 +166,7 @@ try {
       await delay(150);
     }
     const unavailable = await call('Accessibility.getFullAXTree');
-    console.log('Fixture controls after failed activation:', JSON.stringify(unavailable.nodes.filter(n => n.role?.value === 'button').map(n => ({ name: n.name?.value, properties: n.properties }))));
+    console.log('Fixture controls after failed activation:', JSON.stringify(unavailable.nodes.filter(n => n.name?.value).map(n => ({ role: n.role?.value, name: n.name?.value, properties: n.properties }))));
     throw Error(`Compiled app button unavailable: ${label}`);
   };
   const enterText = async (label, text) => {
@@ -324,7 +324,7 @@ try {
   const resumeScreenshot = await call('Page.captureScreenshot', { format: 'png' });
   await writeFile(screenshotPath('resume'), Buffer.from(resumeScreenshot.data, 'base64'));
   console.log('Compiled app resumed a saved accepted review after reload, preserved evidence and left the next plan awaiting the user.');
-  await clickButton('这轮为什么调整', { expand: true });
+  await clickButton('这轮为什么调整', { expand: true, roles: ['button', 'generic', 'DisclosureTriangle', 'StaticText'] });
   await delay(250);
   const evidenceTree = await call('Accessibility.getFullAXTree');
   const evidenceText = evidenceTree.nodes.map(n => n.name?.value || '').join('\n');
