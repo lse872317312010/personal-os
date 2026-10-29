@@ -10,6 +10,7 @@ import 'package:personal_os_app/src/agent_interop/automatic_agent_gateway.dart';
 import 'package:personal_os_app/src/agent_interop/local_agent_event_store.dart';
 import 'package:personal_os_app/src/app.dart';
 import 'package:personal_os_app/src/composition/app_composition.dart';
+import 'package:personal_os_app/src/screens/strategy_action_card.dart';
 import 'package:personal_os_application/application.dart';
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
@@ -79,7 +80,116 @@ void main() {
     expect(action, findsOneWidget);
     expect(tester.getBottomRight(confirm).dy, lessThan(784));
     expect(find.byKey(const Key('agent-reply-input')), findsNothing);
+    expect(find.byKey(const Key('strategy-revision-evidence')), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('revision explanation uses only its accepted pinned evidence',
+      (tester) async {
+    final parent = <String, Object?>{
+      'type': 'strategy',
+      'id': 'parent',
+      'revision': 3
+    };
+    final outcome = <String, Object?>{
+      'type': 'outcome',
+      'id': 'result',
+      'revision': 1
+    };
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ListView(children: <Widget>[
+          StrategyRevisionEvidence(
+            parentRef: 'strategy:parent@3',
+            rationale: '本轮减少行动时间',
+            records: <Map<String, Object?>>[
+              <String, Object?>{
+                'ref': <String, Object?>{'type': 'review'},
+                'data': <String, Object?>{
+                  'state': 'accepted',
+                  'strategy_ref': parent,
+                  'summary': '根据实际耗时调整',
+                  'change': <String>['缩短单次行动'],
+                  'outcome_refs': <Object?>[
+                    outcome,
+                    <String, Object?>{
+                      'type': 'outcome',
+                      'id': 'missing',
+                      'revision': 1
+                    }
+                  ],
+                },
+              },
+              <String, Object?>{
+                'ref': outcome,
+                'data': <String, Object?>{'observation': '用户原文：二十分钟太长'},
+              },
+              <String, Object?>{
+                'ref': <String, Object?>{...outcome, 'revision': 2},
+                'data': <String, Object?>{'observation': '其他版本的结果'},
+              },
+              <String, Object?>{
+                'ref': <String, Object?>{'type': 'review'},
+                'data': <String, Object?>{
+                  'state': 'accepted',
+                  'strategy_ref': <String, Object?>{...parent, 'revision': 4},
+                  'summary': '其他轮次的复盘',
+                },
+              },
+            ],
+          ),
+        ]),
+      ),
+    ));
+    expect(find.text('用户原文：二十分钟太长'), findsNothing);
+    await tester.tap(find.text('这轮为什么调整'));
+    await tester.pumpAndSettle();
+    expect(find.text('本轮减少行动时间'), findsOneWidget);
+    expect(find.text('根据实际耗时调整'), findsOneWidget);
+    expect(find.text('建议调整：缩短单次行动'), findsOneWidget);
+    expect(find.text('用户原文：二十分钟太长'), findsOneWidget);
+    expect(find.text('其他版本的结果'), findsNothing);
+    expect(find.text('其他轮次的复盘'), findsNothing);
+    expect(find.text('部分结果证据暂不可读取；可在行动历史中核对。'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('ambiguous or unaccepted review never supplies revision evidence',
+      (tester) async {
+    for (final states in <List<String>>[
+      <String>['draft', 'rejected'],
+      <String>['accepted', 'accepted'],
+    ]) {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: StrategyRevisionEvidence(
+            key: UniqueKey(),
+            parentRef: 'strategy:parent@3',
+            rationale: null,
+            records: <Map<String, Object?>>[
+              for (final state in states)
+                <String, Object?>{
+                  'ref': <String, Object?>{'type': 'review'},
+                  'data': <String, Object?>{
+                    'state': state,
+                    'strategy_ref': <String, Object?>{
+                      'type': 'strategy',
+                      'id': 'parent',
+                      'revision': 3
+                    },
+                    'summary': '不可作为本轮依据的复盘',
+                  },
+                },
+            ],
+          ),
+        ),
+      ));
+      await tester.tap(find.text('这轮为什么调整'));
+      await tester.pumpAndSettle();
+      expect(find.text('未找到唯一匹配的已接受复盘，暂不展示其他轮次的反馈。'), findsOneWidget);
+      expect(find.text('不可作为本轮依据的复盘'), findsNothing);
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets(
@@ -649,6 +759,13 @@ void main() {
     expect(next.strategyController.hasPendingProposal, true);
     expect(next.strategyController.parentStrategyRef, isNotNull);
     expect(find.byKey(const Key('accept-proposal')), findsOneWidget);
+    final explanation = find.byKey(const Key('strategy-revision-evidence'));
+    await tester.ensureVisible(explanation);
+    await tester.tap(find.text('这轮为什么调整'));
+    await tester.pumpAndSettle();
+    expect(find.text('依据你已接受的上一轮复盘'), findsOneWidget);
+    expect(find.text('建议调整：缩短单次行动，观察执行是否更稳定'), findsOneWidget);
+    expect(find.textContaining('已保存的反馈'), findsOneWidget);
     expect(_eventPayloads(gateway, 'execution.recorded'), hasLength(1));
     expect(_eventPayloads(gateway, 'outcome.recorded'), hasLength(1));
     expect(gateway.contexts.last, contains('已保存的反馈'));
