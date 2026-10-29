@@ -44,7 +44,12 @@ final class LocalAutomaticAgentGateway implements AutomaticAgentGateway {
   }
 
   @override
-  Future<Map<String, Object?>> get(String path) => _send(path);
+  Future<Map<String, Object?>> get(String path) async {
+    final value = await _send(path);
+    if (path == '/api/history/status') _csrf = value['csrf'] as String?;
+    return value;
+  }
+
   @override
   Future<Map<String, Object?>> post(
       String path, Map<String, Object?> body) async {

@@ -104,6 +104,31 @@ export function createGateway({ auth, providers, connections = null, store, webR
           authBusy = true;
           try { send(response, 200, await auth.logout()); } finally { authBusy = false; } return;
         }
+        if (url.pathname === '/api/history/status' && request.method === 'GET') {
+          const history = await store.read('history', { revision: 0, events: [] });
+          send(response, 200, { revision: history.revision, empty: Array.isArray(history.events) && history.events.length === 0, csrf }); return;
+        }
+        if (url.pathname === '/api/history/restore' && request.method === 'POST') {
+          if (historyWriting || busy) throw new AgentError('history_conflict', 409);
+          historyWriting = true;
+          try {
+            const body = await jsonBody(request), old = await store.read('history', { revision: 0, events: [] });
+            if (!body || typeof body !== 'object' || Array.isArray(body)) throw new AgentError('invalid_history');
+            if (!Array.isArray(old.events) || old.events.length !== 0 || body.revision !== old.revision) throw new AgentError('history_conflict', 409);
+            if (Object.keys(body).some(key => !['revision', 'events'].includes(key)) || !Number.isSafeInteger(old.revision) || old.revision < 0 || old.revision >= Number.MAX_SAFE_INTEGER) throw new AgentError('invalid_history');
+            // Core decoding/replay happens in the browser before explicit
+            // confirmation, as with normal appends. The gateway independently
+            // enforces namespace, size, D4, ID, empty-store and concurrency bounds.
+            const ids = new Set();
+            if (!Array.isArray(body.events) || body.events.length > 20_000) throw new AgentError('invalid_history');
+            for (const event of body.events) {
+              if (!event || typeof event.event_id !== 'string' || !event.event_id.trim() || ids.has(event.event_id) || !['d0', 'd1', 'd2', 'd3'].includes(event.sensitivity)) throw new AgentError('invalid_history');
+              ids.add(event.event_id);
+            }
+            const next = { revision: old.revision + 1, events: body.events };
+            await store.write('history', next); send(response, 200, { revision: next.revision });
+          } finally { historyWriting = false; } return;
+        }
         if (url.pathname === '/api/history/export' && request.method === 'GET') {
           const exported = historyExport(await store.read('history', { revision: 0, events: [] }));
           response.setHeader('Content-Disposition', 'attachment; filename="personal-os-history.json"');

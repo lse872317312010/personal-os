@@ -391,6 +391,15 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                           label: const Text('导出个人历史（不含登录凭据）'),
                         ),
                       ),
+                      Link(
+                        uri: agent.gateway.signInPage
+                            .resolve('/?restore=history'),
+                        target: LinkTarget.blank,
+                        builder: (context, followLink) => TextButton(
+                          onPressed: busy ? null : followLink,
+                          child: const Text('恢复历史（仅空白网关）'),
+                        ),
+                      ),
                       const Padding(
                           padding: EdgeInsets.fromLTRB(8, 12, 8, 0),
                           child: Text(
