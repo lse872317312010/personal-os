@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:url_launcher/link.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:personal_os_app/src/agent_interop/agent_handoff.dart';
@@ -81,6 +82,12 @@ void main() {
     expect(tester.getBottomRight(confirm).dy, lessThan(784));
     expect(find.byKey(const Key('agent-reply-input')), findsNothing);
     expect(find.byKey(const Key('strategy-revision-evidence')), findsNothing);
+    final exportButton = find.byKey(const Key('automatic-export-history'));
+    await tester.ensureVisible(exportButton);
+    final exportLink = tester.widget<Link>(
+        find.ancestor(of: exportButton, matching: find.byType(Link)));
+    expect(exportLink.uri, Uri.parse('http://127.0.0.1:8787/history-export'));
+    expect(exportLink.target, LinkTarget.blank);
     expect(tester.takeException(), isNull);
   });
 

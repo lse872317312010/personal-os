@@ -1,6 +1,6 @@
 // Production-build smoke test in a disposable CI browser/profile. It makes no
 // real model inference and has no user credentials. External hosts cannot resolve.
-import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn } from 'node:child_process';
@@ -335,6 +335,36 @@ try {
   const evidenceScreenshot = await call('Page.captureScreenshot', { format: 'png' });
   await writeFile(screenshotPath('revision-evidence'), Buffer.from(evidenceScreenshot.data, 'base64'));
   console.log('Compiled app shows the accepted parent review and exact saved feedback behind its revised plan.');
+  // Exercise the actual download script against the real gateway. Navigation
+  // to the public shell must not expose history or make an inference request.
+  const beforeExport = await store.read('history');
+  const inferenceCount = checks.length;
+  const downloadDir = join(profile, 'downloads');
+  await mkdir(downloadDir);
+  await call('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: downloadDir });
+  await call('Page.navigate', { url: `${origin}/history-export` });
+  let downloadReady = false;
+  for (let attempt = 0; attempt < 50 && !downloadReady; attempt++) {
+    const result = await call('Runtime.evaluate', { expression: "!!document.querySelector('#download')", returnByValue: true });
+    downloadReady = result.result.value === true;
+    if (!downloadReady) await delay(100);
+  }
+  assert.ok(downloadReady, 'History download page did not load');
+  await call('Runtime.evaluate', { expression: "document.querySelector('#download').click()" });
+  let exported;
+  for (let attempt = 0; attempt < 80 && !exported; attempt++) {
+    const name = (await readdir(downloadDir)).find(name => /^personal-os-history-.*\.json$/.test(name));
+    if (name) exported = JSON.parse(await readFile(join(downloadDir, name), 'utf8'));
+    if (!exported) await delay(100);
+  }
+  assert.ok(exported, 'Browser did not download history JSON');
+  assert.deepEqual(Object.keys(exported).sort(), ['events', 'exported_at', 'format', 'source_revision']);
+  assert.equal(exported.format, 'personal-os.web-history.v1');
+  assert.equal(exported.source_revision, beforeExport.revision);
+  assert.deepEqual(exported.events, beforeExport.events, 'Download changed event contents or version references');
+  assert.deepEqual(await store.read('history'), beforeExport, 'Export changed stored history');
+  assert.equal(checks.length, inferenceCount, 'Export made an AI request');
+  console.log('Browser downloaded complete history JSON with exact events and references, without changing history or requesting AI.');
   console.log(`Compiled automatic app passed the ${viewportName} Web journey with local fonts/renderer and no external startup requests. No account grant or real model inference was made.`);
 } catch (error) {
   if (call) {

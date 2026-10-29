@@ -7,6 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { ProtectedStore } from './protected-store.mjs';
 import { AgentError, ChatGPTAuth } from './chatgpt-auth.mjs';
 import { AgentConnections } from './connections.mjs';
+import { historyExport, historyExportPage } from './history-export.mjs';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.json': 'application/json', '.wasm': 'application/wasm', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
@@ -50,6 +51,10 @@ export function createGateway({ auth, providers, connections = null, store, webR
       // authorized by one-use state/PKCE/nonce, not by same-origin API rules.
       if (request.headers.origin && request.headers.origin !== origin) throw new AgentError('foreign_origin', 403);
       if (request.headers['sec-fetch-site'] === 'cross-site') throw new AgentError('foreign_origin', 403);
+      if (url.pathname === '/history-export' && request.method === 'GET') {
+        response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" });
+        response.end(historyExportPage); return;
+      }
       if (url.pathname.startsWith('/api/')) {
         if (request.headers['x-personal-os'] !== '1') throw new AgentError('local_client_required', 403);
         if (request.method !== 'GET' && request.headers['x-personal-os-csrf'] !== csrf) throw new AgentError('invalid_csrf', 403);
@@ -98,6 +103,11 @@ export function createGateway({ auth, providers, connections = null, store, webR
           if (busy || authBusy || connectionWriting) throw new AgentError('agent_busy', 409);
           authBusy = true;
           try { send(response, 200, await auth.logout()); } finally { authBusy = false; } return;
+        }
+        if (url.pathname === '/api/history/export' && request.method === 'GET') {
+          const exported = historyExport(await store.read('history', { revision: 0, events: [] }));
+          response.setHeader('Content-Disposition', 'attachment; filename="personal-os-history.json"');
+          send(response, 200, exported); return;
         }
         if (url.pathname === '/api/history' && request.method === 'GET') { send(response, 200, await store.read('history', { revision: 0, events: [] })); return; }
         if (url.pathname === '/api/history' && request.method === 'POST') {

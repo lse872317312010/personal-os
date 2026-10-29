@@ -380,10 +380,21 @@ final class _AutomaticStrategyScreenState extends State<AutomaticStrategyScreen>
                             'review'
                           ].contains((e['ref'] as Map?)?['type'])))
                         _records(history: true),
+                      Link(
+                        uri:
+                            agent.gateway.signInPage.resolve('/history-export'),
+                        target: LinkTarget.blank,
+                        builder: (context, followLink) => OutlinedButton.icon(
+                          key: const Key('automatic-export-history'),
+                          onPressed: busy ? null : followLink,
+                          icon: const Icon(Icons.download),
+                          label: const Text('导出个人历史（不含登录凭据）'),
+                        ),
+                      ),
                       const Padding(
                           padding: EdgeInsets.fromLTRB(8, 12, 8, 0),
                           child: Text(
-                              '你的资料和行动历史保存在本机。生成计划与复盘时，当前目标、成功标准、现状、执行限制和相关历史会发送给你连接的 AI。',
+                              '你的资料和行动历史保存在当前网关中。生成计划与复盘时，当前目标、成功标准、现状、执行限制和相关历史会发送给你连接的 AI。',
                               style: TextStyle(
                                   fontSize: 12, color: Colors.black54))),
                     ],

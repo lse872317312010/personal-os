@@ -65,6 +65,12 @@ Web 输入固定为已通过核心、应用、Chrome 和编译页面 CI 的候�
 Plus 推理已经接通。默认选择 `codex-cli`，要求 ChatGPT 登录，不自动配置
 付费 API。镜像安装官方 CLI，登录态由独立命名卷保留。
 
+本版另提供 `/history-export` 下载页，网页底部可打开。下载格式为
+`personal-os.web-history.v1`，包含导出时间、源历史修订号及完整事件数组。
+原始文本和版本引用保留；网关只读取历史命名空间，不打包 AI 连接、CLI 登录或
+安装密钥。导出不写历史、不请求模型；文件是明文，用户自行填写的敏感文字也会
+原样导出。Web 导入恢复尚未实现，不能用这个文件替代当前服务器双卷备份。
+
 ## 免费实例规格
 
 在账号 home region 中选 `VM.Standard.A1.Flex`、Always Free Eligible 的

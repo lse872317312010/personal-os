@@ -19,7 +19,7 @@ WEB_SHA256 = '2f243a18c59ecc135dd023e9c04d6146f3f123f4a139c27d32b4d0bb8395c7a4'
 # explicitly before permitting --base-bundle reuse again.
 BASE_SHA256: set[str] = set()
 RUNTIME = ['server.mjs', 'chatgpt-auth.mjs', 'connections.mjs', 'providers.mjs',
-           'codex-cli.mjs', 'diagnostics.mjs', 'acceptance.mjs', 'protected-store.mjs', 'package.json']
+           'codex-cli.mjs', 'diagnostics.mjs', 'acceptance.mjs', 'history-export.mjs', 'protected-store.mjs', 'package.json']
 DEPLOYMENT = ['Dockerfile', 'compose.yaml', 'install-docker-ubuntu.sh', 'backup-data.sh', 'restore-data.sh', 'validate-backup.py', 'personal-os.sh']
 DOCS = {'README.md': 'docs/ORACLE_ALWAYS_FREE_EXPERIMENT.md',
         'START_HERE.md': 'docs/ORACLE_ALWAYS_FREE_START_HERE.md'}
