@@ -1,6 +1,6 @@
 # Personal OS
 
-一个 Agent-agnostic 的个人策略资产与反馈闭环系统，当前优先本机 Web，后续保留 Android 设备方向。
+一个 Agent-agnostic 的个人策略资产与反馈闭环系统，当前优先 Web 与用户自管的私有网关，后续保留 Android 设备方向。
 
 应用的能力由用户选择的 GPT 或其他外部 Agent 提供；Personal OS 保存结构化个人资料和连续历史，让常用 Agent 能基于这些数据继续规划和复盘。当前计划是固定 Web 候选版本、验证真实 Agent 和两轮使用，再验证变化展示、跨 Agent 接续和 Web 数据恢复。见[当前路线图](docs/ROADMAP.md)。
 
@@ -16,15 +16,15 @@ Personal OS保存个人已有资产、当前状态、目标、约束、策略、
 
 从源码运行 Web 版需要 Node.js 22+、Flutter SDK；字体缺失或校验失败时还需要 Python 3 和网络。在仓库根目录执行 `npm --prefix services/agent_gateway run web`，脚本会构建 Web 应用、启动本机网关并打开浏览器。中文字体使用仓库固定版本。停止进程即可关闭本地服务。
 
-首次使用 **Continue with ChatGPT** 登录并授权；后续请求和回复在应用内自动完成，无需复制提示词、粘贴回复或导入 JSON。桌面启动脚本已保留，但其启动问题暂不作为 Web 验证任务处理。
+私有 Oracle 部署默认使用 **Codex · ChatGPT 账号**：在服务器执行 `bash personal-os.sh login`，由用户完成设备码登录，再刷新网页连接。该模式不填写 API 地址或密钥，不自动切换付费 API；真实推理权限和额度仍需账号验收。完整步骤见[Oracle 启动流程](docs/ORACLE_ALWAYS_FREE_START_HERE.md)。请求与回复在应用内自动完成，无需搬运提示词或 JSON。
 
-保存目标、成功标准、当前情况和执行限制 → 自动生成行动计划 → 用户确认并执行 → 记录结果 → 自动复盘 → 用户接受复盘 → 自动生成下一轮。行动卡在首屏；AI 连接集中在一张可折叠卡片，资料在一个编辑区维护，行动历史单独查看。当前目标和现状不会再重复出现在第二张资料卡。结构化资料和事件历史加密保存在本机服务中，刷新或重启后可以接续；请求 AI 时会向所选服务发送当前上下文。
+保存目标、成功标准、当前情况和执行限制 → 自动生成行动计划 → 用户确认并执行 → 记录结果 → 自动复盘 → 用户接受复盘 → 自动生成下一轮。行动卡在首屏；AI 连接集中在一张可折叠卡片，资料在一个编辑区维护，行动历史单独查看。当前目标和现状不会再重复出现在第二张资料卡。结构化资料和事件历史加密保存在所选网关的资料卷中，刷新或重启后可以接续；请求 AI 时会向所选服务发送当前上下文。
 
-展开 AI 连接，点击“接入其他 AI”，填写服务地址、模型和必要的密钥即可使用 Responses、OpenAI 兼容 API 或 HTTP Agent。连接加密保存在本机，可随时选择和编辑；切换 Agent 或删除连接保留目标与行动历史，下一次复盘继续带上已有结果。日常接入不需要设置环境变量。
+展开 AI 连接，点击“接入其他 AI”，填写服务地址、模型和必要的密钥即可使用 Responses、OpenAI 兼容 API 或 HTTP Agent。连接加密保存在网关，可随时选择和编辑；切换 Agent 或删除连接保留目标与行动历史，下一次复盘继续带上已有结果。日常接入不需要设置环境变量。
 
 “测试 AI 连接”发送固定测试内容，确认模型能否响应；不会读取个人资料或创建行动记录，服务可能计入用量。已保存的目标与个人条件、行动历史分别在折叠卡片中查看。正式计划仍需校验和用户确认。
 
-接入方法与数据边界见[自动接入说明](docs/automatic-agent.md)，当前优先级见[决策 0017](docs/decisions/0017-automatic-agent-local-web.md)。公开站点提供下载，实际应用在本机运行。测试使用明确的模型替身；真实 ChatGPT 推理仍需实际合资格账号授权，不构成 Android 真机或真实效果验收。
+接入方法与数据边界见[自动接入说明](docs/automatic-agent.md)，当前优先级见[路线图](docs/ROADMAP.md)。实际应用依赖本机或用户自管的私有网关，GitHub Pages 无法单独运行当前 AI 闭环。测试使用明确的模型替身；真实账号推理、OCI 上机和两轮实际使用仍待[逐项验收](docs/ORACLE_ACCEPTANCE_RECORD.md)，不构成 Android 真机或真实效果验收。
 
 ## 核心闭环
 
@@ -41,10 +41,10 @@ Personal OS保存个人已有资产、当前状态、目标、约束、策略、
 
 ## 当前冻结决策
 
-- 最终设备 MVP 保留 Android；当前按用户要求优先交付自动 Agent 本机 Web 闭环；
+- 最终设备 MVP 保留 Android；当前按用户要求优先交付 Web 自动 Agent 闭环和用户自管的私有部署；
 - Redmi Turbo是首个Primary Vault和dogfood设备；
 - Flutter UI + Dart-first core继续保留；
-- Android Vault 的权威边界继续适用；本机 Web 的独立加密事件存储不冒充 Android Vault，也未实现两端同步；
+- Android Vault 的权威边界继续适用；Web 网关的独立加密事件存储不冒充 Android Vault，也未实现两端同步；
 - 推理元交互完全交给外部Agent/Harness；
 - MCP是首选在线接口；
 - JSON/JSONL Context与Proposal Bundle是兼容和退出接口；
@@ -104,7 +104,7 @@ Personal OS保存个人已有资产、当前状态、目标、约束、策略、
 
 ## 当前状态
 
-当前 Web 阶段的本地验证结果、未验收项和下一阶段顺序见[Web 阶段记录](docs/WEB_STATUS.md)。
+当前 Web 阶段的验证结果、未验收项和下一阶段顺序见[Web 阶段记录](docs/WEB_STATUS.md)。
 
 外部Agent策略主链已进入设备与真实使用验证阶段：
 
