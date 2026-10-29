@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:personal_os_domain/domain.dart';
 import 'package:personal_os_events/events.dart';
 import 'package:personal_os_in_memory/in_memory.dart';
@@ -12,11 +14,16 @@ final class LocalAgentEventStore implements EventStore {
   final AutomaticAgentGateway gateway;
   InMemoryEventStore _memory = InMemoryEventStore();
   List<EventEnvelope> _events = <EventEnvelope>[];
+  List<Object?> _encodedEvents = <Object?>[];
   int _revision = 0;
   Future<void> _tail = Future<void>.value();
   Future<void> load() async {
     final value = await gateway.get('/api/history');
-    final events = (value['events'] as List)
+    // Retain original JSON field order and optional null fields. Re-encoding
+    // decoded envelopes may normalize them, violating the server's immutable
+    // prefix check after an otherwise valid history restore.
+    final encodedEvents = jsonDecode(jsonEncode(value['events'])) as List;
+    final events = encodedEvents
         .map((e) =>
             EventEnvelopeJsonCodec.decode(Map<String, Object?>.from(e as Map)))
         .toList();
@@ -24,6 +31,7 @@ final class LocalAgentEventStore implements EventStore {
     await memory.appendAll(events);
     _memory = memory;
     _events = events;
+    _encodedEvents = List<Object?>.from(encodedEvents);
     _revision = value['revision'] as int;
   }
 
@@ -34,17 +42,18 @@ final class LocalAgentEventStore implements EventStore {
       await memory.appendAll(_events);
       await memory.appendAll(events);
       final ids = _events.map((e) => e.eventId).toSet();
-      final next = <EventEnvelope>[
-        ..._events,
-        ...events.where((e) => ids.add(e.eventId))
+      final additions = events.where((e) => ids.add(e.eventId)).toList();
+      final next = <EventEnvelope>[..._events, ...additions];
+      final encodedEvents = <Object?>[
+        ..._encodedEvents,
+        ...additions.map(EventEnvelopeJsonCodec.encode)
       ];
       try {
-        final value = await gateway.post('/api/history', <String, Object?>{
-          'revision': _revision,
-          'events': next.map(EventEnvelopeJsonCodec.encode).toList()
-        });
+        final value = await gateway.post('/api/history',
+            <String, Object?>{'revision': _revision, 'events': encodedEvents});
         _revision = value['revision'] as int;
         _events = next;
+        _encodedEvents = encodedEvents;
         _memory = memory;
       } on Object {
         throw const PersistenceException.writeFailed();

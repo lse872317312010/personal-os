@@ -5,10 +5,31 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:personal_os_app/src/agent_interop/automatic_agent_gateway.dart';
 import 'package:personal_os_app/src/agent_interop/web_history_restore.dart';
+import 'package:personal_os_app/src/agent_interop/local_agent_event_store.dart';
 import 'package:personal_os_app/src/screens/history_restore_screen.dart';
 import 'package:personal_os_events/events.dart';
 
 void main() {
+  test(
+      'normal append preserves the exact imported prefix, including null fields and field order',
+      () async {
+    final h = _Harness();
+    final restore = WebHistoryRestore(h.gateway);
+    await restore.restore(await restore.prepare(_file()));
+    final store = LocalAgentEventStore(h.gateway);
+    await store.load();
+    final next = Map<String, Object?>.from(_event)
+      ..['event_id'] = 'fixture-next-plan'
+      ..['event_type'] = 'strategy.proposed'
+      ..['subject_refs'] = [
+        {'type': 'strategy', 'id': 'fixture-plan', 'revision': 1}
+      ];
+    await store.appendAll([EventEnvelopeJsonCodec.decode(next)]);
+    expect(h.history['revision'], 2);
+    expect((h.history['events']! as List).length, 2);
+    expect(
+        jsonEncode((h.history['events']! as List).first), jsonEncode(_event));
+  });
   test(
       'preparation is read-only; restore preserves raw event fields and uses destination revision without AI status',
       () async {
@@ -178,6 +199,27 @@ final class _Harness {
                 'csrf': 'fixture-nonce'
               }),
               200);
+        }
+        if (request.url.path == '/api/history' && request.method == 'GET') {
+          return http.Response(jsonEncode(history), 200);
+        }
+        if (request.url.path == '/api/history' && request.method == 'POST') {
+          expect(request.headers['X-Personal-OS-CSRF'], 'fixture-nonce');
+          final body = jsonDecode(request.body) as Map;
+          final old = history['events']! as List, next = body['events'] as List;
+          if (body['revision'] != history['revision'] ||
+              next.length < old.length ||
+              List.generate(old.length, (i) => i)
+                  .any((i) => jsonEncode(old[i]) != jsonEncode(next[i]))) {
+            return http.Response('{"error":"history_conflict"}', 409);
+          }
+          history = {
+            'revision': (history['revision']! as int) + 1,
+            'events': next
+          };
+          writes++;
+          return http.Response(
+              jsonEncode({'revision': history['revision']}), 200);
         }
         expect(request.url.path, '/api/history/restore');
         expect(request.headers['X-Personal-OS-CSRF'], 'fixture-nonce');
