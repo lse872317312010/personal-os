@@ -340,7 +340,7 @@ final class StrategyActionCard extends StatelessWidget {
 }
 
 /// Show only evidence linked to this revision's pinned parent strategy.
-final class StrategyRevisionEvidence extends StatelessWidget {
+final class StrategyRevisionEvidence extends StatefulWidget {
   const StrategyRevisionEvidence({
     required this.parentRef,
     required this.rationale,
@@ -353,12 +353,21 @@ final class StrategyRevisionEvidence extends StatelessWidget {
   final List<Map<String, Object?>> records;
 
   @override
+  State<StrategyRevisionEvidence> createState() =>
+      _StrategyRevisionEvidenceState();
+}
+
+final class _StrategyRevisionEvidenceState
+    extends State<StrategyRevisionEvidence> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    final matches = records.where((record) {
+    final matches = widget.records.where((record) {
       final data = record['data'] as Map?;
       return (record['ref'] as Map?)?['type'] == 'review' &&
           data?['state'] == 'accepted' &&
-          _evidenceRef(data?['strategy_ref']) == parentRef;
+          _evidenceRef(data?['strategy_ref']) == widget.parentRef;
     }).toList();
     final review = matches.length == 1 ? matches.single['data'] as Map : null;
     final changes = (review?['change'] as List? ?? const <Object?>[])
@@ -368,7 +377,7 @@ final class StrategyRevisionEvidence extends StatelessWidget {
         .map(_evidenceRef)
         .whereType<String>()
         .toSet();
-    final outcomes = records.where((record) =>
+    final outcomes = widget.records.where((record) =>
         (record['ref'] as Map?)?['type'] == 'outcome' &&
         refs.contains(_evidenceRef(record['ref'])));
     final observations = outcomes
@@ -376,26 +385,44 @@ final class StrategyRevisionEvidence extends StatelessWidget {
         .whereType<String>()
         .where((value) => value.trim().isNotEmpty)
         .toList();
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        key: const Key('strategy-revision-evidence'),
-        tilePadding: EdgeInsets.zero,
-        textColor: Colors.white,
-        collapsedTextColor: Colors.white,
-        iconColor: Colors.white,
-        collapsedIconColor: Colors.white,
-        title: const Text('这轮为什么调整'),
-        subtitle: Text(review == null ? '上一轮依据暂不可唯一定位' : '依据你已接受的上一轮复盘'),
-        children: <Widget>[
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        TextButton(
+          key: const Key('strategy-revision-evidence'),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.white,
+            alignment: Alignment.centerLeft,
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+          onPressed: () => setState(() => _expanded = !_expanded),
+          child: Row(
+            children: <Widget>[
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    const Text('这轮为什么调整'),
+                    Text(
+                      review == null ? '上一轮依据暂不可唯一定位' : '依据你已接受的上一轮复盘',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(_expanded ? Icons.expand_less : Icons.expand_more),
+            ],
+          ),
+        ),
+        if (_expanded)
           Align(
             alignment: Alignment.centerLeft,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                if (rationale?.trim().isNotEmpty == true) ...<Widget>[
+                if (widget.rationale?.trim().isNotEmpty == true) ...<Widget>[
                   const Text('AI 给出的本轮理由'),
-                  Text(rationale!),
+                  Text(widget.rationale!),
                   const SizedBox(height: 12),
                 ],
                 if (review == null)
@@ -414,8 +441,7 @@ final class StrategyRevisionEvidence extends StatelessWidget {
               ],
             ),
           ),
-        ],
-      ),
+      ],
     );
   }
 }
