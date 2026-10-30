@@ -78,6 +78,7 @@ final class StrategyLoopUseCase {
         fields.any((field) => field.length > 4000)) {
       throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
     }
+    final successCriteria = _parseSuccessCriteria(command.successCriteria);
     final goalId = EntityId(_ids.nextId('goal'));
     final goalRef = ObjectRef(type: 'goal', id: goalId);
     final events = <EventEnvelope>[
@@ -90,10 +91,7 @@ final class StrategyLoopUseCase {
           'expected_revision': 0,
           'title': command.goal.trim(),
           'statement': command.goal.trim(),
-          'success_criteria': <String>[
-            if (command.successCriteria.trim().isNotEmpty)
-              command.successCriteria.trim(),
-          ],
+          'success_criteria': successCriteria,
           'source': 'user_input',
         },
       ),
@@ -142,6 +140,7 @@ final class StrategyLoopUseCase {
           'title': '执行约束',
           'content': command.constraints.trim(),
           'source': 'user_input',
+          'goal_ref': goalRef.toJson(),
         },
       ));
     }
@@ -158,17 +157,26 @@ final class StrategyLoopUseCase {
   ) async {
     _validateUser(command);
     final goal = command.goal.trim(), state = command.currentState.trim();
+    final successCriteria = command.successCriteria == null
+        ? null
+        : _parseSuccessCriteria(command.successCriteria!);
+    final constraints = command.constraints?.trim();
     final stateRef = command.currentStateRef;
     if (goal.isEmpty ||
         command.goal.length > 4000 ||
         command.currentState.length > 4000 ||
+        (command.successCriteria?.length ?? 0) > 4000 ||
+        (command.constraints?.length ?? 0) > 4000 ||
         command.goalRef.type != 'goal' ||
-        (stateRef != null && stateRef.type != 'personal_asset')) {
+        (stateRef != null && stateRef.type != 'personal_asset') ||
+        (command.constraintRef != null &&
+            command.constraintRef!.type != 'constraint')) {
       throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
     }
     _requirePinned(<ObjectRef>[
       command.goalRef,
       if (stateRef != null) stateRef,
+      if (command.constraintRef != null) command.constraintRef!,
     ]);
     final projections = await _profileProjections(command.profileId);
     ObjectProjection owned(ObjectRef ref) {
@@ -187,6 +195,8 @@ final class StrategyLoopUseCase {
       throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
     }
     final oldState = stateRef == null ? null : owned(stateRef);
+    final oldConstraint =
+        command.constraintRef == null ? null : owned(command.constraintRef!);
     Object? stateGoal = oldState?.attributes['goal_ref'];
     if (oldState != null && stateGoal == null) {
       final original = await _eventStore.readBySubject(stateRef!);
@@ -194,6 +204,15 @@ final class StrategyLoopUseCase {
         if (event.eventType != EventTypes.personalAssetRecorded) continue;
         final goals = event.sourceRefs.where((ref) => ref.type == 'goal');
         if (goals.isNotEmpty) stateGoal = goals.first.toJson();
+      }
+    }
+    Object? constraintGoal = oldConstraint?.attributes['goal_ref'];
+    if (oldConstraint != null && constraintGoal == null) {
+      final original = await _eventStore.readBySubject(command.constraintRef!);
+      for (final event in original) {
+        if (event.eventType != EventTypes.constraintRecorded) continue;
+        final goals = event.sourceRefs.where((ref) => ref.type == 'goal');
+        if (goals.isNotEmpty) constraintGoal = goals.first.toJson();
       }
     }
     if (oldState != null &&
@@ -204,9 +223,29 @@ final class StrategyLoopUseCase {
                 stateGoal['id'] != command.goalRef.id.value))) {
       throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
     }
+    if (oldConstraint != null) {
+      if (oldConstraint.objectType != 'constraint' ||
+          oldConstraint.state != 'recorded' ||
+          oldConstraint.attributes['title'] != '执行约束' ||
+          (oldConstraint.attributes['source'] != null &&
+              oldConstraint.attributes['source'] != 'user_input') ||
+          (constraintGoal is Map &&
+              (constraintGoal['type'] != 'goal' ||
+                  constraintGoal['id'] != command.goalRef.id.value))) {
+        throw const StrategyLoopFailure(StrategyLoopFailureCode.invalidCommand);
+      }
+    }
     final events = <EventEnvelope>[];
+    final previousCriteria = _parseSuccessCriteria(
+      (oldGoal.attributes['success_criteria'] as List? ?? const <Object?>[])
+          .whereType<String>()
+          .join('\n'),
+    );
+    final criteriaChanged = successCriteria != null &&
+        !_sameStrings(successCriteria, previousCriteria);
     final goalChanged = goal !=
-        (oldGoal.attributes['title'] ?? oldGoal.attributes['statement']);
+            (oldGoal.attributes['title'] ?? oldGoal.attributes['statement']) ||
+        criteriaChanged;
     if (goalChanged) {
       events.add(_event(
         id: _ids.nextId('event'),
@@ -218,6 +257,7 @@ final class StrategyLoopUseCase {
           'expected_revision': command.goalRef.revision!.value,
           'title': goal,
           'statement': goal,
+          if (criteriaChanged) 'success_criteria': successCriteria,
         },
       ));
     }
@@ -264,6 +304,47 @@ final class StrategyLoopUseCase {
           'goal_ref': goalRef.toJson(),
         },
       ));
+    }
+    if (constraints != null) {
+      final previousConstraint =
+          oldConstraint?.attributes['content'] as String? ?? '';
+      if (oldConstraint == null && constraints.isNotEmpty) {
+        final constraintRef = ObjectRef(
+          type: 'constraint',
+          id: EntityId(_ids.nextId('constraint')),
+        );
+        events.add(_event(
+          id: _ids.nextId('event'),
+          type: EventTypes.constraintRecorded,
+          command: command,
+          subjects: <ObjectRef>[constraintRef],
+          sources: <ObjectRef>[goalRef],
+          payload: <String, Object?>{
+            'expected_revision': 0,
+            'title': '执行约束',
+            'content': constraints,
+            'source': 'user_input',
+            'goal_ref': goalRef.toJson(),
+          },
+        ));
+      } else if (oldConstraint != null && constraints != previousConstraint) {
+        final constraintRef = command.constraintRef!;
+        final archive = constraints.isEmpty;
+        events.add(_event(
+          id: _ids.nextId('event'),
+          type: archive
+              ? EventTypes.constraintArchived
+              : EventTypes.constraintRevised,
+          command: command,
+          subjects: <ObjectRef>[constraintRef],
+          sources: <ObjectRef>[constraintRef, goalRef],
+          payload: <String, Object?>{
+            'expected_revision': constraintRef.revision!.value,
+            if (!archive) 'content': constraints,
+            'goal_ref': goalRef.toJson(),
+          },
+        ));
+      }
     }
     if (events.isNotEmpty) await _eventStore.appendAll(events);
     return StrategyLoopResult(
@@ -661,4 +742,18 @@ final class StrategyLoopUseCase {
       payload: payload,
     );
   }
+}
+
+List<String> _parseSuccessCriteria(String value) => value
+    .split(RegExp(r'[\n;；]'))
+    .map((criterion) => criterion.trim())
+    .where((criterion) => criterion.isNotEmpty)
+    .toList(growable: false);
+
+bool _sameStrings(List<String> left, List<String> right) {
+  if (left.length != right.length) return false;
+  for (var index = 0; index < left.length; index++) {
+    if (left[index] != right[index]) return false;
+  }
+  return true;
 }

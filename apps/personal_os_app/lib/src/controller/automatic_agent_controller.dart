@@ -362,11 +362,32 @@ final class AutomaticAgentController extends ChangeNotifier {
   }
 
   Future<void> saveOutcome(String observation) async {
-    if (busy || observation.trim().isEmpty) return;
+    if (busy ||
+        _disposed ||
+        strategy.status == StrategyUiStatus.running ||
+        !strategy.canRecordOutcome ||
+        strategy.outcomeId != null ||
+        observation.trim().isEmpty) {
+      return;
+    }
     final epoch = _epoch;
-    await strategy.recordOutcome(
-        observation: observation, valence: OutcomeValence.mixed);
-    if (_current(epoch) && strategy.status != StrategyUiStatus.failed) {
+    busy = true;
+    savingFeedback = true;
+    error = null;
+    notifyListeners();
+    try {
+      await strategy.recordOutcome(
+          observation: observation, valence: OutcomeValence.neutral);
+    } finally {
+      if (_current(epoch)) {
+        busy = false;
+        savingFeedback = false;
+        notifyListeners();
+      }
+    }
+    if (_current(epoch) &&
+        strategy.status != StrategyUiStatus.failed &&
+        strategy.outcomeId != null) {
       await generate();
     }
   }

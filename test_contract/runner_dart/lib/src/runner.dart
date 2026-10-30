@@ -17,6 +17,8 @@ const _supportedTypes = <String>{
   EventTypes.executionRecorded,
   EventTypes.outcomeRecorded,
   EventTypes.constraintRecorded,
+  EventTypes.constraintRevised,
+  EventTypes.constraintArchived,
   EventTypes.claimProposed,
   EventTypes.claimConfirmed,
   EventTypes.claimDisputed,

@@ -8,16 +8,18 @@ actions.
 
 ## Edit saved context
 
-The goal and current situation fields are filled from saved context on reload.
+The goal, success criteria, current situation and execution constraints are
+filled from saved context on reload.
 First save still starts automatic planning when an AI is connected. Later saves
 update the same goal and current fact by appending revisions, preserve the
 accepted action and do not trigger an extra model request. The next request or
 review uses the updated context. Unchanged saves append no events. Clearing the
-optional situation archives it; earlier evidence remains available. Archived
-facts are omitted from ordinary Agent context but remain readable by
-their earlier pinned references. Existing fact-to-goal links are recovered from
-their original events without rewriting history. These are
-edits to these two fields, not general asset or constraint management. Upgrade
+optional situation or execution constraints archives the corresponding record;
+earlier evidence remains available. Archived facts and constraints are omitted
+from ordinary Agent context but remain readable by their earlier pinned
+references. Existing fact/constraint-to-goal links are recovered from their
+original events without rewriting history. The editor manages these four fields
+for the current goal. Upgrade
 clients together: older readers cannot interpret the new revision event types.
 
 ## Run
@@ -36,19 +38,18 @@ request by reloading. Screenshots are retained for visual checks. There is no
 desktop launcher in this validation path. Inference uses a disposable fixture,
 so live GPT authorization and inference remain separate acceptance work.
 
-The source-development startup below is the active path. The archive instructions
-are retained for historical builds and are not evidence that their launchers
-have been validated for the current Web work.
+The source-development startup below is the active path. From the repository
+root, run `npm --prefix services/agent_gateway run web`. The command prepares
+the pinned local font when needed, builds the compiled Web app, serves that
+build directly through the local gateway, and opens the browser. It requires
+Node.js 22+ and a Flutter SDK. Python 3 is needed when the pinned font is missing
+or fails its local integrity check; preparing it also needs network access.
+Set `PERSONAL_OS_OPEN_BROWSER=0` to keep the
+browser closed, or `PERSONAL_OS_PORT` to use a different local port. The archive
+instructions describe historical builds whose launchers are outside current
+validation. The app normally opens at `http://127.0.0.1:8787`.
 
-Download `personal-os-automatic-windows.zip` from the `automatic-agent-web`
-release, extract it, and double-click `Start-Personal-OS.cmd`. Node is bundled;
-no Flutter SDK, npm installation, API key or developer console is required for
-the ChatGPT connection. Keep the service window open. The app opens at
-`http://127.0.0.1:8787`.
-
-The Linux archive similarly includes Node. Run `bash start-personal-os.sh`.
-For source development, use Node 22+, build the Flutter web app with base href
-`/`, and copy `build/web/` into `services/agent_gateway/web/`:
+The equivalent manual build-and-serve steps are:
 
 ```sh
 cd apps/personal_os_app
@@ -56,9 +57,12 @@ flutter pub get
 python3 ../../tool/prepare_local_web_font.py
 flutter build web --release --base-href / --target lib/main_web_agent.dart
 cd ../..
-cp -R apps/personal_os_app/build/web services/agent_gateway/web
-node services/agent_gateway/server.mjs
+PERSONAL_OS_WEB_ROOT="$PWD/apps/personal_os_app/build/web" node services/agent_gateway/server.mjs
 ```
+
+Historical Windows/Linux archives remain in the `automatic-agent-web` release.
+Use the source Web command above for the current phase. See
+[the current Web status](WEB_STATUS.md) for verified results and pending work.
 
 The first connection uses **Continue with ChatGPT** and OpenAI's system-browser
 OAuth authorization. Eligible plan access is granted by OpenAI, not inferred
@@ -86,6 +90,14 @@ different connection, account or model can also continue pending work. New
 plans and reviews still await the user's decision. Drafts, rejected decisions,
 accepted-but-not-started plans and actions without feedback are not advanced.
 The resulting action or review is brought to the top of the page.
+When a plan has multiple actions, reopening after recording feedback restores
+the action that the execution belongs to. An execution still awaiting an
+outcome also keeps that same action visible.
+Submitting that missing outcome preserves the user's observation, keeps valence
+neutral and leaves metrics empty. Submission stays locked while history is
+being written. A write failure retains the input; after a successful write,
+repeat submission cannot append another outcome. Model failure then retries
+the pending review using the existing facts.
 
 Each pending state and connection gets one automatic attempt in that app
 instance. Switching away and back does not repeatedly request a failed model or
@@ -115,9 +127,13 @@ formal plans still use the existing bundle validation and user decisions.
 Changing the connection or model, refreshing it, or failing a later test clears
 the previous response status. Check results are not persisted as personal data.
 
-Saved personal facts and goals are shown in **已保存的个人资料**. Suggested plans,
-execution reports, outcomes and reviews are shown separately in **行动历史**.
-Both cards are collapsed by default so the current action stays prominent.
+The goal editor keeps the current goal, success criteria, current situation and
+execution constraints together, so edits stay with the structured facts used
+for the next Agent request. The same editable fields restore after reload.
+Unrelated or supplementary facts appear in **其他个人资料**; current goal and
+current situation are not repeated in a second card. Suggested plans, execution
+reports, outcomes and reviews appear in **行动历史**. Both cards are collapsed
+by default so the current action stays prominent.
 
 ## Other model or Agent connections
 

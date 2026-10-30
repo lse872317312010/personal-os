@@ -95,6 +95,12 @@ final class StrategyLoopController extends ChangeNotifier {
     return (data?['title'] ?? data?['statement']) as String? ?? _savedGoal;
   }
 
+  String get personalSuccessCriteria {
+    final criteria =
+        (personalGoalRecord?['data'] as Map?)?['success_criteria'] as List?;
+    return criteria?.whereType<String>().join('\n') ?? '';
+  }
+
   Map<String, Object?>? get personalCurrentStateRecord {
     final goalId = (personalGoalRecord?['ref'] as Map?)?['id'];
     Map<String, Object?>? legacy;
@@ -116,6 +122,26 @@ final class StrategyLoopController extends ChangeNotifier {
   String get personalCurrentState =>
       (personalCurrentStateRecord?['data'] as Map?)?['content'] as String? ??
       '';
+
+  Map<String, Object?>? get personalConstraintRecord {
+    final goalId = (personalGoalRecord?['ref'] as Map?)?['id'];
+    final activeGoals = contextRecords.where((record) =>
+        (record['ref'] as Map?)?['type'] == 'goal' &&
+        (record['data'] as Map?)?['state'] == 'active');
+    Map<String, Object?>? legacy;
+    for (final record in contextRecords) {
+      if ((record['ref'] as Map?)?['type'] != 'constraint') continue;
+      final data = record['data'] as Map;
+      if (data['state'] != 'recorded' || data['title'] != '执行约束') continue;
+      final goal = data['goal_ref'];
+      if (goal is Map && goal['id'] == goalId) return record;
+      if (goal == null) legacy = record;
+    }
+    return activeGoals.length == 1 ? legacy : null;
+  }
+
+  String get personalConstraints =>
+      (personalConstraintRecord?['data'] as Map?)?['content'] as String? ?? '';
 
   List<Map<String, Object?>> get contextRecords {
     final bundle = _contextBundle;
@@ -187,10 +213,17 @@ final class StrategyLoopController extends ChangeNotifier {
   Future<void> updatePersonalContext({
     required String goal,
     required String currentState,
+    String? successCriteria,
+    String? constraints,
   }) async {
     final goalRecord = personalGoalRecord;
     if (goalRecord == null) {
-      await savePersonalContext(goal: goal, currentState: currentState);
+      await savePersonalContext(
+        goal: goal,
+        successCriteria: successCriteria ?? '',
+        currentState: currentState,
+        constraints: constraints ?? '',
+      );
       return;
     }
     final stateRecord = personalCurrentStateRecord;
@@ -210,6 +243,13 @@ final class StrategyLoopController extends ChangeNotifier {
                 ),
           goal: goal,
           currentState: currentState,
+          successCriteria: successCriteria,
+          constraintRef: constraints == null || personalConstraintRecord == null
+              ? null
+              : ObjectRef.fromJson(Map<String, Object?>.from(
+                  personalConstraintRecord!['ref'] as Map,
+                )),
+          constraints: constraints,
         ),
       );
       if (!isCurrent()) return 'stale';
@@ -239,7 +279,10 @@ final class StrategyLoopController extends ChangeNotifier {
     _strategyRevision = view.strategyRevision;
     _strategyState = view.strategyState;
     _strategyActions = List<StrategySessionAction>.unmodifiable(view.actions);
-    _selectedActionId = _defaultActionSelection(_strategyActions);
+    _selectedActionId =
+        _strategyActions.any((action) => action.id == view.executionActionId)
+            ? view.executionActionId
+            : _defaultActionSelection(_strategyActions);
     _executionId = view.executionId;
     _outcomeId = view.outcomeId;
     _contextBundle = null;

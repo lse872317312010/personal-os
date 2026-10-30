@@ -62,6 +62,9 @@ final class UpdatePersonalContextCommand extends StrategyLoopCommand {
     required this.goal,
     required this.currentState,
     this.currentStateRef,
+    this.successCriteria,
+    this.constraintRef,
+    this.constraints,
     super.sensitivity,
     super.consentRefs,
   });
@@ -70,6 +73,13 @@ final class UpdatePersonalContextCommand extends StrategyLoopCommand {
   final ObjectRef? currentStateRef;
   final String goal;
   final String currentState;
+
+  /// Null preserves the current criteria; an empty value clears them.
+  final String? successCriteria;
+  final ObjectRef? constraintRef;
+
+  /// Null preserves constraints; an empty value archives the current one.
+  final String? constraints;
 }
 
 final class RecordPersonalContextCommand extends StrategyLoopCommand {

@@ -31,6 +31,14 @@
 - achieved 只能由用户确认或满足已确认的确定性规则触发。
 - draft/active/paused 可以接受用户的 `goal.revised`；状态不变、revision 增加，terminal 目标不接受该编辑。`personal_asset.revised` 只接受 active 个人事实的用户修订。
 
+## Constraint
+
+`none → recorded → archived`
+
+- 用户可通过 `constraint.revised` 修订已记录约束；状态保持 `recorded`，revision 增加；
+- 清空或撤销当前约束使用 `constraint.archived`，保留历史内容但退出当前约束集合；
+- 修订和归档都必须引用固定 revision 并检查所属 profile。
+
 ## Plan
 
 `none → draft → approved → active ↔ paused → completed | stopped`

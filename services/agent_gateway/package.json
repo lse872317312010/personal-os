@@ -3,5 +3,9 @@
   "private": true,
   "type": "module",
   "engines": { "node": ">=22" },
-  "scripts": { "start": "node server.mjs", "test": "node --test test/*.test.mjs" }
+  "scripts": {
+    "start": "node server.mjs",
+    "web": "node ../../tool/web/start-web.mjs",
+    "test": "node --test test/*.test.mjs"
+  }
 }
